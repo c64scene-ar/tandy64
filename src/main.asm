@@ -18,8 +18,9 @@ extern ZTimerOn, ZTimerOff, ZTimerReport
 section .text
 ..start:
         mov     ax,gfx                          ;init segments
-        mov     ds,ax                           ; DS=ES: same segment
-        mov     es,ax                           ; SS: stack
+        mov     ds,ax
+        mov     ax,music
+        mov     es,ax
         mov     ax,stack
         cli                                     ;disable interrupts while
         mov     ss,ax                           ; setting the stack pointer
@@ -39,10 +40,11 @@ section .text
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-
 gfx_init:
         mov     ax, 0x0009
         int     0x10                            ;switch video mode
+
+        call    palette_init
 
         mov     si,logo                         ;ds:si (source)
         sub     di,di
@@ -70,22 +72,11 @@ wait_retrace:
         jnz     .l1
         ret
 
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-clear_video_mem:
-        mov     cx,0x4000                       ;32k = 16k * 2
-
-        mov     bx,0xb800
-        mov     es,bx
-        mov     di,0x0000                       ;es:di: destination
-        sub     ax,ax
-        rep stosw
-        ret
-
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 main_loop:
         call    wait_retrace
         call    music_tick
+        call    palette_anim
 
         mov     ah,1
         int     16h                             ; INT 16,AH=1, OUT:ZF=status
@@ -94,6 +85,62 @@ main_loop:
         mov     ah,0
         int     16h
 
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+palette_init:
+        ;logo should be turned off by default
+        mov     dx,0x3da                        ;select border color register
+        mov     al,0x19                         ;select color=9 (light blue)
+        out     dx,al                           ;select palette register
+
+        add     dx,4
+        mov     al,0                            ;black now
+        out     dx,al
+
+        sub     dx,4
+        mov     al,0x15                         ;select color5 (cyan?)
+        out     dx,al
+
+        add     dx,4
+        mov     al,0
+        out     dx,al                           ;black now
+
+
+        mov     word [es:palette_delay],300     ;wait 5 seconds before showing logo
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+palette_anim:
+        cmp     word [palette_delay],0
+        je      .animate
+        dec     word [palette_delay]
+        ret
+
+.animate:
+        mov     bx,word [palette_idx]
+        cmp     bx,127
+        ja      .end
+
+        mov     dx,0x3da                        ;select border color register
+        mov     al,0x15                         ;logo outer color
+        out     dx,al                           ;select palette register
+
+        add     dx,4
+        mov     al,[palette_logo_0 + bx]
+        out     dx,al
+
+        sub     dx,4
+        mov     al,0x19                         ;logo inner color
+        out     dx,al
+
+        add     dx,4
+        mov     al,[palette_logo_1 + bx]
+        out     dx,al
+
+        inc     word [palette_idx]
+
+.end:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -192,9 +239,6 @@ section .gfx data
 logo:
         incbin 'src/logo.raw'
 
-charset:
-        incbin 'src/c64_charset-charset.bin'
-
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; DATA MUSIC
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -203,10 +247,56 @@ section .music data
 pvm_song:
         incbin "src/uctumi-song.pvm"
 
-pvm_wait:                                       ; cycles to read diviced 0x2df
+pvm_wait:                                       ;cycles to read diviced 0x2df
         db 0
-pvm_offset:                                     ; pointer to next byte to read
+pvm_offset:                                     ;pointer to next byte to read
         dw 0
+
+palette_delay:
+        dw      0                               ;cycles to wait before showing logo
+palette_enabled:
+        db      0                               ;boolean. whether to animate the palette
+palette_idx
+        dw      0
+
+charset:
+        incbin 'src/c64_charset-charset.bin'
+
+palette_logo_0:                                 ;outline logo color
+        db      8,8,7,7,15,15,15,15
+        db      7,7,8,8,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      8,8,8,8,8,8,8,8
+        db      1,1,1,1,1,1,1,1
+
+palette_logo_1:                                 ;inner logo color
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      8,8,8,8,7,7,7,7
+        db      11,11,11,11,9,9,9,9
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; STACK

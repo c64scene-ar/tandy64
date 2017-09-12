@@ -34,8 +34,3 @@ run: $(TARGET)
 	echo "Running game..."
 	dosbox-x -conf conf/dosbox-x.conf -c "mount c bin/ && dir" -c "c:" -c ${TARGET_NAME}
 
-
-pvmplayer:
-	$(ASM) $(ASMFLAGS) src/$@.asm -o $@.o
-	$(LD) $@.o $(LDFLAGS) -o bin/$@.exe
-	dosbox-x -conf conf/dosbox-x.conf -c "mount c bin/ && dir" -c "c:" -c "pvmpla~1.exe"
