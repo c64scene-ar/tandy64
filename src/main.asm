@@ -17,7 +17,7 @@ extern ZTimerOn, ZTimerOff, ZTimerReport
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 section .text
 ..start:
-        mov     ax,data                         ;init segments
+        mov     ax,gfx                          ;init segments
         mov     ds,ax                           ; DS=ES: same segment
         mov     es,ax                           ; SS: stack
         mov     ax,stack
@@ -26,7 +26,10 @@ section .text
         mov     sp,stacktop
         sti
 
-        call    test_320_200_16
+        call    gfx_init
+        call    music_init
+
+        call    main_loop
 
         mov     ax,0x0002                       ;text mode 80x25
         int     0x10
@@ -37,7 +40,7 @@ section .text
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 
-test_320_200_16:
+gfx_init:
         mov     ax, 0x0009
         int     0x10                            ;switch video mode
 
@@ -49,8 +52,6 @@ test_320_200_16:
         cld
         mov     cx,16384                        ;copy 32k
         rep     movsw
-
-        call    wait_key
 
         ret
 
@@ -82,23 +83,130 @@ clear_video_mem:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-wait_key:
-        xor     ah,ah                           ;Function number: get key
-        int     0x16                            ;Call BIOS keyboard interrupt
+main_loop:
+        call    wait_retrace
+        call    music_tick
+
+        mov     ah,1
+        int     16h                             ; INT 16,AH=1, OUT:ZF=status
+        jz      main_loop
+
+        mov     ah,0
+        int     16h
+
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+music_init:
+        mov     ax,music
+        mov     ds,ax
+
+        mov     word [pvm_offset],pvm_song + 0x10       ;update start offset
+        mov     byte [pvm_wait],0               ;don't wait at start
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+music_tick:
+
+DATA    equ     0b0000_0000
+DATA_EXTRA equ  0b0010_0000
+DELAY   equ     0b0100_0000
+DELAY_EXTRA equ 0b0110_0000
+END     equ     0b1000_0000
+
+        sub     cx,cx                           ;cx=0... needed later
+        mov     si,[pvm_offset]
+
+        cmp     byte [pvm_wait],0
+        je      .l0
+
+        dec     byte [pvm_wait]
+        ret
+
+.l0:
+        lodsb                                   ;fetch command byte
+        mov     ah,al
+        and     al,0b1110_0000                  ;al=command only
+        and     ah,0b0001_1111                  ;ah=command args only
+
+        cmp     al,DATA                         ;data?
+        je      .is_data
+        cmp     al,DATA_EXTRA                   ;data extra?
+        je      .is_data_extra
+        cmp     al,DELAY                        ;delay?
+        je      .is_delay
+        cmp     al,DELAY_EXTRA                  ;delay extra?
+        je      .is_delay_extra
+        cmp     al,END                          ;end?
+        je      .is_end
+
+.unsupported:
+        int     3
+        mov     [pvm_offset],si                 ;save offset
         ret
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; DATA
+.is_data:
+        mov     cl,ah                           ;ch is already zero
+        jmp     .repeat
+
+.is_data_extra:
+        lodsb                                   ;fetch lenght from next byte
+        mov     cl,al
+.repeat:
+        lodsb
+        out     0xc0,al
+        loop    .repeat
+
+        jmp     .l0                             ; repeat... fetch next command
+
+
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-section .data
+.is_delay:
+        dec     ah                              ;minus one, since we are returning
+        mov     [pvm_wait],ah                   ; from here now
+        mov     [pvm_offset],si
+        ret
+
+.is_delay_extra:
+        lodsb                                   ;fetch wait from next byte
+        dec     al                              ;minus one, since we are returning
+        mov     [pvm_wait],al                   ; from here now
+        mov     [pvm_offset],si
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+.is_end:
+        mov     byte [pvm_wait], 5              ;wait 5 cycles before starting again
+        mov     word [pvm_offset], pvm_song + 0x10      ; beginning of song
+
+        ret
+
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; DATA GFX
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+section .gfx data
 
 logo:
         incbin 'src/logo.raw'
 
-
 charset:
         incbin 'src/c64_charset-charset.bin'
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; DATA MUSIC
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+section .music data
+
+pvm_song:
+        incbin "src/uctumi-song.pvm"
+
+pvm_wait:                                       ; cycles to read diviced 0x2df
+        db 0
+pvm_offset:                                     ; pointer to next byte to read
+        dw 0
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; STACK

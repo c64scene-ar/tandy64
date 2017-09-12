@@ -24,7 +24,7 @@ $(TARGET): $(OBJECTS)
 clean:
 	echo "Cleaning..."
 	-rm -f *.o
-	-rm -f $(TARGET)
+	-rm -f bin/*.map
 
 res:
 	echo "Generating resources..."

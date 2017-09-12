@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-# ----------------------------------------------------------------------------
-# converts VGM SN76489 files to optimized format for Tandy
-# ----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# converts VGM files to a more compact file format (optimized format for Tandy)
+# -----------------------------------------------------------------------------
 """
 Tool to convert VGM (Video Game Music) to PVM (Player VGM Music)
 It is the same, but smaller, around 30% smaller.
+
+For the moment, the only supported chip is SN76489 (Sega Master System in
+Deflemask).
 """
 import argparse
 import sys
@@ -14,6 +17,8 @@ import struct
 __docformat__ = 'restructuredtext'
 
 class ToPVM:
+    """The class that does all the conversions"""
+
     # 3 MSB bits are designed for commands
     # 5 LSB bits are for data for the command
     DATA =          0b00000000      # 000xxxxx (xxxxxx = len of data)
@@ -29,12 +34,6 @@ class ToPVM:
         self._output_data = bytearray()
         self._current_port_data = bytearray()
 
-        # header
-        self._output_data += 'PVM '.encode('utf-8')
-
-        # 8 bytes reserved for future use
-        for i in range(8):
-            self._output_data.append(0)
 
     def run(self):
         """Execute the conversor."""
@@ -74,7 +73,40 @@ class ToPVM:
                 else:
                     raise Exception('Unknown value: data[0x%x] = 0x%x' % (i, data[i]))
 
+        self.prepend_header()
+
         self._output_fd.buffer.write(self._output_data)
+
+    def prepend_header(self):
+        HEADER_LEN = 16
+        VERSION_LO = 0
+        VERSION_HI = 1
+        header = bytearray()
+
+        # signature: 4 bytes
+        header += 'PVM '.encode('utf-8')
+
+        # total len: 4 bytes
+        l = len(self._output_data) + HEADER_LEN
+        total_len = struct.pack("<I",l)
+        header += total_len
+
+        # version: 2 bytes. minor, major
+        header.append(VERSION_LO)
+        header.append(VERSION_HI)
+
+        # flags: 2 bytes
+        # which procesor is supported
+        #  either PAL/NTSC
+        #  clock
+        header.append(0)
+        header.append(0)
+
+        # reserved: 4 bytes
+        for i in range(4):
+            header.append(0)
+
+        self._output_data = header + self._output_data
 
     def add_port_data(self, byte_data):
         self._current_port_data.append(byte_data)
