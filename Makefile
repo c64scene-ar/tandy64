@@ -29,6 +29,7 @@ clean:
 res:
 	echo "Generating resources..."
 	python3 tools/convert_gfx_to_bios_format.py res/PVM\ Logo\ PC.data -g 9 -o src/logo.raw
+	python3 tools/convert_vgm_to_pvm.py res/uc-adogi.vgm -o src/uctumi-song.pvm
 
 run: $(TARGET)
 	echo "Running game..."
