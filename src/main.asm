@@ -1,12 +1,6 @@
-; Demonstration of how to write an entire .EXE format program as a .OBJ
-; file to be linked. Tested with the VAL free linker.
-; To build:
-;    nasm -fobj objexe.asm
-;    val objexe.obj,objexe.exe;
-; To test:
-;    objexe
-; (should print `hello, world')
-
+; Tandy64
+; http://pungas.space
+;
 bits    16
 cpu     8086
 
@@ -27,56 +21,98 @@ section .text
         mov     sp,stacktop
         sti
 
+        cld
+
         call    gfx_init
         call    music_init
 
         call    main_loop
 
-        mov     ax,0x0002                       ;text mode 80x25
-        int     0x10
+        call    sound_cleanup
 
-        mov     ax,0x4c00
-        int     0x21                            ;exit to DOS
+        mov     ax,0002h                       ;text mode 80x25
+        int     10h
+
+        mov     ax,4c00h
+        int     21h                             ;exit to DOS
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 gfx_init:
-        mov     ax, 0x0009
-        int     0x10                            ;switch video mode
+        mov     ax,0009h
+        int     10h                             ;switch video mode
 
         call    palette_init
 
         mov     si,logo                         ;ds:si (source)
         sub     di,di
-        mov     ax,0xb800
+        mov     ax,0b800h
         mov     es,ax                           ;es:di (dest)
 
-        cld
         mov     cx,16384                        ;copy 32k
         rep     movsw
 
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+palette_init:
+        ;logo should be turned off by default
+        mov     dx,03dah                        ;select border color register
+        mov     al,19h                          ;select color=9 (light blue)
+        out     dx,al                           ;select palette register
+
+        add     dx,4
+        mov     al,0                            ;black now
+        out     dx,al
+
+        sub     dx,4
+        mov     al,15h                          ;select color5 (cyan?)
+        out     dx,al
+
+        add     dx,4
+        mov     al,0
+        out     dx,al                           ;black now
+
+
+        mov     word [es:palette_delay],300     ;wait 5 seconds before showing logo
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+music_init:
+        mov     ax,music
+        mov     ds,ax
+
+        mov     word [pvm_offset],pvm_song + 0x10       ;update start offset
+        mov     byte [pvm_wait],0               ;don't wait at start
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 wait_retrace:
 
         mov     dx,0x3da
+.l1:
+        in      al,dx                           ;wait for vertical retrace
+        test    al,8                            ; to finish
+        jnz     .l1
+
 .l0:
         in      al,dx                           ;wait for vertical retrace
         test    al,8                            ; to start
         jz      .l0
 
-.l1:
-        in      al,dx                           ;wait for vertical retrace
-        test    al,8                            ; to finish
-        jnz     .l1
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 main_loop:
         call    wait_retrace
-        call    music_tick
+
+        call    inc_d020
+
+        call    music_anim
         call    palette_anim
+        call    scroll_anim
+
+        call    dec_d020
 
         mov     ah,1
         int     16h                             ; INT 16,AH=1, OUT:ZF=status
@@ -88,26 +124,14 @@ main_loop:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-palette_init:
-        ;logo should be turned off by default
-        mov     dx,0x3da                        ;select border color register
-        mov     al,0x19                         ;select color=9 (light blue)
-        out     dx,al                           ;select palette register
+sound_cleanup:
+        mov     si,volume_0
+        mov     cx,4
+.repeat:
+        lodsb
+        out     0c0h,al
+        loop    .repeat
 
-        add     dx,4
-        mov     al,0                            ;black now
-        out     dx,al
-
-        sub     dx,4
-        mov     al,0x15                         ;select color5 (cyan?)
-        out     dx,al
-
-        add     dx,4
-        mov     al,0
-        out     dx,al                           ;black now
-
-
-        mov     word [es:palette_delay],300     ;wait 5 seconds before showing logo
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -144,22 +168,55 @@ palette_anim:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-music_init:
-        mov     ax,music
-        mov     ds,ax
+scroll_anim:
+        push    ds
+        push    es
 
-        mov     word [pvm_offset],pvm_song + 0x10       ;update start offset
-        mov     byte [pvm_wait],0               ;don't wait at start
+        mov     ax,0b800h
+        mov     ds,ax
+        mov     es,ax
+
+OFFSET_Y        equ     22*2*160
+
+        %assign i 0
+        %rep    6
+
+                mov     cx,159                  ;scroll 1 line of 80 chars
+                mov     si,OFFSET_Y+i*160+1     ;source: last char of screen
+                mov     di,OFFSET_Y+i*160       ;dest: last char of screen - 1
+                rep movsb                       ;do the copy
+
+                mov     cx,159                  ;scroll 1 line of 80 chars
+                mov     si,OFFSET_Y+8192+i*160+1;source: last char of screen
+                mov     di,OFFSET_Y+8192+i*160  ;dest: last char of screen - 1
+                rep movsb                       ;do the copy
+
+                mov     cx,159                  ;scroll 1 line of 80 chars
+                mov     si,OFFSET_Y+16384+i*160+1       ;source: last char of screen
+                mov     di,OFFSET_Y+16384+i*160         ;dest: last char of screen - 1
+                rep movsb                       ;do the copy
+
+                mov     cx,159                   ;scroll 1 line of 80 chars
+                mov     si,OFFSET_Y+24576+i*160+1            ;source: last char of screen
+                mov     di,OFFSET_Y+24576+i*160              ;dest: last char of screen - 1
+                rep movsb                       ;do the copy
+
+        %assign i i+1
+        %endrep
+
+        pop     es
+        pop     ds
+
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-music_tick:
+music_anim:
 
-DATA    equ     0b0000_0000
-DATA_EXTRA equ  0b0010_0000
-DELAY   equ     0b0100_0000
-DELAY_EXTRA equ 0b0110_0000
-END     equ     0b1000_0000
+DATA    equ     0000_0000b
+DATA_EXTRA equ  0010_0000b
+DELAY   equ     0100_0000b
+DELAY_EXTRA equ 0110_0000b
+END     equ     1000_0000b
 
         sub     cx,cx                           ;cx=0... needed later
         mov     si,[pvm_offset]
@@ -173,8 +230,8 @@ END     equ     0b1000_0000
 .l0:
         lodsb                                   ;fetch command byte
         mov     ah,al
-        and     al,0b1110_0000                  ;al=command only
-        and     ah,0b0001_1111                  ;ah=command args only
+        and     al,1110_0000b                   ;al=command only
+        and     ah,0001_1111b                   ;ah=command args only
 
         cmp     al,DATA                         ;data?
         je      .is_data
@@ -203,7 +260,7 @@ END     equ     0b1000_0000
         mov     cl,al
 .repeat:
         lodsb
-        out     0xc0,al
+        out     0c0h,al
         loop    .repeat
 
         jmp     .l0                             ; repeat... fetch next command
@@ -226,10 +283,32 @@ END     equ     0b1000_0000
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 .is_end:
         mov     byte [pvm_wait], 5              ;wait 5 cycles before starting again
-        mov     word [pvm_offset], pvm_song + 0x10      ; beginning of song
+        mov     word [pvm_offset], pvm_song + 10h       ; beginning of song
 
         ret
 
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+inc_d020:
+        mov     dx,03dah                        ;show how many raster barts it consumes
+        mov     al,2                            ;select border color
+        out     dx,al
+
+        add     dx,4
+        mov     al,0fh
+        out     dx,al                           ;change border to white
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+dec_d020:
+        mov     dx,03dah                        ;show how many raster barts it consumes
+        mov     al,2                            ;select border color
+        out     dx,al
+
+        add     dx,4
+        sub     al,al
+        out     dx,al                           ;change border back to black
+
+        ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; DATA GFX
@@ -297,6 +376,12 @@ palette_logo_1:                                 ;inner logo color
         db      0,0,0,0,0,0,0,0
         db      8,8,8,8,7,7,7,7
         db      11,11,11,11,9,9,9,9
+
+volume_0:
+        db      1001_1111b                      ;vol 0 channel 0
+        db      1011_1111b                      ;vol 0 channel 1
+        db      1101_1111b                      ;vol 0 channel 2
+        db      1111_1111b                      ;vol 0 channel 3
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; STACK
