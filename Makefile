@@ -10,7 +10,7 @@ LDFLAGS = -oEXE -m
 default: $(TARGET)
 all: res default
 
-OBJECTS = main.o pztimer.o
+OBJECTS = main.o intro.o pztimer.o border.o
 
 %.o: src/%.asm
 	$(ASM) $(ASMFLAGS) $< -o $@

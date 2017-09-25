@@ -12,26 +12,17 @@ cpu     8086
 ; CODE
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 section .text
-..start:
+
+global pre_intro_start
+pre_intro_start:
         mov     ax,data                         ;init segments
         mov     ds,ax                           ; DS=ES: same segment
         mov     es,ax                           ; SS: stack
         mov     ax,stack
-        cli                                     ;disable interrupts while
-        mov     ss,ax                           ; setting the stack pointer
-        mov     sp,stacktop
-        sti
-
-        call    wait_key
 
         call    test_border
 
-        mov     ax,0x0002                       ;text mode 80x25
-        int     0x10
-
-        mov     ax,0x4c00
-        int     0x21                            ;exit to DOS
-
+        ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 test_border:
@@ -285,12 +276,6 @@ video_off:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-wait_key:
-        xor     ah,ah                           ;Function number: get key
-        int     0x16                            ;Call BIOS keyboard interrupt
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 wait_vert_retrace:
         mov     dx,0x3da
 
@@ -342,7 +327,7 @@ c64_screen:
         db 162,208,214,205,160,195,182,180,207,205,193,199,197,160,160,160,160,162         ;inverted chars
         db 160,185,182,160,178,193
         db `\n`
-        db `132  "C64OMAGE"         PRG\n`
+        db `132  "TANDY64"          PRG\n`
         db `532 BLOCKS FREE.\n`
         db `READY.\n`
         db 0                                            ; pause / animate cursor
@@ -363,7 +348,7 @@ C64_SCREEN_SIZE equ $ - c64_screen
 
 
 c64_charset:
-        incbin 'c64_charset-charset.bin'
+        incbin 'src/c64_charset-charset.bin'
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; STACK
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
