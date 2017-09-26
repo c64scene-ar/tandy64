@@ -331,7 +331,15 @@ palette_idx
         dw      0
 
 charset:
-        incbin 'src/c64_charset-charset.bin'
+        incbin 'src/font_unknown_2x2-charset.bin'
+
+scroll_text:
+        db 'hola como estas'
+        db 0
+scroll_char_idx:                                ;pointer to the next char
+        db 0
+scroll_bit_idx:                                 ;pointer to the next bit in the char
+        db 0
 
 palette_logo_0:                                 ;outline logo color
         db      8,8,7,7,15,15,15,15
@@ -374,10 +382,3 @@ volume_0:
         db      1011_1111b                      ;vol 0 channel 1
         db      1101_1111b                      ;vol 0 channel 2
         db      1111_1111b                      ;vol 0 channel 3
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; STACK
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-section .stack stack
-        resb 4096
-stacktop:

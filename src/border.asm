@@ -17,8 +17,6 @@ global pre_intro_start
 pre_intro_start:
         mov     ax,data                         ;init segments
         mov     ds,ax                           ; DS=ES: same segment
-        mov     es,ax                           ; SS: stack
-        mov     ax,stack
 
         call    test_border
 
@@ -349,9 +347,3 @@ C64_SCREEN_SIZE equ $ - c64_screen
 
 c64_charset:
         incbin 'src/c64_charset-charset.bin'
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; STACK
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-section .stack stack
-        resb 4096
-stacktop:
