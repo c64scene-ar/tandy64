@@ -15,7 +15,7 @@ global intro_start
 intro_start:
         mov     ax,gfx                          ;init segments
         mov     ds,ax
-        mov     ax,music
+        mov     ax,data
         mov     es,ax
 
         cld
@@ -71,7 +71,7 @@ palette_init:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 music_init:
-        mov     ax,music
+        mov     ax,data
         mov     ds,ax
 
         mov     word [pvm_offset],pvm_song + 0x10       ;update start offset
@@ -196,6 +196,51 @@ OFFSET_Y        equ     22*2*160
         %assign i i+1
         %endrep
 
+
+        mov     ax,data
+        mov     ds,ax
+
+        cmp     byte [scroll_bit_idx],0         ;if bit_idx is 0, then copy the charset
+        jnz     .l1                             ; needed for the scroll to the cache
+
+        mov     bx,[charset]
+
+
+.l1:
+        mov     di,OFFSET_Y+159                 ;es:di points to video memory
+        mov     si,cache_charset                ;ds:si points to cache_charset
+        mov     cx,8                            ;times to loop
+        sub     bx,bx                           ;reverse of cx. gets incremented once
+                                                ; per loop
+
+.loop_print:
+        sub     ah,ah                           ;color black
+
+        lodsb                                   ;contains the bytes to write already
+        test    al,128                          ; with the MSB bit pointing to the
+        jz      .print_bit                      ; char to print
+
+        or      ah,15                           ;color is white
+
+.print_bit:
+        stosb
+        add     di,159                          ;159 and not 160, since stosb
+                                                ; already does di++
+
+        shl     al,1                            ;al << 1. bit 7 will contains next bit to render
+        mov     [cache_charset+bx],al           ;
+        inc     bx
+
+        loop    .loop_print
+
+        inc     byte [scroll_bit_idx]
+        test    byte [scroll_bit_idx],16        ;overflow?
+        jz      .l0
+
+        mov     byte [scroll_bit_idx],0         ;reset bit idx
+        inc     word [scroll_char_idx]          ;scroll_char_idx++
+.l0:
+
         pop     es
         pop     ds
 
@@ -311,9 +356,9 @@ logo:
         incbin 'src/logo.raw'
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; DATA MUSIC
+; DATA MUSIC + CHARSET + MISC
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-section .music data
+section .data data
 
 pvm_song:
         incbin "src/uctumi-song.pvm"
@@ -327,15 +372,19 @@ palette_delay:
         dw      0                               ;cycles to wait before showing logo
 palette_enabled:
         db      0                               ;boolean. whether to animate the palette
-palette_idx
+palette_idx:
         dw      0
 
 charset:
         incbin 'src/font_unknown_2x2-charset.bin'
 
+cache_charset:
+        resb    16                              ;the 16 bytes to print in the current frame
+
 scroll_text:
-        db 'hola como estas'
+        db 'hola como estas... probando 123... scrolling. '
         db 0
+
 scroll_char_idx:                                ;pointer to the next char
         db 0
 scroll_bit_idx:                                 ;pointer to the next bit in the char
@@ -382,3 +431,4 @@ volume_0:
         db      1011_1111b                      ;vol 0 channel 1
         db      1101_1111b                      ;vol 0 channel 2
         db      1111_1111b                      ;vol 0 channel 3
+
