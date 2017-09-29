@@ -201,9 +201,33 @@ OFFSET_Y        equ     22*2*160
         mov     ds,ax
 
         cmp     byte [scroll_bit_idx],0         ;if bit_idx is 0, then copy the charset
-        jnz     .l1                             ; needed for the scroll to the cache
+        jnz     .l1                             ; needed for the scroll into the cache
 
-        mov     bx,[charset]
+        mov     bx,[scroll_char_idx]
+        lea     si,[charset+bx]                 ;ds:si: charset
+
+        push    es                              ;save es for later
+        push    ds
+        pop     es
+        mov     di,[cache_charset]              ;es:di: cache
+
+        mov     cx,4                            ;copy first char (4 words == 8 bytes)
+        rep movsw
+
+        mov     cl,4
+        add     si,128-8                        ;point to next char. offset=128
+        rep movsw
+
+        mov     cl,4
+        sub     si,64-8                         ;point to next char. offset=64
+        rep movsb
+
+        mov     cl,4
+        add     si,128-8                        ;point to next char. offset=192
+        rep movsw
+
+        pop     es                              ;restore es
+
 
 
 .l1:
@@ -379,7 +403,9 @@ charset:
         incbin 'src/font_unknown_2x2-charset.bin'
 
 cache_charset:
-        resb    16                              ;the 16 bytes to print in the current frame
+        resb    32                              ;the 32 bytes to print in the current frame
+                                                ; char aligned like: top-left, bottom-left,
+                                                ; top-right, bottom-right
 
 scroll_text:
         db 'hola como estas... probando 123... scrolling. '
