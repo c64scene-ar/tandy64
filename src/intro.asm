@@ -7,6 +7,58 @@ cpu     8086
 extern ZTimerOn, ZTimerOff, ZTimerReport
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; MACROS
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; render 4 bits needed for the scroll. grabs the firts for bytes from the cache,
+; use the MSB bit. If it is on, use white, else black color
+;
+; IN:  ds:si -> bit to render (pointer to cache)
+;      es:di -> where to render (ponter to video memory)
+; Args: %1: offset line.
+%macro render_bit 1
+
+        mov     di,OFFSET_Y+160*(%1+1)-1        ;es:di points to video memory
+        mov     cx,4                            ;times to loop
+%%loop_print:
+        lodsb                                   ;fetches byte from the cache
+        xchg    al,ah                           ;save value in ah for later use
+        and     al,1100_0000b                   ; and use al. useful for stosb.
+                                                ; and only uses the first 2 MSB bits
+        or      al,al                           ;black/black?
+        jz      %%print_bit
+
+        cmp     al,0100_0000b                   ;black, white?
+        jnz     %%is_10
+        mov     al,0000_1111b                   ;yes, black / white
+        jmp     %%print_bit
+
+%%is_10:
+        cmp     al,1000_0000b
+        jnz     %%is_11
+        mov     al,1111_0000b                   ;yes, white / black
+        jmp     %%print_bit
+
+%%is_11:
+        mov     al,1111_1111b                   ;yes, white, white
+
+%%print_bit:
+        stosb
+
+        add     di,8192-1                       ;draw in next bank. di was incremented by
+                                                ; one in stosb.
+
+        shl     ah,1                            ;al << 2. bit 7,6 contains next bits to render
+        shl     ah,1                            ;
+        mov     [cache_charset+bx],ah           ;update cache for next iteration
+        inc     bx
+
+        loop    %%loop_print
+%endmacro
+
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; CODE
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 section .text
@@ -200,11 +252,12 @@ OFFSET_Y        equ     22*2*160
         mov     ax,data
         mov     ds,ax
 
-        cmp     byte [scroll_bit_idx],0         ;if bit_idx is 0, then copy the charset
+        cmp     byte [scroll_bit_idx],0         ;if bit_idx is 0, and col is 0 then copy the charset
         jnz     .l1                             ; needed for the scroll into the cache
+        cmp     byte [scroll_col_used],0
+        jnz     .l1
 
-        int     3
-
+        ;update the cache with the next 32 bytes (2x2 chars)
         mov     bx,[scroll_char_idx]            ;scroll text offset
         sub     bh,bh
         mov     bl,byte [scroll_text+bx]        ;char to print
@@ -228,7 +281,7 @@ OFFSET_Y        equ     22*2*160
         rep movsw
 
         mov     cl,4
-        sub     si,(64-1)*8                     ;point to next char. offset=64
+        sub     si,(64+1)*8                     ;point to next char. offset=64
         rep movsw
 
         mov     cl,4
@@ -241,113 +294,43 @@ OFFSET_Y        equ     22*2*160
 .l1:
         mov     di,OFFSET_Y+159                 ;es:di points to video memory
         mov     si,cache_charset                ;ds:si points to cache_charset
+        sub     bx,bx                           ;used for the cache index in the
+                                                ; macros
+        render_bit 0
+        render_bit 1
+        render_bit 2
+        render_bit 3
 
-        mov     cx,4                            ;times to loop
-        sub     bx,bx                           ;reverse of cx. gets incremented once
-                                                ; per loop
-.loop_print_bank_0:
-        sub     ah,ah                           ;color black
-
-        lodsb                                   ;contains the bytes to write already
-        test    al,128                          ; with the MSB bit pointing to the
-        jz      .print_bit_0                    ; char to print
-
-        or      ah,15                           ;color is white
-
-.print_bit_0:
-        stosb
-        add     di,8192-1                       ;159 and not 160, since stosb
-                                                ; already does di++
-
-        shl     al,1                            ;al << 1. bit 7 will contains next bit to render
-        mov     [cache_charset+bx],al           ;
-        inc     bx
-
-        loop    .loop_print_bank_0
-
-
-        mov     di,OFFSET_Y+160*2-1             ;es:di points to video memory
-        mov     cx,4                            ;times to loop
-.loop_print_bank_1:
-        sub     ah,ah                           ;color black
-
-        lodsb                                   ;contains the bytes to write already
-        test    al,128                          ; with the MSB bit pointing to the
-        jz      .print_bit_1                    ; char to print
-
-        or      ah,15                           ;color is white
-
-.print_bit_1:
-        stosb
-        add     di,8192-1                       ;159 and not 160, since stosb
-                                                ; already does di++
-
-        shl     al,1                            ;al << 1. bit 7 will contains next bit to render
-        mov     [cache_charset+bx],al           ;
-        inc     bx
-
-        loop    .loop_print_bank_1
-
-
-        mov     di,OFFSET_Y+160*3-1             ;es:di points to video memory
-        mov     cx,4                            ;times to loop
-.loop_print_bank_2:
-        sub     ah,ah                           ;color black
-
-        lodsb                                   ;contains the bytes to write already
-        test    al,128                          ; with the MSB bit pointing to the
-        jz      .print_bit_2                    ; char to print
-
-        or      ah,15                           ;color is white
-
-.print_bit_2:
-        stosb
-        add     di,8192-1                       ;159 and not 160, since stosb
-                                                ; already does di++
-
-        shl     al,1                            ;al << 1. bit 7 will contains next bit to render
-        mov     [cache_charset+bx],al           ;
-        inc     bx
-
-        loop    .loop_print_bank_2
-
-
-        mov     di,OFFSET_Y+160*4-1             ;es:di points to video memory
-        mov     cx,4                            ;times to loop
-.loop_print_bank_3:
-        sub     ah,ah                           ;color black
-
-        lodsb                                   ;contains the bytes to write already
-        test    al,128                          ; with the MSB bit pointing to the
-        jz      .print_bit_3                    ; char to print
-
-        or      ah,15                           ;color is white
-
-.print_bit_3:
-        stosb
-        add     di,8192-1                       ;159 and not 160, since stosb
-                                                ; already does di++
-
-        shl     al,1                            ;al << 1. bit 7 will contains next bit to render
-        mov     [cache_charset+bx],al           ;
-        inc     bx
-
-        loop    .loop_print_bank_3
-
-
-
-
+        inc     byte [scroll_bit_idx]           ;two incs, since it prints 2 bits at the time
         inc     byte [scroll_bit_idx]
-        test    byte [scroll_bit_idx],16        ;overflow? letter is 16 bits wide (2 chars)
-        jz      .l0
 
-        mov     byte [scroll_bit_idx],0         ;reset bit idx
+        test    byte [scroll_bit_idx],8         ;should use 2nd chars?
+        jz      .end                            ;if not, exit
+
+        test    byte [scroll_col_used],1        ;reached bit 8... already using
+        jnz     .next_char                      ; col 2? If so, next char
+
+        ;update cache with remaing 16-bytes (the 2nd col)
+        push    ds                              ;copy 2nd-col chars to cache
+        pop     es
+        mov     si,cache_charset+16
+        mov     di,cache_charset
+        mov     cx,8
+        rep movsw
+        inc     byte [scroll_col_used]          ;2nd column to be used
+        mov     byte [scroll_bit_idx],cl        ;0
+        jmp     .end
+
+.next_char:
+        sub     ax,ax
+        mov     byte [scroll_col_used],al       ;reset to 0
+        mov     byte [scroll_bit_idx],al        ;reset bit idx
         inc     word [scroll_char_idx]          ;scroll_char_idx++
         cmp     word [scroll_char_idx],SCROLL_TEXT_LEN  ;end of scroll?
-        jnz     .l0                                     ; if so, reset index
-        mov     word [scroll_char_idx],0
-.l0:
+        jnz     .end                            ; if so, reset index
+        mov     word [scroll_char_idx],ax
 
+.end:
         pop     es
         pop     ds
 
@@ -491,13 +474,15 @@ cache_charset:
                                                 ; top-right, bottom-right
 
 scroll_text:
-        db 'hola como estas... probando 123... scrolling...       '
+        db 'abcdefghijklmnopqrstuvwxzy a b c d e 0123456789    '
 SCROLL_TEXT_LEN equ $-scroll_text
 
 scroll_char_idx:                                ;pointer to the next char
         db 0
 scroll_bit_idx:                                 ;pointer to the next bit in the char
         db 0
+scroll_col_used:
+        db 0                                    ;chars are 2x2. col indicates which col is being used
 
 palette_logo_0:                                 ;outline logo color
         db      8,8,7,7,15,15,15,15
