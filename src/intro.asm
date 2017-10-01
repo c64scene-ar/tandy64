@@ -23,7 +23,7 @@ extern ZTimerOn, ZTimerOff, ZTimerReport
         mov     cx,4                            ;times to loop
 %%loop_print:
         lodsb                                   ;fetches byte from the cache
-        xchg    al,ah                           ;save value in ah for later use
+        mov     ah,al                           ;save value in ah for later use
         and     al,1100_0000b                   ; and use al. useful for stosb.
                                                 ; and only uses the first 2 MSB bits
         or      al,al                           ;black/black?
@@ -213,17 +213,16 @@ palette_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_anim:
-        push    ds
         push    es
 
-        mov     ax,0b800h
+        mov     ax,0b800h                       ;video memory
         mov     ds,ax
         mov     es,ax
 
-OFFSET_Y        equ     22*2*160
+OFFSET_Y        equ     23*2*160
 
         %assign i 0
-        %rep    6
+        %rep    4
 
                 mov     cx,159                  ;scroll 1 line of 80 chars
                 mov     si,OFFSET_Y+i*160+1     ;source: last char of screen
@@ -252,10 +251,10 @@ OFFSET_Y        equ     22*2*160
         mov     ax,data
         mov     ds,ax
 
-        cmp     byte [scroll_bit_idx],0         ;if bit_idx is 0, and col is 0 then copy the charset
-        jnz     .l1                             ; needed for the scroll into the cache
+        cmp     byte [scroll_bit_idx],0         ;only update cache if scroll_bit_idx == 0
+        jnz     .render_bits                    ; and scroll_col_used == 0
         cmp     byte [scroll_col_used],0
-        jnz     .l1
+        jnz     .render_bits
 
         ;update the cache with the next 32 bytes (2x2 chars)
         mov     bx,[scroll_char_idx]            ;scroll text offset
@@ -269,8 +268,7 @@ OFFSET_Y        equ     22*2*160
 
         push    es                              ;save es for later
 
-        push    ds
-        pop     es
+        mov     es,ax                           ;es = ds
         mov     di,cache_charset                ;es:di: cache
 
         mov     cx,4                            ;copy first char (4 words == 8 bytes)
@@ -291,7 +289,7 @@ OFFSET_Y        equ     22*2*160
         pop     es                              ;restore es. points to video memory
 
 
-.l1:
+.render_bits:
         mov     di,OFFSET_Y+159                 ;es:di points to video memory
         mov     si,cache_charset                ;ds:si points to cache_charset
         sub     bx,bx                           ;used for the cache index in the
@@ -313,10 +311,10 @@ OFFSET_Y        equ     22*2*160
         ;update cache with remaing 16-bytes (the 2nd col)
         push    ds                              ;copy 2nd-col chars to cache
         pop     es
-        mov     si,cache_charset+16
-        mov     di,cache_charset
+        mov     si,cache_charset+16             ;pointer to 2nd-col chars
+        mov     di,cache_charset                ;pointer to 1st-col chars
         mov     cx,8
-        rep movsw
+        rep movsw                               ;copy 16 bytes
         inc     byte [scroll_col_used]          ;2nd column to be used
         mov     byte [scroll_bit_idx],cl        ;0
         jmp     .end
@@ -332,7 +330,6 @@ OFFSET_Y        equ     22*2*160
 
 .end:
         pop     es
-        pop     ds
 
         ret
 
