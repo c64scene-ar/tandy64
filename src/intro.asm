@@ -150,13 +150,13 @@ wait_retrace:
 main_loop:
         call    wait_retrace
 
-        call    inc_d020
+;        call    inc_d020
 
         call    music_anim
         call    palette_anim
         call    scroll_anim
 
-        call    dec_d020
+;        call    dec_d020
 
         mov     ah,1
         int     16h                             ; INT 16,AH=1, OUT:ZF=status
