@@ -254,7 +254,7 @@ OFFSET_Y        equ     23*2*160                ;start at line 23
         mov     bx,[scroll_char_idx]            ;scroll text offset
         sub     bh,bh
         mov     bl,byte [scroll_text+bx]        ;char to print
-        and     bl,0001_1111b                   ;only use lower 63 bits
+        and     bl,0011_1111b                   ;only use lower 63 bits
         shl     bx,1                            ;bx * 8 since each char takes 8
         shl     bx,1                            ; bytes in the charset
         shl     bx,1
@@ -465,7 +465,7 @@ cache_charset:
                                                 ; top-right, bottom-right
 
 scroll_text:
-        db 'abcdefghijklmnopqrstuvwxzy a b c d e 0123456789    '
+        db 'ABCDEFGHIJKLMNOPQRSTUVWXZY A B C D E 0123456789    '
 SCROLL_TEXT_LEN equ $-scroll_text
 
 scroll_char_idx:                                ;pointer to the next char
