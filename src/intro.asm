@@ -117,6 +117,23 @@ palette_init:
         mov     al,0
         out     dx,al                           ;black now
 
+        sub     dx,4
+        mov     al,1ah                          ;select 10
+        out     dx,al
+
+        add     dx,4
+        mov     al,0
+        out     dx,al                           ;black now
+
+
+        sub     dx,4
+        mov     al,1dh                          ;select 0xd
+        out     dx,al
+
+        add     dx,4
+        mov     al,0
+        out     dx,al                           ;black now
+
 
         mov     word [es:palette_delay],300     ;wait 5 seconds before showing logo
         ret
@@ -150,13 +167,13 @@ wait_retrace:
 main_loop:
         call    wait_retrace
 
-;        call    inc_d020
+        call    inc_d020
 
         call    music_anim
         call    palette_anim
         call    scroll_anim
 
-;        call    dec_d020
+        call    dec_d020
 
         mov     ah,1
         int     16h                             ; INT 16,AH=1, OUT:ZF=status
@@ -187,7 +204,7 @@ palette_anim:
 
 .animate:
         mov     bx,word [palette_idx]
-        cmp     bx,127
+        cmp     bx,143
         ja      .end
 
         mov     dx,0x3da                        ;select border color register
@@ -198,10 +215,30 @@ palette_anim:
         mov     al,[palette_logo_0 + bx]
         out     dx,al
 
-        sub     dx,4
+        sub     dx,4                            ;aniamte letter P
         mov     al,0x19                         ;logo inner color
         out     dx,al
 
+        add     dx,4
+        mov     al,[palette_logo_1 + bx]
+        out     dx,al
+
+
+        sub     dx,4                            ;animate letter V
+        mov     al,0x1a                         ;logo inner color
+        out     dx,al
+
+        sub     bx,8
+        add     dx,4
+        mov     al,[palette_logo_1 + bx]
+        out     dx,al
+
+
+        sub     dx,4                            ;animate letter M
+        mov     al,0x1d                         ;logo inner color
+        out     dx,al
+
+        sub     bx,8
         add     dx,4
         mov     al,[palette_logo_1 + bx]
         out     dx,al
@@ -221,25 +258,25 @@ scroll_anim:
 
 OFFSET_Y        equ     23*2*160                ;start at line 23
 
-        mov     cx,639                          ;scroll 4 lines of 80 chars
+        mov     cx,320                          ;scroll 4 lines of 80 chars
         mov     si,OFFSET_Y+1                   ;source: last char of screen
         mov     di,OFFSET_Y                     ;dest: last char of screen - 1
-        rep movsb                               ;do the copy
+        rep movsw                               ;do the copy
 
-        mov     cx,639                          ;scroll 4 lines of 80 chars
+        mov     cx,320                          ;scroll 4 lines of 80 chars
         mov     si,OFFSET_Y+8192+1              ;source: last char of screen
         mov     di,OFFSET_Y+8192                ;dest: last char of screen - 1
-        rep movsb                               ;do the copy
+        rep movsw                               ;do the copy
 
-        mov     cx,639                          ;scroll 4 lines of 80 chars
+        mov     cx,320                          ;scroll 4 lines of 80 chars
         mov     si,OFFSET_Y+16384+1             ;source: last char of screen
         mov     di,OFFSET_Y+16384               ;dest: last char of screen - 1
-        rep movsb                               ;do the copy
+        rep movsw                               ;do the copy
 
-        mov     cx,639                          ;scroll 4 lines of 80 chars
+        mov     cx,320                          ;scroll 4 lines of 80 chars
         mov     si,OFFSET_Y+24576+1             ;source: last char of screen
         mov     di,OFFSET_Y+24576               ;dest: last char of screen - 1
-        rep movsb                               ;do the copy
+        rep movsw                               ;do the copy
 
 
         mov     ax,data
@@ -462,10 +499,10 @@ charset:
 cache_charset:
         resb    32                              ;the 32 bytes to print in the current frame
                                                 ; char aligned like: top-left, bottom-left,
-                                                ; top-right, bottom-right
 
+                                                ; top-right, bottom-right
 scroll_text:
-        db 'ABCDEFGHIJKLMNOPQRSTUVWXZY A B C D E 0123456789    '
+        db 'ABCDEFGHIJKLMNOPQRSTUVWXYZ A B C D E 0123456789    '
 SCROLL_TEXT_LEN equ $-scroll_text
 
 scroll_char_idx:                                ;pointer to the next char
@@ -490,9 +527,14 @@ palette_logo_0:                                 ;outline logo color
         db      0,0,0,0,0,0,0,0
         db      0,0,0,0,0,0,0,0
         db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
+        db      0,0,0,0,0,0,0,0
         db      8,8,8,8,8,8,8,8
         db      1,1,1,1,1,1,1,1
 
+
+        db      0,0,0,0,0,0,0,0                 ;buffer for letter M
+        db      0,0,0,0,0,0,0,0                 ;buffer for letter P
 palette_logo_1:                                 ;inner logo color
         db      0,0,0,0,0,0,0,0
         db      0,0,0,0,0,0,0,0
@@ -510,6 +552,9 @@ palette_logo_1:                                 ;inner logo color
         db      0,0,0,0,0,0,0,0
         db      8,8,8,8,7,7,7,7
         db      11,11,11,11,9,9,9,9
+
+        db      9,9,9,9,9,9,9,9
+        db      9,9,9,9,9,9,9,9
 
 volume_0:
         db      1001_1111b                      ;vol 0 channel 0
