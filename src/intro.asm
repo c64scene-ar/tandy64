@@ -88,15 +88,48 @@ gfx_init:
 
         call    palette_init
 
-        mov     si,logo                         ;ds:si (source)
-        sub     di,di
-        mov     ax,0b800h
-        mov     es,ax                           ;es:di (dest)
+;        mov     si,logo                         ;ds:si (source)
+;        sub     di,di
+;        mov     ax,0b800h
+;        mov     es,ax                           ;es:di (dest)
+;
+;        mov     cx,16384                        ;copy 32k
+;        rep     movsw
 
-        mov     cx,16384                        ;copy 32k
-        rep     movsw
-
+        call    lfsr_15bit
         ret
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; Linear Feedback Shift Register 15-bit
+; Maximum Lenght: Taps 15,14
+; https://en.wikipedia.org/wiki/Linear-feedback_shift_register
+lfsr_15bit:
+START_STATE equ 2                               ;any nonzero number works
+
+        mov     ax,gfx                          ;set segments
+        mov     ax,ds
+        mov     ax,0b800h
+        mov     es,ax
+
+        mov     si,START_STATE
+.loop:
+        mov     di,si
+        movsb                                   ;update pixel
+
+        shr     si,1
+        jnc     .skip
+        xor     si,0110_0000_0000_0000b           ;15,14,13,11 taps
+.skip:
+        inc     word [cs:period]
+        cmp     word [cs:period],32768
+        ja      .end
+
+        cmp     si,START_STATE
+        jnz     .loop
+
+.end
+        ret
+
+period:         dw 0
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 palette_init:
@@ -470,7 +503,7 @@ dec_d020:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 section .gfx data
 
-logo:
+logo:                                           ;'logo' MUST be the first variable in the segment
         incbin 'src/logo.raw'
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
