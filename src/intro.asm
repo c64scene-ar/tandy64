@@ -83,8 +83,8 @@ intro_start:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 gfx_init:
-        mov     ax,0009h
-        int     10h                             ;switch video mode
+;        mov     ax,0009h
+;        int     10h                             ;switch video mode
 
         call    palette_init
 
@@ -103,33 +103,28 @@ gfx_init:
 ; Maximum Lenght: Taps 15,14
 ; https://en.wikipedia.org/wiki/Linear-feedback_shift_register
 lfsr_15bit:
-START_STATE equ 2                               ;any nonzero number works
+LFSR_START_STATE equ 1973                       ;any nonzero number works
 
         mov     ax,gfx                          ;set segments
         mov     ax,ds
         mov     ax,0b800h
         mov     es,ax
 
-        mov     si,START_STATE
+        mov     ax,LFSR_START_STATE
 .loop:
-        mov     di,si
+        mov     di,ax
+        mov     si,ax
         movsb                                   ;update pixel
 
-        shr     si,1
+        shr     ax,1
         jnc     .skip
-        xor     si,0110_0000_0000_0000b           ;15,14,13,11 taps
+        xor     ax,0110_0000_0000_0000b           ;15,14,13,11 taps
 .skip:
-        inc     word [cs:period]
-        cmp     word [cs:period],32768
-        ja      .end
-
-        cmp     si,START_STATE
+        cmp     ax,LFSR_START_STATE
         jnz     .loop
 
 .end
         ret
-
-period:         dw 0
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 palette_init:

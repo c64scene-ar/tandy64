@@ -20,7 +20,7 @@ section .text
 
         cld
 
-;        call    pre_intro_start
+        call    pre_intro_start
         call    intro_start
 
         call    cleanup
