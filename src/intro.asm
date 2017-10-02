@@ -100,7 +100,6 @@ gfx_init:
         ret
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; Linear Feedback Shift Register 15-bit
-; Maximum Lenght: Taps 15,14
 ; https://en.wikipedia.org/wiki/Linear-feedback_shift_register
 lfsr_15bit:
 LFSR_START_STATE equ 1973                       ;any nonzero number works
@@ -118,12 +117,10 @@ LFSR_START_STATE equ 1973                       ;any nonzero number works
 
         shr     ax,1
         jnc     .skip
-        xor     ax,0110_0000_0000_0000b           ;15,14,13,11 taps
+        xor     ax,0110_0000_0000_0000b         ;Taps 15,14 for maximum lenght
 .skip:
         cmp     ax,LFSR_START_STATE
         jnz     .loop
-
-.end
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -134,7 +131,7 @@ palette_init:
         out     dx,al                           ;select palette register
 
         add     dx,4
-        mov     al,0                            ;black now
+        mov     al,1                            ;blue now
         out     dx,al
 
         sub     dx,4
@@ -142,16 +139,16 @@ palette_init:
         out     dx,al
 
         add     dx,4
-        mov     al,0
-        out     dx,al                           ;black now
+        mov     al,1
+        out     dx,al                           ;blue now
 
         sub     dx,4
         mov     al,1ah                          ;select 10
         out     dx,al
 
         add     dx,4
-        mov     al,0
-        out     dx,al                           ;black now
+        mov     al,1
+        out     dx,al                           ;blue now
 
 
         sub     dx,4
@@ -159,11 +156,9 @@ palette_init:
         out     dx,al
 
         add     dx,4
-        mov     al,0
-        out     dx,al                           ;black now
+        mov     al,1
+        out     dx,al                           ;blue now
 
-
-        mov     word [es:palette_delay],300     ;wait 5 seconds before showing logo
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -193,19 +188,30 @@ wait_retrace:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 main_loop:
+
+        mov     ax,data
+        mov     ds,ax                           ;defaults for main loop
+
+        mov     word [current_state],0
+        call    [states_inits]                  ;init state 0
+
+.loop:
         call    wait_retrace
 
         call    inc_d020
 
-        call    music_anim
-        call    palette_anim
-        call    scroll_anim
+        call    music_anim                      ;music and scroll are always
+        call    scroll_anim                     ; executed, regardless of the state
+
+        mov     bx,word [current_state]         ;fetch state
+        shl     bx,1                            ; and convert it into offset
+        call    [states_callbacks + bx]         ; and call correct state callback
 
         call    dec_d020
 
         mov     ah,1
         int     16h                             ; INT 16,AH=1, OUT:ZF=status
-        jz      main_loop
+        jz      .loop
 
         mov     ah,0
         int     16h
@@ -224,7 +230,62 @@ sound_cleanup:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-palette_anim:
+state_next:
+        inc     word [current_state]
+        mov     bx,word [current_state]
+        shl     bx,1
+        call    [states_inits+bx]
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_fade_to_black_init:
+        mov     word [palette_black_delay],15
+        mov     word [palette_black_idx],0
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_fade_to_black_anim:
+        cmp     word [palette_black_delay],0
+        je      .animate
+        dec     word [palette_black_delay]
+        ret
+
+.animate:
+        mov     word [palette_black_delay],3    ;reset delay
+        mov     bx,word [palette_black_idx]     ;fetch idx to table
+
+        mov     cx,PALETTE_COLORS_TO_BLACK_MAX
+        sub     si,si                           ;idx for colors
+
+        mov     dx,0x3da                        ;select border color register
+.loop:
+        mov     al,[palette_colors_to_black+si] ;which color to fade
+        or      al,10h                          ;color index start at 0x10
+        out     dx,al
+
+        add     dl,4
+        mov     al,[palette_black_tbl+bx]
+        out     dx,al
+
+        sub     dl,4
+        inc     si
+        loop    .loop
+
+        inc     word [palette_black_idx]
+        cmp     word [palette_black_idx], PALETTE_BLACK_MAX
+        jnz     .end
+
+        call    state_next
+.end:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_palette_init:
+        mov     word [palette_delay],300        ;wait 5 seconds before showing logo
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_palette_anim:
         cmp     word [palette_delay],0
         je      .animate
         dec     word [palette_delay]
@@ -514,6 +575,18 @@ pvm_wait:                                       ;cycles to read diviced 0x2df
 pvm_offset:                                     ;pointer to next byte to read
         dw 0
 
+palette_black_delay:
+        dw      0
+palette_black_idx:
+        dw      0
+palette_black_tbl:
+        db      1,9,11,15
+        db      15,7,8,0,0
+PALETTE_BLACK_MAX equ $-palette_black_tbl
+palette_colors_to_black:                        ;colors that should turn black
+        db      00h,01h,05h,09h,0ah,0dh
+PALETTE_COLORS_TO_BLACK_MAX equ $-palette_colors_to_black
+
 palette_delay:
         dw      0                               ;cycles to wait before showing logo
 palette_enabled:
@@ -590,3 +663,11 @@ volume_0:
         db      1101_1111b                      ;vol 0 channel 2
         db      1111_1111b                      ;vol 0 channel 3
 
+current_state:
+        dw      0                               ;current state. default: 0
+states_callbacks:
+        dw      state_fade_to_black_anim        ;state 0
+        dw      state_palette_anim              ;state 1
+states_inits:
+        dw      state_fade_to_black_init        ;state 0
+        dw      state_palette_init              ;state 1

@@ -115,7 +115,6 @@ init_screen:
         jmp     .l0
 
 .do_enter:
-        int     3
         inc     dh                              ;inc row
         mov     dl,0                            ;reset column
         jmp     .l0
@@ -175,9 +174,9 @@ do_anim_cursor:
 ;       cx:     number of vertical retraces to wait
 do_delay:
         push    dx
-.repeat:
-        call    wait_vert_retrace
-        loop    .repeat
+;.repeat:
+;        call    wait_vert_retrace
+;        loop    .repeat
         pop     dx
 
         ret
