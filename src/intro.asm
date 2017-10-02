@@ -266,61 +266,123 @@ state_fade_to_black_anim:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_palette_init:
-        mov     word [palette_delay],300        ;wait 5 seconds before showing logo
+state_delay_5s_init:
+        mov     word [delay_frames],300         ;wait 5 seconds before showing logo
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_palette_anim:
-        cmp     word [palette_delay],0
-        je      .animate
-        dec     word [palette_delay]
+state_delay_500ms_init:
+        mov     word [delay_frames],30          ;wait 30 cycles. half second
         ret
 
-.animate:
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_delay_anim:
+        cmp     word [delay_frames],0
+        je      .next
+        dec     word [delay_frames]
+        ret
+.next:
+        call    state_next
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_letters_fade_in_init:
+        mov     word [palette_idx],0
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_letters_fade_in_anim:
         mov     bx,word [palette_idx]
-        cmp     bx,143
-        ja      .end
+        cmp     bx,PALETTE_LETTERS_FADE_MAX
+        je      .end
 
-        mov     dx,0x3da                        ;select border color register
-        mov     al,0x15                         ;logo outer color
-        out     dx,al                           ;select palette register
-
-        add     dl,4
-        mov     al,[palette_logo_0 + bx]
-        out     dx,al
-
-        sub     dl,4                            ;aniamte letter P
-        mov     al,0x12                         ;logo inner color
+        mov     dx,03dah                        ;select border color register
+        mov     al,012h                         ;logo inner color
         out     dx,al
 
         add     dl,4
-        mov     al,[palette_logo_1 + bx]
+        mov     al,[palette_letters_fade_tbl+bx]
         out     dx,al
 
 
         sub     dl,4                            ;animate letter V
-        mov     al,0x1a                         ;logo inner color
+        mov     al,1ah                          ;logo inner color
         out     dx,al
 
         sub     bx,8
         add     dl,4
-        mov     al,[palette_logo_1 + bx]
+        mov     al,[palette_letters_fade_tbl+bx]
         out     dx,al
 
 
         sub     dl,4                            ;animate letter M
-        mov     al,0x1d                         ;logo inner color
+        mov     al,1dh                          ;logo inner color
         out     dx,al
 
         sub     bx,8
         add     dl,4
-        mov     al,[palette_logo_1 + bx]
+        mov     al,[palette_letters_fade_tbl+bx]
         out     dx,al
 
         inc     word [palette_idx]
-
 .end:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_nothing_init:
+        ret
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_nothing_anim:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_outline_fade_in_init:
+        mov     word [palette_outline_fade_idx],0
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_outline_fade_in_anim:
+        mov     bx,word [palette_outline_fade_idx]
+        cmp     bx,PALETTE_OUTLINE_FADE_IN_MAX
+        je      .end
+
+        mov     dx,03dah                        ;select border color register
+        mov     al,15h                          ;logo outline color: 5
+        out     dx,al                           ;select palette register
+
+        add     dl,4                            ;change color
+        mov     al,[palette_outline_fade_in_tbl + bx]
+        out     dx,al
+
+        inc     word [palette_outline_fade_idx]
+        ret
+.end:
+        call    state_next
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_outline_fade_out_init:
+        mov     word [palette_outline_fade_idx],0
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_outline_fade_out_anim:
+        mov     bx,word [palette_outline_fade_idx]
+        cmp     bx,PALETTE_OUTLINE_FADE_OUT_MAX
+        je      .end
+
+        mov     dx,03dah                        ;select border color register
+        mov     al,15h                          ;logo outline color: 5
+        out     dx,al                           ;select palette register
+
+        add     dl,4                            ;change color
+        mov     al,[palette_outline_fade_out_tbl + bx]
+        out     dx,al
+
+        inc     word [palette_outline_fade_idx]
+        ret
+.end:
+        call    state_next
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -565,20 +627,20 @@ palette_black_delay:
         dw      0
 palette_black_idx:
         dw      0
-palette_black_tbl:
+palette_black_tbl:                              ;fade to white/fade to black colors
         db      1,9,11,15
         db      15,7,8,0,0
 PALETTE_BLACK_MAX equ $-palette_black_tbl
+
 palette_colors_to_black:                        ;colors that should turn black
         db      00h,05h,02h,0ah,0dh             ;black, outline, P,V,M
 PALETTE_COLORS_TO_BLACK_MAX equ $-palette_colors_to_black
 
-palette_delay:
-        dw      0                               ;cycles to wait before showing logo
+delay_frames:
+        dw      0                               ;frames to wait before doing something
+
 palette_enabled:
         db      0                               ;boolean. whether to animate the palette
-palette_idx:
-        dw      0
 
 charset:
         incbin 'src/font_unknown_2x2-charset.bin'
@@ -599,49 +661,28 @@ scroll_bit_idx:                                 ;pointer to the next bit in the 
 scroll_col_used:
         db 0                                    ;chars are 2x2. col indicates which col is being used
 
-palette_logo_0:                                 ;outline logo color
+palette_outline_fade_idx:                       ;index for table used in outline fade effect
+        dw      0
+palette_outline_fade_in_tbl:                   ;fade_out
         db      8,8,7,7,15,15,15,15
-        db      7,7,8,8,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      8,8,8,8,8,8,8,8
-        db      1,1,1,1,1,1,1,1
+PALETTE_OUTLINE_FADE_IN_MAX equ $-palette_outline_fade_in_tbl
 
+palette_outline_fade_out_tbl:                   ;fade_out
+        db      7,7,8,8,0
+PALETTE_OUTLINE_FADE_OUT_MAX equ $-palette_outline_fade_out_tbl
+
+palette_idx:
+        dw      0
 
         db      0,0,0,0,0,0,0,0                 ;buffer for letter M
         db      0,0,0,0,0,0,0,0                 ;buffer for letter P
-palette_logo_1:                                 ;inner logo color
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
-        db      0,0,0,0,0,0,0,0
+palette_letters_fade_tbl:                       ;inner logo color
         db      8,8,8,8,7,7,7,7
-        db      11,11,11,11,2,2,2,2
+        db      11,11,11,11,9,9,9,9
 
-        db      2,2,2,2,2,2,2,2
-        db      2,2,2,2,2,2,2,2
+        db      9,9,9,9,9,9,9,9
+        db      9,9,9,9,9,9,9,9
+PALETTE_LETTERS_FADE_MAX equ $-palette_letters_fade_tbl
 
 volume_0:
         db      1001_1111b                      ;vol 0 channel 0
@@ -651,9 +692,25 @@ volume_0:
 
 current_state:
         dw      0                               ;current state. default: 0
-states_callbacks:
-        dw      state_fade_to_black_anim        ;state 0
-        dw      state_palette_anim              ;state 1
+
 states_inits:
-        dw      state_fade_to_black_init        ;state 0
-        dw      state_palette_init              ;state 1
+        dw      state_fade_to_black_init
+        dw      state_delay_5s_init
+        dw      state_outline_fade_in_init
+        dw      state_outline_fade_out_init
+        dw      state_delay_5s_init
+        dw      state_letters_fade_in_init
+        dw      state_delay_500ms_init
+        dw      state_outline_fade_in_init
+        dw      state_nothing_init
+
+states_callbacks:
+        dw      state_fade_to_black_anim
+        dw      state_delay_anim
+        dw      state_outline_fade_in_anim
+        dw      state_outline_fade_out_anim
+        dw      state_delay_anim
+        dw      state_letters_fade_in_anim
+        dw      state_delay_anim
+        dw      state_outline_fade_in_anim
+        dw      state_nothing_anim
