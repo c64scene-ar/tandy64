@@ -34,11 +34,11 @@ test_border:
         mov     al,0b0001_0100                  ;enable border color, enable 16 colors
         out     dx,al
 
-        mov     cx,262 * 60 * 3                 ;wait 3 seconds (262 * 60 * 3)
-.repeat:
-        call    anim_border_color
-
-        loop    .repeat
+;        mov     cx,262 * 60 * 3                 ;wait 3 seconds (262 * 60 * 3)
+;.repeat:
+;        call    anim_border_color
+;
+;        loop    .repeat
 
         ret
 

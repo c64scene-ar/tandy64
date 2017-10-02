@@ -129,7 +129,6 @@ palette_init:
         mov     dx,03dah                        ;select border color register
         mov     al,19h                          ;select color=9 (light blue)
         out     dx,al                           ;select palette register
-
         add     dx,4
         mov     al,1                            ;blue now
         out     dx,al
@@ -584,7 +583,7 @@ palette_black_tbl:
         db      15,7,8,0,0
 PALETTE_BLACK_MAX equ $-palette_black_tbl
 palette_colors_to_black:                        ;colors that should turn black
-        db      00h,01h,05h,09h,0ah,0dh
+        db      00h,05h,09h,0ah,0dh
 PALETTE_COLORS_TO_BLACK_MAX equ $-palette_colors_to_black
 
 palette_delay:
