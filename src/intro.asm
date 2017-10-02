@@ -65,10 +65,8 @@ section .text
 
 global intro_start
 intro_start:
-        mov     ax,gfx                          ;init segments
+        mov     ax,data                         ;init segments
         mov     ds,ax
-        mov     ax,data
-        mov     es,ax
 
         cld
 
@@ -104,8 +102,10 @@ gfx_init:
 lfsr_15bit:
 LFSR_START_STATE equ 1973                       ;any nonzero number works
 
+        push    ds
+
         mov     ax,gfx                          ;set segments
-        mov     ax,ds
+        mov     ds,ax
         mov     ax,0b800h
         mov     es,ax
 
@@ -121,42 +121,29 @@ LFSR_START_STATE equ 1973                       ;any nonzero number works
 .skip:
         cmp     ax,LFSR_START_STATE
         jnz     .loop
+
+        pop     ds
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 palette_init:
         ;logo should be turned off by default
-        mov     dx,03dah                        ;select border color register
-        mov     al,19h                          ;select color=9 (light blue)
-        out     dx,al                           ;select palette register
-        add     dx,4
-        mov     al,1                            ;blue now
+        int     3
+        sub     bx,bx
+        mov     cx,PALETTE_COLORS_TO_BLACK_MAX
+        mov     dx,03dah                        ;select color
+.loop:
+        mov     al,[palette_colors_to_black+bx]
+        or      al,10h                          ;colors start at 10h
         out     dx,al
 
-        sub     dx,4
-        mov     al,15h                          ;select color5 (cyan?)
+        add     dl,4
+        mov     al,1                            ;should be blue
         out     dx,al
 
-        add     dx,4
-        mov     al,1
-        out     dx,al                           ;blue now
-
-        sub     dx,4
-        mov     al,1ah                          ;select 10
-        out     dx,al
-
-        add     dx,4
-        mov     al,1
-        out     dx,al                           ;blue now
-
-
-        sub     dx,4
-        mov     al,1dh                          ;select 0xd
-        out     dx,al
-
-        add     dx,4
-        mov     al,1
-        out     dx,al                           ;blue now
+        sub     dl,4
+        inc     bx
+        loop    .loop
 
         ret
 
@@ -299,35 +286,35 @@ state_palette_anim:
         mov     al,0x15                         ;logo outer color
         out     dx,al                           ;select palette register
 
-        add     dx,4
+        add     dl,4
         mov     al,[palette_logo_0 + bx]
         out     dx,al
 
-        sub     dx,4                            ;aniamte letter P
-        mov     al,0x19                         ;logo inner color
+        sub     dl,4                            ;aniamte letter P
+        mov     al,0x12                         ;logo inner color
         out     dx,al
 
-        add     dx,4
+        add     dl,4
         mov     al,[palette_logo_1 + bx]
         out     dx,al
 
 
-        sub     dx,4                            ;animate letter V
+        sub     dl,4                            ;animate letter V
         mov     al,0x1a                         ;logo inner color
         out     dx,al
 
         sub     bx,8
-        add     dx,4
+        add     dl,4
         mov     al,[palette_logo_1 + bx]
         out     dx,al
 
 
-        sub     dx,4                            ;animate letter M
+        sub     dl,4                            ;animate letter M
         mov     al,0x1d                         ;logo inner color
         out     dx,al
 
         sub     bx,8
-        add     dx,4
+        add     dl,4
         mov     al,[palette_logo_1 + bx]
         out     dx,al
 
@@ -583,7 +570,7 @@ palette_black_tbl:
         db      15,7,8,0,0
 PALETTE_BLACK_MAX equ $-palette_black_tbl
 palette_colors_to_black:                        ;colors that should turn black
-        db      00h,05h,09h,0ah,0dh
+        db      00h,05h,02h,0ah,0dh             ;black, outline, P,V,M
 PALETTE_COLORS_TO_BLACK_MAX equ $-palette_colors_to_black
 
 palette_delay:
@@ -651,10 +638,10 @@ palette_logo_1:                                 ;inner logo color
         db      0,0,0,0,0,0,0,0
         db      0,0,0,0,0,0,0,0
         db      8,8,8,8,7,7,7,7
-        db      11,11,11,11,9,9,9,9
+        db      11,11,11,11,2,2,2,2
 
-        db      9,9,9,9,9,9,9,9
-        db      9,9,9,9,9,9,9,9
+        db      2,2,2,2,2,2,2,2
+        db      2,2,2,2,2,2,2,2
 
 volume_0:
         db      1001_1111b                      ;vol 0 channel 0
