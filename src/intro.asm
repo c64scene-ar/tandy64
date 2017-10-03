@@ -14,8 +14,10 @@ extern ZTimerOn, ZTimerOff, ZTimerReport
 ; render 4 bits needed for the scroll. grabs the firts for bytes from the cache,
 ; use the MSB bit. If it is on, use white, else black color
 ;
-; IN:  ds:si -> bit to render (pointer to cache)
-;      es:di -> where to render (ponter to video memory)
+; IN:   ds:si   -> bit to render (pointer to cache)
+;       es:di   -> where to render (ponter to video memory)
+;       dx      -> pointer to pixel color table
+;       bx      -> row index
 ; Args: %1: offset line.
 %macro render_bit 1
 
@@ -24,27 +26,15 @@ extern ZTimerOn, ZTimerOff, ZTimerReport
 %%loop_print:
         lodsb                                   ;fetches byte from the cache
         mov     ah,al                           ;save value in ah for later use
-        and     al,1100_0000b                   ; and use al. useful for stosb.
-                                                ; and only uses the first 2 MSB bits
-        or      al,al                           ;black/black?
-        jz      %%print_bit
+        and     al,1100_0000b
+        rol     al,1
+        rol     al,1
+        xchg    dx,bx                           ;save bx, load dx with pointer tbl
 
-        cmp     al,0100_0000b                   ;black, white?
-        jnz     %%is_10
-        mov     al,0000_1111b                   ;yes, black / white
-        jmp     %%print_bit
-
-%%is_10:
-        cmp     al,1000_0000b
-        jnz     %%is_11
-        mov     al,1111_0000b                   ;yes, white / black
-        jmp     %%print_bit
-
-%%is_11:
-        mov     al,1111_1111b                   ;yes, white, white
-
-%%print_bit:
+        xlat                                    ;al = [scroll_pixel_color_tbl+ al]
         stosb
+
+        xchg    dx,bx                           ;restore bx
 
         add     di,8192-1                       ;draw in next bank. di was incremented by
                                                 ; one in stosb.
@@ -70,80 +60,11 @@ intro_start:
 
         cld
 
-        call    gfx_init
         call    music_init
 
         call    main_loop
 
         call    sound_cleanup
-
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-gfx_init:
-;        mov     ax,0009h
-;        int     10h                             ;switch video mode
-
-        call    palette_init
-
-;        mov     si,logo                         ;ds:si (source)
-;        sub     di,di
-;        mov     ax,0b800h
-;        mov     es,ax                           ;es:di (dest)
-;
-;        mov     cx,16384                        ;copy 32k
-;        rep     movsw
-
-        call    lfsr_15bit
-        ret
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; Linear Feedback Shift Register 15-bit
-; https://en.wikipedia.org/wiki/Linear-feedback_shift_register
-lfsr_15bit:
-LFSR_START_STATE equ 1973                       ;any nonzero number works
-
-        push    ds
-
-        mov     ax,gfx                          ;set segments
-        mov     ds,ax
-        mov     ax,0b800h
-        mov     es,ax
-
-        mov     ax,LFSR_START_STATE
-.loop:
-        mov     di,ax
-        mov     si,ax
-        movsb                                   ;update pixel
-
-        shr     ax,1
-        jnc     .skip
-        xor     ax,0110_0000_0000_0000b         ;Taps 15,14 for maximum lenght
-.skip:
-        cmp     ax,LFSR_START_STATE
-        jnz     .loop
-
-        pop     ds
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-palette_init:
-        ;logo should be turned off by default
-        int     3
-        sub     bx,bx
-        mov     cx,PALETTE_COLORS_TO_BLACK_MAX
-        mov     dx,03dah                        ;select color
-.loop:
-        mov     al,[palette_colors_to_black+bx]
-        or      al,10h                          ;colors start at 10h
-        out     dx,al
-
-        add     dl,4
-        mov     al,1                            ;should be blue
-        out     dx,al
-
-        sub     dl,4
-        inc     bx
-        loop    .loop
 
         ret
 
@@ -159,7 +80,7 @@ music_init:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 wait_retrace:
 
-        mov     dx,0x3da
+        mov     dx,03dah
 .l1:
         in      al,dx                           ;wait for vertical retrace
         test    al,8                            ; to finish
@@ -243,7 +164,7 @@ state_fade_to_black_anim:
         mov     cx,PALETTE_COLORS_TO_BLACK_MAX
         sub     si,si                           ;idx for colors
 
-        mov     dx,0x3da                        ;select border color register
+        mov     dx,03dah                        ;select border color register
 .loop:
         mov     al,[palette_colors_to_black+si] ;which color to fade
         or      al,10h                          ;color index start at 0x10
@@ -266,14 +187,20 @@ state_fade_to_black_anim:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_delay_5s_init:
-        mov     word [delay_frames],300         ;wait 5 seconds before showing logo
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_delay_500ms_init:
         mov     word [delay_frames],30          ;wait 30 cycles. half second
         ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_delay_2s_init:
+        mov     word [delay_frames],60*2        ;wait 2 seconds before showing logo
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_delay_5s_init:
+        mov     word [delay_frames],60*5        ;wait 5 seconds before showing logo
+        ret
+
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_delay_anim:
@@ -282,6 +209,70 @@ state_delay_anim:
         dec     word [delay_frames]
         ret
 .next:
+        call    state_next
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_clemente_fade_in_init:
+        mov     word [clemente_lfsr_current_state],LFSR_START_STATE
+
+        ;logo should be turned off by default
+        sub     bx,bx
+        mov     cx,PALETTE_COLORS_TO_BLACK_MAX
+        mov     dx,03dah                        ;select color
+.loop:
+        mov     al,[palette_colors_to_black+bx]
+        or      al,10h                          ;colors start at 10h
+        out     dx,al
+
+        add     dl,4
+        mov     al,1                            ;should be blue
+        out     dx,al
+
+        sub     dl,4
+        inc     bx
+        loop    .loop
+
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; Uses Linear Feedback Shift Register 15-bit
+; https://en.wikipedia.org/wiki/Linear-feedback_shift_register
+state_clemente_fade_in_anim:
+
+        push    ds
+
+        mov     ax,[clemente_lfsr_current_state]
+
+        mov     bx,gfx                          ;set segments
+        mov     ds,bx
+        mov     bx,0b800h
+        mov     es,bx
+
+        mov     cx,500                          ;pixels to draw per frame
+.loop:
+        mov     di,ax
+        mov     si,ax
+        mov     dx,di
+        and     dx,01c00h                       ;don't write pixel if in scroll space
+        cmp     dx,01c00h                       ;areas: 1c00-1fff,3c00-3fff,5c00-5fff,7c00-7fff should not be written
+        je      .skip_write
+        movsb                                   ;update pixel
+.skip_write:
+        shr     ax,1
+        jnc     .skip
+        xor     ax,0110_0000_0000_0000b         ;Taps 15,14 for maximum lenght
+.skip:
+        cmp     ax,LFSR_START_STATE
+        je      .end
+        loop    .loop
+
+        pop     ds
+        mov     [clemente_lfsr_current_state],ax
+        ret
+
+.end:
+        pop     ds
         call    state_next
         ret
 
@@ -296,7 +287,7 @@ state_letters_fade_in_anim:
         cmp     bx,PALETTE_LETTERS_FADE_MAX
         je      .end
 
-        mov     dx,03dah                        ;select border color register
+        mov     dx,03dah                        ;animate letter P
         mov     al,012h                         ;logo inner color
         out     dx,al
 
@@ -325,7 +316,9 @@ state_letters_fade_in_anim:
         out     dx,al
 
         inc     word [palette_idx]
+        ret
 .end:
+        call    state_next
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -336,7 +329,7 @@ state_nothing_anim:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_outline_fade_in_init:
+state_outline_fade_init:
         mov     word [palette_outline_fade_idx],0
         ret
 
@@ -361,11 +354,6 @@ state_outline_fade_in_anim:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_outline_fade_out_init:
-        mov     word [palette_outline_fade_idx],0
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_outline_fade_out_anim:
         mov     bx,word [palette_outline_fade_idx]
         cmp     bx,PALETTE_OUTLINE_FADE_OUT_MAX
@@ -386,6 +374,26 @@ state_outline_fade_out_anim:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_outline_fade_to_final_anim:
+        mov     bx,word [palette_outline_fade_idx]
+        cmp     bx,PALETTE_OUTLINE_FADE_TO_FINAL_MAX
+        je      .end
+
+        mov     dx,03dah                        ;select border color register
+        mov     al,15h                          ;logo outline color: 5
+        out     dx,al                           ;select palette register
+
+        add     dl,4                            ;change color
+        mov     al,[palette_outline_fade_to_final_tbl + bx]
+        out     dx,al
+
+        inc     word [palette_outline_fade_idx]
+        ret
+.end:
+        call    state_next
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_anim:
         push    es                              ;no need to save ds. will be restored
                                                 ; at the end of the function
@@ -393,7 +401,7 @@ scroll_anim:
         mov     ds,ax
         mov     es,ax
 
-OFFSET_Y        equ     23*2*160                ;start at line 23
+OFFSET_Y        equ     23*2*160                ;start at line 23:160 bytes per line, lines are every 4 -> 8/4 =2
 
         mov     cx,320                          ;scroll 4 lines of 80 chars
         mov     si,OFFSET_Y+1                   ;source: last char of screen
@@ -460,8 +468,9 @@ OFFSET_Y        equ     23*2*160                ;start at line 23
 .render_bits:
         mov     di,OFFSET_Y+159                 ;es:di points to video memory
         mov     si,cache_charset                ;ds:si points to cache_charset
-        sub     bx,bx                           ;used for the cache index in the
-                                                ; macros
+        sub     bx,bx                           ;used for the cache index in the macros
+        mov     dx,scroll_pixel_color_tbl       ;used in the macros
+
         render_bit 0
         render_bit 1
         render_bit 2
@@ -623,6 +632,9 @@ pvm_wait:                                       ;cycles to read diviced 0x2df
 pvm_offset:                                     ;pointer to next byte to read
         dw 0
 
+LFSR_START_STATE equ 1973                       ;lfsr start state
+clemente_lfsr_current_state     dw      0       ;lfsr current state
+
 palette_black_delay:
         dw      0
 palette_black_idx:
@@ -639,16 +651,12 @@ PALETTE_COLORS_TO_BLACK_MAX equ $-palette_colors_to_black
 delay_frames:
         dw      0                               ;frames to wait before doing something
 
-palette_enabled:
-        db      0                               ;boolean. whether to animate the palette
-
 charset:
         incbin 'src/font_unknown_2x2-charset.bin'
 
 cache_charset:
         resb    32                              ;the 32 bytes to print in the current frame
                                                 ; char aligned like: top-left, bottom-left,
-
                                                 ; top-right, bottom-right
 scroll_text:
         db 'ABCDEFGHIJKLMNOPQRSTUVWXYZ A B C D E 0123456789    '
@@ -660,6 +668,11 @@ scroll_bit_idx:                                 ;pointer to the next bit in the 
         db 0
 scroll_col_used:
         db 0                                    ;chars are 2x2. col indicates which col is being used
+scroll_pixel_color_tbl:
+        db       00h                            ; 00 - black/black
+        db       0fh                            ; 01 - black/white
+        db      0f0h                            ; 10 - white/black
+        db      0ffh                            ; 11 - white/white
 
 palette_outline_fade_idx:                       ;index for table used in outline fade effect
         dw      0
@@ -670,6 +683,10 @@ PALETTE_OUTLINE_FADE_IN_MAX equ $-palette_outline_fade_in_tbl
 palette_outline_fade_out_tbl:                   ;fade_out
         db      7,7,8,8,0
 PALETTE_OUTLINE_FADE_OUT_MAX equ $-palette_outline_fade_out_tbl
+
+palette_outline_fade_to_final_tbl:              ;fade in until gets final color
+        db      8,8,7,7,11,11,11,11,7,7,8,8,1
+PALETTE_OUTLINE_FADE_TO_FINAL_MAX equ $-palette_outline_fade_to_final_tbl
 
 palette_idx:
         dw      0
@@ -694,17 +711,21 @@ current_state:
         dw      0                               ;current state. default: 0
 
 states_inits:
+        dw      state_delay_2s_init
+        dw      state_clemente_fade_in_init
         dw      state_fade_to_black_init
         dw      state_delay_5s_init
-        dw      state_outline_fade_in_init
-        dw      state_outline_fade_out_init
+        dw      state_outline_fade_init
+        dw      state_outline_fade_init
         dw      state_delay_5s_init
         dw      state_letters_fade_in_init
         dw      state_delay_500ms_init
-        dw      state_outline_fade_in_init
+        dw      state_outline_fade_init
         dw      state_nothing_init
 
 states_callbacks:
+        dw      state_delay_anim
+        dw      state_clemente_fade_in_anim
         dw      state_fade_to_black_anim
         dw      state_delay_anim
         dw      state_outline_fade_in_anim
@@ -712,5 +733,5 @@ states_callbacks:
         dw      state_delay_anim
         dw      state_letters_fade_in_anim
         dw      state_delay_anim
-        dw      state_outline_fade_in_anim
+        dw      state_outline_fade_to_final_anim
         dw      state_nothing_anim
