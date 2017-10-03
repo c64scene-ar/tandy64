@@ -73,8 +73,12 @@ music_init:
         mov     ax,data
         mov     ds,ax
 
-        mov     word [pvm_offset],pvm_song + 0x10       ;update start offset
-        mov     byte [pvm_wait],0               ;don't wait at start
+        mov     word [pvm_offset],pvm_song + 10h       ;update start offset
+        sub     al,al
+        mov     byte [pvm_wait],al              ;don't wait at start
+        mov     byte [noise_triggered],al       ;noise not playing
+        mov     byte [noise_fade_idx],al
+        mov     byte [noise_fade_enabled],al
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -111,8 +115,9 @@ main_loop:
         shl     bx,1                            ; and convert it into offset
         call    [states_callbacks + bx]         ; and call correct state callback
 
-        call    music_anim                      ;music and scroll are always
-        call    scroll_anim                     ; executed, regardless of the state
+        call    music_anim                      ;play music
+        call    noise_fade_anim                 ;outline fade anim
+        call    scroll_anim                     ;anim scroll
 
 ;        call    dec_d020
 
@@ -332,6 +337,11 @@ state_nothing_init:
         ret
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_nothing_anim:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_skip_anim:
+        call    state_next
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -568,6 +578,14 @@ END     equ     1000_0000b
 .repeat:
         lodsb
         out     0c0h,al
+
+        mov     byte [noise_triggered],0
+        and     al,1111_0000b                   ;is noise?
+        cmp     al,1110_0000b
+        jne     .not_noise
+        inc     byte [noise_triggered]          ;notify noise is playing
+
+.not_noise:
         loop    .repeat
 
         jmp     .l0                             ; repeat... fetch next command
@@ -592,6 +610,38 @@ END     equ     1000_0000b
         mov     byte [pvm_wait], 5              ;wait 5 cycles before starting again
         mov     word [pvm_offset], pvm_song + 10h       ; beginning of song
 
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_enable_noise_fade_init:
+        inc     byte [noise_fade_enabled]
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+noise_fade_anim:
+        cmp     byte [noise_fade_enabled],0
+        je      .exit
+
+        cmp     byte [noise_triggered],0
+        je      .skip
+        mov     byte [noise_fade_idx],0         ;if triggered, reset anim
+.skip:
+        cmp     byte [noise_fade_idx],NOISE_FADE_MAX    ;end of anim?
+        je      .exit
+
+        sub     bh,bh
+        mov     bl,[noise_fade_idx]             ;bx with idex to table
+
+        mov     dx,03dah
+        mov     al,15h                          ;color 5 is outline color
+        out     dx,al
+
+        add     dl,4
+        mov     al,[noise_fade_tbl+bx]        ;fetch color
+        out     dx,al
+
+        inc     byte [noise_fade_idx]
+.exit:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -637,6 +687,17 @@ pvm_wait:                                       ;cycles to read diviced 0x2df
         db 0
 pvm_offset:                                     ;pointer to next byte to read
         dw 0
+
+noise_fade_enabled:                             ;effect is enabled?
+        db 0
+noise_triggered:
+        db 0                                    ;boolen. whether noise is playing
+noise_fade_idx:                                 ;index to table
+        db 0
+noise_fade_tbl:
+        db      8,7,11,7,8,1
+NOISE_FADE_MAX equ $-noise_fade_tbl
+
 
 LFSR_START_STATE equ 1973                       ;lfsr start state
 clemente_lfsr_current_state     dw      0       ;lfsr current state
@@ -727,6 +788,8 @@ states_inits:
         dw      state_letters_fade_in_init
         dw      state_delay_500ms_init
         dw      state_outline_fade_init
+        dw      state_delay_2s_init
+        dw      state_enable_noise_fade_init
         dw      state_nothing_init
 
 states_callbacks:
@@ -740,4 +803,6 @@ states_callbacks:
         dw      state_letters_fade_in_anim
         dw      state_delay_anim
         dw      state_outline_fade_to_final_anim
+        dw      state_delay_anim
+        dw      state_skip_anim
         dw      state_nothing_anim
