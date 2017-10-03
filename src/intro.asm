@@ -164,7 +164,7 @@ state_fade_to_black_anim:
         mov     cx,PALETTE_COLORS_TO_BLACK_MAX
         sub     si,si                           ;idx for colors
 
-        mov     dx,03dah                        ;select border color register
+        mov     dx,03dah                        ;select color register
 .loop:
         mov     al,[palette_colors_to_black+si] ;which color to fade
         or      al,10h                          ;color index start at 0x10
@@ -177,6 +177,12 @@ state_fade_to_black_anim:
         sub     dl,4
         inc     si
         loop    .loop
+
+        mov     al,2                            ;select border color register
+        out     dx,al
+        add     dl,4
+        mov     al,[palette_black_tbl+bx]
+        out     dx,al                           ;update color
 
         inc     word [palette_black_idx]
         cmp     word [palette_black_idx], PALETTE_BLACK_MAX
