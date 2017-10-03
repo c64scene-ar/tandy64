@@ -707,8 +707,7 @@ palette_black_delay:
 palette_black_idx:
         dw      0
 palette_black_tbl:                              ;fade to white/fade to black colors
-        db      1,9,11,15
-        db      15,7,8,0,0
+        db      9,11,3,7,8,0
 PALETTE_BLACK_MAX equ $-palette_black_tbl
 
 palette_colors_to_black:                        ;colors that should turn black
