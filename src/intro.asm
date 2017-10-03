@@ -249,7 +249,7 @@ state_clemente_fade_in_anim:
         mov     bx,0b800h
         mov     es,bx
 
-        mov     cx,250                          ;pixels to draw per frame
+        mov     cx,150                          ;pixels to draw per frame
 .loop:
         mov     di,ax
         mov     si,ax
