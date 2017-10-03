@@ -107,12 +107,12 @@ main_loop:
 
 ;        call    inc_d020
 
-        call    music_anim                      ;music and scroll are always
-        call    scroll_anim                     ; executed, regardless of the state
-
         mov     bx,word [current_state]         ;fetch state
         shl     bx,1                            ; and convert it into offset
         call    [states_callbacks + bx]         ; and call correct state callback
+
+        call    music_anim                      ;music and scroll are always
+        call    scroll_anim                     ; executed, regardless of the state
 
 ;        call    dec_d020
 
