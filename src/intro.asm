@@ -105,7 +105,7 @@ main_loop:
 .loop:
         call    wait_retrace
 
-        call    inc_d020
+;        call    inc_d020
 
         call    music_anim                      ;music and scroll are always
         call    scroll_anim                     ; executed, regardless of the state
@@ -114,7 +114,7 @@ main_loop:
         shl     bx,1                            ; and convert it into offset
         call    [states_callbacks + bx]         ; and call correct state callback
 
-        call    dec_d020
+;        call    dec_d020
 
         mov     ah,1
         int     16h                             ; INT 16,AH=1, OUT:ZF=status
@@ -249,7 +249,7 @@ state_clemente_fade_in_anim:
         mov     bx,0b800h
         mov     es,bx
 
-        mov     cx,500                          ;pixels to draw per frame
+        mov     cx,250                          ;pixels to draw per frame
 .loop:
         mov     di,ax
         mov     si,ax
