@@ -61,6 +61,7 @@ intro_start:
         cld
 
         call    music_init
+        call    text_writer_init
 
         call    main_loop
 
@@ -69,20 +70,7 @@ intro_start:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-music_init:
-        mov     ax,data
-        mov     ds,ax
-
-        mov     word [pvm_offset],pvm_song + 10h       ;update start offset
-        sub     al,al
-        mov     byte [pvm_wait],al              ;don't wait at start
-        mov     byte [noise_triggered],al       ;noise not playing
-        mov     byte [noise_fade_idx],al
-        mov     byte [noise_fade_enabled],al
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-wait_retrace:
+wait_vertical_retrace:
 
         mov     dx,03dah
 .l1:
@@ -107,7 +95,7 @@ main_loop:
         call    [states_inits]                  ;init state 0
 
 .loop:
-        call    wait_retrace
+        call    wait_vertical_retrace
 
 ;        call    inc_d020
 
@@ -117,6 +105,7 @@ main_loop:
 
         call    music_anim                      ;play music
         call    noise_fade_anim                 ;outline fade anim
+        call    text_writer_anim                ;text writer
         call    scroll_anim                     ;anim scroll
 
 ;        call    dec_d020
@@ -199,7 +188,7 @@ state_fade_to_black_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_delay_500ms_init:
-        mov     word [delay_frames],3           ;wait 30 cycles. half second
+        mov     word [delay_frames],30          ;wait 30 cycles. half second
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -527,6 +516,19 @@ OFFSET_Y        equ     23*2*160                ;start at line 23:160 bytes per 
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+music_init:
+        mov     ax,data
+        mov     ds,ax
+
+        mov     word [pvm_offset],pvm_song + 10h       ;update start offset
+        sub     al,al
+        mov     byte [pvm_wait],al              ;don't wait at start
+        mov     byte [noise_triggered],al       ;noise not playing
+        mov     byte [noise_fade_idx],al
+        mov     byte [noise_fade_enabled],al
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 music_anim:
 
 DATA    equ     0000_0000b
@@ -610,6 +612,14 @@ END     equ     1000_0000b
         mov     byte [pvm_wait], 5              ;wait 5 cycles before starting again
         mov     word [pvm_offset], pvm_song + 10h       ; beginning of song
 
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_init:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_anim:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -773,35 +783,53 @@ volume_0:
         db      1101_1111b                      ;vol 0 channel 2
         db      1111_1111b                      ;vol 0 channel 3
 
-current_state:
-        dw      0                               ;current state. default: 0
+
+current_state:                                  ;current state. index for the
+        dw      0                               ; function to call.
 
 states_inits:
-        dw      state_delay_2s_init
-        dw      state_clemente_fade_in_init
-        dw      state_fade_to_black_init
-        dw      state_delay_5s_init
-        dw      state_outline_fade_init
-        dw      state_outline_fade_init
-        dw      state_delay_5s_init
-        dw      state_letters_fade_in_init
-        dw      state_delay_500ms_init
-        dw      state_outline_fade_init
-        dw      state_delay_2s_init
-        dw      state_enable_noise_fade_init
-        dw      state_nothing_init
+        dw      state_delay_2s_init             ;a
+        dw      state_clemente_fade_in_init     ;b
+        dw      state_fade_to_black_init        ;c
+        dw      state_delay_5s_init             ;d
+        dw      state_outline_fade_init         ;e
+        dw      state_outline_fade_init         ;f
+        dw      state_delay_5s_init             ;g
+        dw      state_letters_fade_in_init      ;h
+        dw      state_outline_fade_init         ;j
+        dw      state_delay_2s_init             ;k
+        dw      state_enable_noise_fade_init    ;l
+        dw      state_nothing_init              ;m
 
 states_callbacks:
-        dw      state_delay_anim
-        dw      state_clemente_fade_in_anim
-        dw      state_fade_to_black_anim
-        dw      state_delay_anim
-        dw      state_outline_fade_in_anim
-        dw      state_outline_fade_out_anim
-        dw      state_delay_anim
-        dw      state_letters_fade_in_anim
-        dw      state_delay_anim
-        dw      state_outline_fade_to_final_anim
-        dw      state_delay_anim
-        dw      state_skip_anim
-        dw      state_nothing_anim
+        dw      state_delay_anim                ;a
+        dw      state_clemente_fade_in_anim     ;b
+        dw      state_fade_to_black_anim        ;c
+        dw      state_delay_anim                ;d
+        dw      state_outline_fade_in_anim      ;e
+        dw      state_outline_fade_out_anim     ;f
+        dw      state_delay_anim                ;g
+        dw      state_letters_fade_in_anim      ;h
+        dw      state_outline_fade_to_final_anim        ;j
+        dw      state_delay_anim                ;k
+        dw      state_skip_anim                 ;l
+        dw      state_nothing_anim              ;m
+
+
+text_writer_state:
+        db      0
+
+text_writer_idx:                                ;offset to the text_writer_data
+        dw      0
+
+        ;control codes: think of it as a printer
+        ; 0 - carriage return (no line feed)
+        ; 1 - backspace
+        ; 2,n - idle vertical retraces
+        ; 3,n - change foreground color
+        ; 4,n - change background color
+        ; 255 - start over
+text_writer_data:
+        db      'hola como estas',0
+        db      'muy bien y vos',0
+        db      255
