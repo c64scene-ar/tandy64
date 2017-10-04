@@ -174,9 +174,10 @@ do_anim_cursor:
 ;       cx:     number of vertical retraces to wait
 do_delay:
         push    dx
-;.repeat:
+.repeat:
 ;        call    wait_vert_retrace
-;        loop    .repeat
+        call    wait_horiz_retrace
+        loop    .repeat
         pop     dx
 
         ret
@@ -284,6 +285,22 @@ wait_vert_retrace:
 .wait_retrace_start:
         in      al,dx                           ;wait until start of the retrace
         test    al,8
+        jz      .wait_retrace_start
+
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+wait_horiz_retrace:
+        mov     dx,0x3da
+
+.wait_retrace_finish:                           ;if retrace already started, wait
+        in      al,dx                           ; until it finishes
+        test    al,1
+        jnz     .wait_retrace_finish
+
+.wait_retrace_start:
+        in      al,dx                           ;wait until start of the retrace
+        test    al,1
         jz      .wait_retrace_start
 
         ret

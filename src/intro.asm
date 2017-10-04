@@ -199,7 +199,7 @@ state_fade_to_black_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_delay_500ms_init:
-        mov     word [delay_frames],30          ;wait 30 cycles. half second
+        mov     word [delay_frames],3           ;wait 30 cycles. half second
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -695,7 +695,7 @@ noise_triggered:
 noise_fade_idx:                                 ;index to table
         db 0
 noise_fade_tbl:
-        db      8,7,11,7,8,1
+        db      8,7,11,8,1
 NOISE_FADE_MAX equ $-noise_fade_tbl
 
 
@@ -711,7 +711,7 @@ palette_black_tbl:                              ;fade to white/fade to black col
 PALETTE_BLACK_MAX equ $-palette_black_tbl
 
 palette_colors_to_black:                        ;colors that should turn black
-        db      00h,05h,02h,0ah,0dh             ;black, outline, P,V,M
+        db      00h,05h,02h,0ah,0dh,03h         ;black, outline, P, V, M, inner
 PALETTE_COLORS_TO_BLACK_MAX equ $-palette_colors_to_black
 
 delay_frames:
