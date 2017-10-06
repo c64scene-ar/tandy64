@@ -250,7 +250,7 @@ main_loop:
 
         dec     byte [tick]
 
-        call    inc_d020
+;        call    inc_d020
 
         mov     bx,word [current_state]         ;fetch state
         shl     bx,1                            ; and convert it into offset
@@ -261,7 +261,7 @@ main_loop:
         call    text_writer_anim                ;text writer
         call    scroll_anim                     ;anim scroll
 
-        call    dec_d020
+;        call    dec_d020
 
         mov     ah,1
         int     16h                             ; INT 16,AH=1, OUT:ZF=status
