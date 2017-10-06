@@ -11,7 +11,7 @@ extern ZTimerOn, ZTimerOff, ZTimerReport
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; render 4 bits needed for the scroll. grabs the firts for bytes from the cache,
+; render vertically 4 bits needed for the scroll. grabs the firts for bytes from the cache,
 ; use the MSB bit. If it is on, use white, else black color
 ;
 ; IN:   ds:si   -> bit to render (pointer to cache)
@@ -47,6 +47,39 @@ extern ZTimerOn, ZTimerOff, ZTimerReport
         loop    %%loop_print
 %endmacro
 
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; render horizontally 2 bytes (4 pixels)
+; useful to render a char from a 1x1 charset
+;
+; IN:
+;       es:di   -> where to render (ponter to video memory)
+;       bx      -> offset of nibble to render
+;       ah      -> must be 0
+%macro render_nibble 0
+
+        mov     al,byte [c64_charset+bx]        ;first byte to print from charset. represents 8 pixels
+        mov     dl,al                           ;save al
+        shr     al,1                            ;process hi nibble. shift 3 times to right
+        shr     al,1                            ; instead of shifting 4 times
+        shr     al,1                            ; and then one shift left
+        and     al,0001_1110b                   ;turn off bit 0 in case it is one
+        mov     si,text_writer_bitmap_to_video_tbl
+        add     si,ax
+
+        movsw                                   ;render MSB nibble (4 pixels, 2 bytes)
+
+        mov     al,dl                           ;restore al, and process LSB nibble
+        and     al,0000_1111b
+        shl     al,1                            ;times 2. offset to table
+
+        mov     si,text_writer_bitmap_to_video_tbl      ;reset si
+        add     si,ax                           ;offset to bytes
+
+        movsw                                   ;render LSB nibble (4 pixels, 2 bytes)
+
+        inc     bx                              ;get ready for next call
+%endmacro
+
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; CODE
@@ -56,40 +89,156 @@ section .text
 global intro_start
 intro_start:
         mov     ax,data                         ;init segments
-        mov     ds,ax
+        mov     ds,ax                           ;these values must always be true
+        mov     ax,0b800h                       ; through the whole intro.
+        mov     es,ax                           ; push/pop otherwise
 
         cld
 
+        call    irq_init
         call    music_init
         call    text_writer_init
+
+        mov     al,65
+        call    text_writer_print_char
+        inc     byte [text_writer_x_pos]
+        mov     al,66
+        call    text_writer_print_char
 
         call    main_loop
 
         call    sound_cleanup
+        call    irq_cleanup
 
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-wait_vertical_retrace:
+; installs a timer IRQ that triggers at the correct horizontal scan line
+; for the scroll
+irq_init:
 
+PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
+                                                ; make it sync with vertical retrace
+
+        call    wait_vertical_retrace_start
+
+        mov     cx,180                          ;and wait for scanlines
+.repeat:
+        call    wait_horiz_retrace
+        loop    .repeat
+
+        cli
+
+        push    ds
+        sub     ax,ax
+        mov     ds,ax
+
+        mov     ax,new_i08
+        mov     dx,cs
+        xchg    ax,[ds:8*4]
+        xchg    dx,[ds:8*4+2]
+        mov     [old_i08],ax
+        mov     [old_i08+2],dx
+
+        pop     ds
+
+        mov     ax,PIT_DIVIDER                  ;Configure the PIT to
+
+        call    setup_pit                       ;setup PIT
+
+        in      al,21h                          ;Read primary PIC Interrupt Mask Register
+        mov     [old_pic_imr],al                ;Store it for later
+        mov     al,1111_1100b                   ;Mask off everything except IRQ 0
+        out     21h,al                          ; and IRQ1 (timer and keyboard)
+
+        sti
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+irq_cleanup:
+        cli
+
+        mov     al,[old_pic_imr]                ;Get old PIC settings
+        out     21h,al                          ;Set primary PIC Interrupt Mask Register
+
+        mov     ax,0                            ;Reset PIT to defaults (~18.2 Hz)
+        call    setup_pit                       ; actually means 10000h
+
+        push    ds
+        xor     ax,ax
+        mov     ds,ax
+        les     si,[old_i08]
+        mov     [ds:8*4],si
+        mov     [ds:8*4+2],es                   ;Restore the old INT 08 vector
+        pop     ds
+
+        sti
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+setup_pit:
+        ; AX = PIT clock period
+        ;          (Divider to 1193180 Hz)
+        push    ax
+        mov     al,34h
+        out     43h,al
+        pop     ax
+        out     40h,al
+        mov     al,ah
+        out     40h,al
+
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+;waits until the beam is about to return to the top-left
+;should be the one to call for the effects
+wait_vertical_retrace:
         mov     dx,03dah
-.l1:
+.wait_retrace_finish:
         in      al,dx                           ;wait for vertical retrace
         test    al,8                            ; to finish
-        jnz     .l1
+        jnz     .wait_retrace_finish
 
-.l0:
+.wait_retrace_start:
         in      al,dx                           ;wait for vertical retrace
         test    al,8                            ; to start
-        jz      .l0
+        jz      .wait_retrace_start
 
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+;waits until the beam is about to start from the top-left again
+;call it to sync the timer with the scanlines
+wait_vertical_retrace_start:
+        mov     dx,03dah
+.wait_retrace_start:
+        in      al,dx                           ;wait for vertical retrace
+        test    al,8                            ; to start
+        jz      .wait_retrace_start
+
+.wait_retrace_finish:
+        in      al,dx                           ;wait for vertical retrace
+        test    al,8                            ; to finish
+        jnz     .wait_retrace_finish
+
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+wait_horiz_retrace:
+        mov     dx,0x3da
+.wait_retrace_finish:                            ;wait for horizontal retrace start
+        in      al,dx
+        test    al,1
+        jnz      .wait_retrace_finish
+
+.wait_retrace_start:
+        in      al,dx                           ;wait until start of the retrace
+        test    al,1
+        jz      .wait_retrace_start
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 main_loop:
-
-        mov     ax,data
-        mov     ds,ax                           ;defaults for main loop
 
         mov     word [current_state],0
         call    [states_inits]                  ;init state 0
@@ -118,6 +267,50 @@ main_loop:
         int     16h
 
         ret
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; IRQ
+new_i08:
+        push    ax
+        push    bx
+        push    cx
+        push    dx
+        push    ds
+
+        mov     dx,03dah
+        mov     al,010h                         ;select palette color 0
+        out     dx,al
+
+        add     dl,4
+        mov     al,15                           ;it is white now
+        out     dx,al
+
+        mov     ax,data
+        mov     ds,ax
+        mov     si,raster_colors_tbl
+
+        mov     cx,18
+.l0:
+        call    wait_horiz_retrace
+
+        mov     al,010h                         ;select palette color 0
+        out     dx,al
+
+        add     dl,4
+        lodsb
+        out     dx,al
+
+        loop    .l0
+
+        mov     al,20h                          ;Send the EOI signal
+        out     20h,al                          ; to the IRQ controller
+
+        pop     ds
+        pop     dx
+        pop     cx
+        pop     bx
+        pop     ax
+
+        iret                                    ;Exit interrupt
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 sound_cleanup:
@@ -245,9 +438,8 @@ state_clemente_fade_in_anim:
         mov     ax,[clemente_lfsr_current_state]
 
         mov     bx,gfx                          ;set segments
-        mov     ds,bx
-        mov     bx,0b800h
-        mov     es,bx
+        mov     ds,bx                           ;ds: gfx segment
+                                                ;es: video memory (alread points to it)
 
         mov     cx,150                          ;pixels to draw per frame
 .loop:
@@ -400,11 +592,8 @@ state_outline_fade_to_final_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_anim:
-        push    es                              ;no need to save ds. will be restored
-                                                ; at the end of the function
-        mov     ax,0b800h                       ;video memory
-        mov     ds,ax
-        mov     es,ax
+        mov     ax,0b800h                       ;ds points to video memory
+        mov     ds,ax                           ;es already points to it
 
 OFFSET_Y        equ     23*2*160                ;start at line 23:160 bytes per line, lines are every 4 -> 8/4 =2
 
@@ -429,7 +618,7 @@ OFFSET_Y        equ     23*2*160                ;start at line 23:160 bytes per 
         rep movsw                               ;do the copy
 
 
-        mov     ax,data
+        mov     ax,data                         ;restore ds. points to data
         mov     ds,ax
 
         cmp     byte [scroll_bit_idx],0         ;only update cache if scroll_bit_idx == 0
@@ -447,7 +636,6 @@ OFFSET_Y        equ     23*2*160                ;start at line 23:160 bytes per 
         shl     bx,1
         lea     si,[charset+bx]                 ;ds:si: charset
 
-        push    es                              ;save es for later
 
         mov     es,ax                           ;es = ds
         mov     di,cache_charset                ;es:di: cache
@@ -467,10 +655,11 @@ OFFSET_Y        equ     23*2*160                ;start at line 23:160 bytes per 
         add     si,(128-1)*8                    ;point to next char. offset=192
         rep movsw
 
-        pop     es                              ;restore es. points to video memory
-
 
 .render_bits:
+        mov     ax,0b800h
+        mov     es,ax
+
         mov     di,OFFSET_Y+159                 ;es:di points to video memory
         mov     si,cache_charset                ;ds:si points to cache_charset
         sub     bx,bx                           ;used for the cache index in the macros
@@ -492,7 +681,7 @@ OFFSET_Y        equ     23*2*160                ;start at line 23:160 bytes per 
 
         ;update cache with remaing 16-bytes (the 2nd col)
         push    ds                              ;copy 2nd-col chars to cache
-        pop     es
+        pop     es                              ;es = data
         mov     si,cache_charset+16             ;pointer to 2nd-col chars
         mov     di,cache_charset                ;pointer to 1st-col chars
         mov     cx,8
@@ -511,15 +700,12 @@ OFFSET_Y        equ     23*2*160                ;start at line 23:160 bytes per 
         mov     word [scroll_char_idx],ax
 
 .end:
-        pop     es
-
+        mov     ax,0b800h                       ;restore es to video memory
+        mov     es,ax
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 music_init:
-        mov     ax,data
-        mov     ds,ax
-
         mov     word [pvm_offset],pvm_song + 10h       ;update start offset
         sub     al,al
         mov     byte [pvm_wait],al              ;don't wait at start
@@ -620,7 +806,74 @@ text_writer_init:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_anim:
+        mov     al,[text_writer_state]
         ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; IN:   al=char to print
+; ASSUMES:  es: pointer to video segment
+;           ds: pointer to charset segment
+text_writer_print_char:
+
+TEXT_WRITER_OFFSET_Y    equ     21*2*160        ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
+
+        int 3
+        sub     ah,ah
+        mov     bx,ax                           ;bx = ax (char to print)
+        shl     bx,1
+        shl     bx,1
+        shl     bx,1                            ;bx*8 since each char takes 8 bytes
+
+        mov     di,TEXT_WRITER_OFFSET_Y         ;writer start point
+        mov     ax,word [text_writer_x_pos]     ;x pos, from 0 to 39
+        shl     ax,1
+        shl     ax,1                            ;times 4 (each char takes 4 bytes wide)
+        or      di,ax                           ;or is cheaper than add
+
+        sub     ah,ah
+
+        render_nibble
+
+        add     di,8192-4
+        render_nibble
+
+        add     di,8192-4
+        render_nibble
+
+        add     di,8192-4
+        render_nibble
+
+
+        sub     di,24576-156                    ;160-2
+        render_nibble
+
+        add     di,8192-4
+        render_nibble
+
+        add     di,8192-4
+        render_nibble
+
+        add     di,8192-4
+        render_nibble
+
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_clear:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_cr:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_color_fg:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_color_bg:
+        ret
+
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_enable_noise_fade_init:
@@ -727,6 +980,10 @@ PALETTE_COLORS_TO_BLACK_MAX equ $-palette_colors_to_black
 delay_frames:
         dw      0                               ;frames to wait before doing something
 
+global c64_charset
+c64_charset:
+        incbin 'src/c64_charset-charset.bin'
+
 charset:
         incbin 'src/font_unknown_2x2-charset.bin'
 
@@ -819,6 +1076,28 @@ states_callbacks:
 text_writer_state:
         db      0
 
+text_writer_x_pos:                              ;position x for the cursor. 0-39
+        dw      0
+
+text_writer_bitmap_to_video_tbl:                ;converts charset (bitmap) to video bytes. nibble only
+        db      000h,000h                       ;0000_0000b
+        db      000h,00fh                       ;0000_0001b
+        db      000h,0f0h                       ;0000_0010b
+        db      000h,0ffh                       ;0000_0011b
+        db      00fh,000h                       ;0000_0100b
+        db      00fh,00fh                       ;0000_0101b
+        db      00fh,0f0h                       ;0000_0110b
+        db      00fh,0ffh                       ;0000_0111b
+
+        db      0f0h,000h                       ;0000_1000b
+        db      0f0h,00fh                       ;0000_1001b
+        db      0f0h,0f0h                       ;0000_1010b
+        db      0f0h,0ffh                       ;0000_1011b
+        db      0ffh,000h                       ;0000_1100b
+        db      0ffh,00fh                       ;0000_1101b
+        db      0ffh,0f0h                       ;0000_1110b
+        db      0ffh,0ffh                       ;0000_1111b
+
 text_writer_idx:                                ;offset to the text_writer_data
         dw      0
 
@@ -828,8 +1107,18 @@ text_writer_idx:                                ;offset to the text_writer_data
         ; 2,n - idle vertical retraces
         ; 3,n - change foreground color
         ; 4,n - change background color
+        ; 5 - clear line
         ; 255 - start over
 text_writer_data:
         db      'hola como estas',0
         db      'muy bien y vos',0
         db      255
+
+old_i08:
+        dd      0                               ;segment + offset to old int 8
+old_pic_imr:
+        db      0                               ;PIC IMR original value
+raster_colors_tbl:
+        db      0,1,2,3,4,5,6,7
+        db      8,9,10,11,12,13,14,15
+        db      0,0,0,0,0,0,0,0,0,0

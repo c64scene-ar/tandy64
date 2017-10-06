@@ -7,6 +7,7 @@ cpu     8086
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; Structs and others
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+extern c64_charset
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; CODE
@@ -206,7 +207,7 @@ update_palette:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 set_charset:
         push    ds
-        mov     dx,ds
+        mov     dx,seg c64_charset
 
         sub     ax,ax
         mov     ds,ax
@@ -360,6 +361,3 @@ c64_screen:
         db 3                                            ;turn off user input
 C64_SCREEN_SIZE equ $ - c64_screen
 
-
-c64_charset:
-        incbin 'src/c64_charset-charset.bin'
