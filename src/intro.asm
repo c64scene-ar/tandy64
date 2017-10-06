@@ -238,6 +238,21 @@ wait_horiz_retrace:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+wait_horiz_retrace_start:
+        mov     dx,0x3da
+
+.wait_retrace_start:
+        in      al,dx                           ;wait until start of the retrace
+        test    al,1
+        jz      .wait_retrace_start
+        ret
+
+.wait_retrace_finish:                            ;wait for horizontal retrace start
+        in      al,dx
+        test    al,1
+        jnz      .wait_retrace_finish
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 main_loop:
 
         mov     word [current_state],0
@@ -290,7 +305,7 @@ new_i08:
 
         mov     cx,18
 .l0:
-        call    wait_horiz_retrace
+        call    wait_horiz_retrace_start
 
         mov     al,010h                         ;select palette color 0
         out     dx,al
