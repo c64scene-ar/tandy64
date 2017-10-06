@@ -300,7 +300,7 @@ new_i08:
         ;after raster baster finishes
 
         mov     bx,word [current_state]         ;fetch state
-        shl     bx,1                            ; and convert it into offset
+        shl     bx,1                            ; and convert it into offset (2 bytes per offset)
         call    [states_callbacks+bx]           ; and call correct state callback
 
         call    music_anim                      ;play music
@@ -453,6 +453,15 @@ state_clemente_fade_in_anim:
         mov     bx,gfx                          ;set segments
         mov     ds,bx                           ;ds: gfx segment
                                                 ;es: video memory (alread points to it)
+
+;        sub     ax,ax
+;        mov     si,ax
+;        mov     di,ax
+;        mov     cx,16384
+;        rep     movsw
+;        pop     ds
+;        call    state_next
+;        ret
 
         mov     cx,150                          ;pixels to draw per frame
 .loop:
@@ -818,12 +827,38 @@ END     equ     1000_0000b
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_init:
+        mov     byte [text_writer_idx],0
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_anim:
-        mov     al,[text_writer_state]
+        sub     bh,bh
+        mov     bl,[text_writer_state]
+        shl     bl,1
+        call    [text_writer_callbacks+bx]
         ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_state_idle:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_state_print_char:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_state_backspace:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_state_cr:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_enable_noise_fade_init:
+        inc     byte [noise_fade_enabled]
+        ret
+
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; IN:   al=char to print
@@ -871,28 +906,6 @@ TEXT_WRITER_OFFSET_Y    equ     21*2*160        ;start at line 21:160 bytes per 
         add     di,8192-4
         render_nibble
 
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-text_writer_clear:
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-text_writer_cr:
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-text_writer_color_fg:
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-text_writer_color_bg:
-        ret
-
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_enable_noise_fade_init:
-        inc     byte [noise_fade_enabled]
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -950,6 +963,7 @@ dec_d020:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 section .gfx data
         incbin 'src/logo.raw'                   ;MUST be the first variable in the segment
+;        times 32768 db 0x00                     ;black/black
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; DATA MUSIC + CHARSET + MISC
@@ -1126,6 +1140,12 @@ text_writer_data:
         db      'hola como estas',0
         db      'muy bien y vos',0
         db      255
+
+text_writer_callbacks:
+        dw      text_writer_state_idle          ;
+        dw      text_writer_state_print_char    ;
+        dw      text_writer_state_backspace     ;
+        dw      text_writer_state_cr            ;
 
 old_i08:                                        ;segment + offset to old int 8
         dd      0
