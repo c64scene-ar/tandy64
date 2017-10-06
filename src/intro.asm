@@ -241,12 +241,16 @@ wait_horiz_retrace:
 main_loop:
 
         mov     word [current_state],0
+        mov     byte [tick],0
         call    [states_inits]                  ;init state 0
 
 .loop:
-        call    wait_vertical_retrace
+        cmp     byte [tick],0
+        je      .loop
 
-;        call    inc_d020
+        dec     byte [tick]
+
+        call    inc_d020
 
         mov     bx,word [current_state]         ;fetch state
         shl     bx,1                            ; and convert it into offset
@@ -257,7 +261,7 @@ main_loop:
         call    text_writer_anim                ;text writer
         call    scroll_anim                     ;anim scroll
 
-;        call    dec_d020
+        call    dec_d020
 
         mov     ah,1
         int     16h                             ; INT 16,AH=1, OUT:ZF=status
@@ -274,6 +278,7 @@ new_i08:
         push    bx
         push    cx
         push    dx
+        push    si
         push    ds
 
         mov     ax,data
@@ -311,7 +316,10 @@ new_i08:
         mov     al,20h                          ;Send the EOI signal
         out     20h,al                          ; to the IRQ controller
 
+        inc     byte [tick]
+
         pop     ds
+        pop     si
         pop     dx
         pop     cx
         pop     bx
@@ -1129,3 +1137,6 @@ raster_colors_tbl:
         db      0,1,2,3,4,5,6,7
         db      8,9,10,11,12,13,14,15
         db      0,0,0,0,0,0,0,0,0,0
+
+tick:                                           ;when non zero, a retrace should be done
+        db      0
