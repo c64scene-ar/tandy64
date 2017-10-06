@@ -253,7 +253,7 @@ video_on:
 
 	    sti                                     ;enable interrupts
 
-	    mov     dx,0x3d8
+	    mov     dx,0x03d8
 	    mov     al,0b0000_1001                  ;no blink. intensity only
 	    out     dx,al
 
@@ -263,7 +263,7 @@ video_on:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 video_off:
 
-        mov     dx,0x3d8                        ;disable video
+        mov     dx,0x03d8                       ;disable video
         mov     al,1
         out     dx,al
 
@@ -276,7 +276,7 @@ video_off:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 wait_vert_retrace:
-        mov     dx,0x3da
+        mov     dx,0x03da
 
 .wait_retrace_finish:                           ;if retrace already started, wait
         in      al,dx                           ; until it finishes

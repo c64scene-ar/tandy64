@@ -90,7 +90,7 @@ global intro_start
 intro_start:
         mov     ax,data                         ;init segments
         mov     ds,ax                           ;these values must always be true
-        mov     ax,0b800h                       ; through the whole intro.
+        mov     ax,0xb800                       ; through the whole intro.
         mov     es,ax                           ; push/pop otherwise
 
         cld
@@ -146,10 +146,10 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 
         call    setup_pit                       ;setup PIT
 
-        in      al,21h                          ;Read primary PIC Interrupt Mask Register
+        in      al,0x21                         ;Read primary PIC Interrupt Mask Register
         mov     [old_pic_imr],al                ;Store it for later
         mov     al,1111_1100b                   ;Mask off everything except IRQ 0
-        out     21h,al                          ; and IRQ1 (timer and keyboard)
+        out     0x21,al                         ; and IRQ1 (timer and keyboard)
 
         sti
         ret
@@ -159,10 +159,10 @@ irq_cleanup:
         cli
 
         mov     al,[old_pic_imr]                ;Get old PIC settings
-        out     21h,al                          ;Set primary PIC Interrupt Mask Register
+        out     0x21,al                         ;Set primary PIC Interrupt Mask Register
 
         mov     ax,0                            ;Reset PIT to defaults (~18.2 Hz)
-        call    setup_pit                       ; actually means 10000h
+        call    setup_pit                       ; actually means 0x10000
 
         push    ds
         xor     ax,ax
@@ -180,12 +180,12 @@ setup_pit:
         ; AX = PIT clock period
         ;          (Divider to 1193180 Hz)
         push    ax
-        mov     al,34h
-        out     43h,al
+        mov     al,0x34
+        out     0x43,al
         pop     ax
-        out     40h,al
+        out     0x40,al
         mov     al,ah
-        out     40h,al
+        out     0x40,al
 
         ret
 
@@ -193,7 +193,7 @@ setup_pit:
 ;waits until the beam is about to return to the top-left
 ;should be the one to call for the effects
 wait_vertical_retrace:
-        mov     dx,03dah
+        mov     dx,0x03da
 .wait_retrace_finish:
         in      al,dx                           ;wait for vertical retrace
         test    al,8                            ; to finish
@@ -239,11 +239,11 @@ main_loop:
         dec     byte [tick]
 
         mov     ah,1
-        int     16h                             ; INT 16,AH=1, OUT:ZF=status
+        int     0x16                            ;INT 16,AH=1, OUT:ZF=status
         jz      .loop
 
         mov     ah,0
-        int     16h
+        int     0x16
 
         ret
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -260,15 +260,15 @@ new_i08:
         mov     ds,ax
         mov     si,raster_colors_tbl
 
-        mov     cx,17
+        mov     cx,RASTER_COLORS_MAX
 
-        mov     dx,03dah
-        mov     al,010h                         ;select palette color 0
+        mov     dx,0x03da
+        mov     al,0x1f                         ;select palette color 15
         out     dx,al
 
         ;raster bar code: should be done as fast
         ;as possible
-        mov     bx,0dadeh                       ;used for 3da / 3de. faster than
+        mov     bx,0xdade                       ;used for 3da / 3de. faster than
                                                 ;add / sub 4
 .l0:
         lodsb                                   ;fetch color
@@ -298,7 +298,7 @@ new_i08:
 
         mov     bx,word [current_state]         ;fetch state
         shl     bx,1                            ; and convert it into offset
-        call    [states_callbacks + bx]         ; and call correct state callback
+        call    [states_callbacks+bx]           ; and call correct state callback
 
         call    music_anim                      ;play music
         call    noise_fade_anim                 ;outline fade anim
@@ -309,8 +309,8 @@ new_i08:
 
         inc     byte [tick]
 
-        mov     al,20h                          ;Send the EOI signal
-        out     20h,al                          ; to the IRQ controller
+        mov     al,0x20                         ;Send the EOI signal
+        out     0x20,al                         ; to the IRQ controller
 
         pop     ds
         pop     si
@@ -327,7 +327,7 @@ sound_cleanup:
         mov     cx,4
 .repeat:
         lodsb
-        out     0c0h,al
+        out     0xc0,al
         loop    .repeat
 
         ret
@@ -360,27 +360,24 @@ state_fade_to_black_anim:
         mov     cx,PALETTE_COLORS_TO_BLACK_MAX
         mov     si,palette_colors_to_black
 
-        mov     dx,03dah                        ;select color register
+        mov     dx,0x03da                       ;select color register
 .loop:
         lodsb                                   ;color to fade
-        or      al,10h                          ;color index start at 0x10
+        or      al,0x10                         ;color index start at 0x10
         out     dx,al
 
-        add     dl,4
+        mov     dl,0xde                         ;dx=0x03de
         mov     al,[palette_black_tbl+bx]
         out     dx,al
 
-        sub     dl,4
+        mov     dl,0xda                         ;dx=0x03da
         loop    .loop
 
         mov     al,2                            ;select border color register
         out     dx,al
-        add     dl,4
+        mov     dl,0xde                         ;dx=0x03de
         mov     al,[palette_black_tbl+bx]
         out     dx,al                           ;update color
-
-        mov     [raster_color_restore],al       ;update color after raster bar
-                                                ; which is black
 
         inc     word [palette_black_idx]
         cmp     word [palette_black_idx], PALETTE_BLACK_MAX
@@ -422,18 +419,18 @@ state_clemente_fade_in_init:
 
         ;logo should be turned off by default
         mov     cx,PALETTE_COLORS_TO_BLACK_MAX
-        mov     dx,03dah                        ;select color
+        mov     dx,0x03da                       ;select color
         mov     si,palette_colors_to_black
 .loop:
         lodsb                                   ;color to fade
-        or      al,10h                          ;colors start at 10h
+        or      al,0x10                         ;colors start at 0x10
         out     dx,al
 
-        add     dl,4
+        mov     dl,0xde                         ;dx=0x03de
         mov     al,1                            ;should be blue
         out     dx,al
 
-        sub     dl,4
+        mov     dl,0xda                         ;dx=0x03da
         loop    .loop
 
         ret
@@ -456,8 +453,8 @@ state_clemente_fade_in_anim:
         mov     di,ax
         mov     si,ax
         mov     dx,di
-        and     dx,01c00h                       ;don't write pixel if in scroll space
-        cmp     dx,01c00h                       ;areas: 1c00-1fff,3c00-3fff,5c00-5fff,7c00-7fff should not be written
+        and     dx,0x1c00                       ;don't write pixel if in scroll space
+        cmp     dx,0x1c00                       ;areas: 1c00-1fff,3c00-3fff,5c00-5fff,7c00-7fff should not be written
         je      .skip_write
         movsb                                   ;update pixel
 .skip_write:
@@ -489,31 +486,34 @@ state_letters_fade_in_anim:
         cmp     bx,PALETTE_LETTERS_FADE_MAX
         je      .end
 
-        mov     dx,03dah                        ;animate letter P
-        mov     al,012h                         ;logo inner color
+        ;letter P
+        mov     dx,0x03da
+        mov     al,0x12                         ;logo inner color
         out     dx,al
 
-        add     dl,4
+        mov     dl,0xde                         ;dx=0x03de
         mov     al,[palette_letters_fade_tbl+bx]
         out     dx,al
 
 
-        sub     dl,4                            ;animate letter V
+        ;letter V
+        mov     dl,0xda                         ;dx=0x03da
         mov     al,1ah                          ;logo inner color
         out     dx,al
 
-        sub     bx,8
-        add     dl,4
+        sub     bx,8                            ;offset -8
+        mov     dl,0xde                         ;dx=0x03de
         mov     al,[palette_letters_fade_tbl+bx]
         out     dx,al
 
 
-        sub     dl,4                            ;animate letter M
+        ;letter M
+        mov     dl,0xda                         ;dx=0x03da
         mov     al,1dh                          ;logo inner color
         out     dx,al
 
-        sub     bx,8
-        add     dl,4
+        sub     bx,8                            ;offset -8
+        mov     dl,0xde                         ;dx=0x03de
         mov     al,[palette_letters_fade_tbl+bx]
         out     dx,al
 
@@ -546,12 +546,12 @@ state_outline_fade_in_anim:
         cmp     bx,PALETTE_OUTLINE_FADE_IN_MAX
         je      .end
 
-        mov     dx,03dah                        ;select border color register
-        mov     al,15h                          ;logo outline color: 5
+        mov     dx,0x03da                       ;select border color register
+        mov     al,0x15                         ;logo outline color: 5
         out     dx,al                           ;select palette register
 
-        add     dl,4                            ;change color
-        mov     al,[palette_outline_fade_in_tbl + bx]
+        mov     dl,0xde                         ;dx=0x03de
+        mov     al,[palette_outline_fade_in_tbl+bx]
         out     dx,al
 
         inc     word [palette_outline_fade_idx]
@@ -566,11 +566,11 @@ state_outline_fade_out_anim:
         cmp     bx,PALETTE_OUTLINE_FADE_OUT_MAX
         je      .end
 
-        mov     dx,03dah                        ;select border color register
-        mov     al,15h                          ;logo outline color: 5
+        mov     dx,0x03da                       ;select border color register
+        mov     al,0x15                         ;logo outline color: 5
         out     dx,al                           ;select palette register
 
-        add     dl,4                            ;change color
+        mov     dl,0xde                         ;dx=0x03de
         mov     al,[palette_outline_fade_out_tbl + bx]
         out     dx,al
 
@@ -586,12 +586,12 @@ state_outline_fade_to_final_anim:
         cmp     bx,PALETTE_OUTLINE_FADE_TO_FINAL_MAX
         je      .end
 
-        mov     dx,03dah                        ;select border color register
-        mov     al,15h                          ;logo outline color: 5
+        mov     dx,0x03da                       ;select border color register
+        mov     al,0x15                         ;logo outline color: 5
         out     dx,al                           ;select palette register
 
-        add     dl,4                            ;change color
-        mov     al,[palette_outline_fade_to_final_tbl + bx]
+        mov     dl,0xde                         ;dx=0x03de
+        mov     al,[palette_outline_fade_to_final_tbl+bx]
         out     dx,al
 
         inc     word [palette_outline_fade_idx]
@@ -602,7 +602,7 @@ state_outline_fade_to_final_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_anim:
-        mov     ax,0b800h                       ;ds points to video memory
+        mov     ax,0xb800                       ;ds points to video memory
         mov     ds,ax                           ;es already points to it
 
 OFFSET_Y        equ     23*2*160                ;start at line 23:160 bytes per line, lines are every 4 -> 8/4 =2
@@ -667,7 +667,7 @@ OFFSET_Y        equ     23*2*160                ;start at line 23:160 bytes per 
 
 
 .render_bits:
-        mov     ax,0b800h
+        mov     ax,0xb800
         mov     es,ax
 
         mov     di,OFFSET_Y+159                 ;es:di points to video memory
@@ -710,13 +710,13 @@ OFFSET_Y        equ     23*2*160                ;start at line 23:160 bytes per 
         mov     word [scroll_char_idx],ax
 
 .end:
-        mov     ax,0b800h                       ;restore es to video memory
+        mov     ax,0xb800                       ;restore es to video memory
         mov     es,ax
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 music_init:
-        mov     word [pvm_offset],pvm_song + 10h       ;update start offset
+        mov     word [pvm_offset],pvm_song + 0x10       ;update start offset
         sub     al,al
         mov     byte [pvm_wait],al              ;don't wait at start
         mov     byte [noise_triggered],al       ;noise not playing
@@ -775,7 +775,7 @@ END     equ     1000_0000b
         mov     cl,al
 .repeat:
         lodsb
-        out     0c0h,al
+        out     0xc0,al
 
         mov     byte [noise_triggered],0
         and     al,1111_0000b                   ;is noise?
@@ -805,8 +805,8 @@ END     equ     1000_0000b
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 .is_end:
-        mov     byte [pvm_wait], 5              ;wait 5 cycles before starting again
-        mov     word [pvm_offset], pvm_song + 10h       ; beginning of song
+        mov     byte [pvm_wait],5               ;wait 5 cycles before starting again
+        mov     word [pvm_offset],pvm_song+0x10 ; beginning of song
 
         ret
 
@@ -905,12 +905,12 @@ noise_fade_anim:
         sub     bh,bh
         mov     bl,[noise_fade_idx]             ;bx with idex to table
 
-        mov     dx,03dah
-        mov     al,15h                          ;color 5 is outline color
+        mov     dx,0x03da
+        mov     al,0x15                         ;color 5 is outline color
         out     dx,al
 
-        add     dl,4
-        mov     al,[noise_fade_tbl+bx]        ;fetch color
+        mov     dl,0xde                         ;dx=0x03de
+        mov     al,[noise_fade_tbl+bx]          ;fetch color
         out     dx,al
 
         inc     byte [noise_fade_idx]
@@ -919,22 +919,22 @@ noise_fade_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 inc_d020:
-        mov     dx,03dah                        ;show how many raster barts it consumes
+        mov     dx,0x03da                       ;show how many raster barts it consumes
         mov     al,2                            ;select border color
         out     dx,al
 
-        add     dx,4
-        mov     al,0fh
+        mov     dl,0xde                         ;dx=0x03de
+        mov     al,0x0f
         out     dx,al                           ;change border to white
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 dec_d020:
-        mov     dx,03dah                        ;show how many raster barts it consumes
+        mov     dx,0x03da                       ;show how many raster barts it consumes
         mov     al,2                            ;select border color
         out     dx,al
 
-        add     dx,4
+        mov     dl,0xde                         ;dx=0x03de
         sub     al,al
         out     dx,al                           ;change border back to black
 
@@ -944,9 +944,7 @@ dec_d020:
 ; DATA GFX
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 section .gfx data
-
-logo:                                           ;'logo' MUST be the first variable in the segment
-        incbin 'src/logo.raw'
+        incbin 'src/logo.raw'                   ;MUST be the first variable in the segment
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; DATA MUSIC + CHARSET + MISC
@@ -984,7 +982,7 @@ palette_black_tbl:                              ;fade to white/fade to black col
 PALETTE_BLACK_MAX equ $-palette_black_tbl
 
 palette_colors_to_black:                        ;colors that should turn black
-        db      00h,05h,02h,0ah,0dh,03h         ;black, outline, P, V, M, inner
+        db      0x00,0x05,0x02,0x0a,0x0d,0x03   ;black, outline, P, V, M, inner
 PALETTE_COLORS_TO_BLACK_MAX equ $-palette_colors_to_black
 
 delay_frames:
@@ -1012,10 +1010,10 @@ scroll_bit_idx:                                 ;pointer to the next bit in the 
 scroll_col_used:
         db 0                                    ;chars are 2x2. col indicates which col is being used
 scroll_pixel_color_tbl:
-        db       00h                            ; 00 - black/black
-        db       0fh                            ; 01 - black/white
-        db      0f0h                            ; 10 - white/black
-        db      0ffh                            ; 11 - white/white
+        db      0x00                            ;00 - black/black
+        db      0x0f                            ;01 - black/white
+        db      0xf0                            ;10 - white/black
+        db      0xff                            ;11 - white/white
 
 palette_outline_fade_idx:                       ;index for table used in outline fade effect
         dw      0
@@ -1045,10 +1043,10 @@ palette_letters_fade_tbl:                       ;inner logo color
 PALETTE_LETTERS_FADE_MAX equ $-palette_letters_fade_tbl
 
 volume_0:
-        db      1001_1111b                      ;vol 0 channel 0
-        db      1011_1111b                      ;vol 0 channel 1
-        db      1101_1111b                      ;vol 0 channel 2
-        db      1111_1111b                      ;vol 0 channel 3
+        db      0b1001_1111                     ;vol 0 channel 0
+        db      0b1011_1111                     ;vol 0 channel 1
+        db      0b1101_1111                     ;vol 0 channel 2
+        db      0b1111_1111                     ;vol 0 channel 3
 
 
 current_state:                                  ;current state. index for the
@@ -1090,23 +1088,23 @@ text_writer_x_pos:                              ;position x for the cursor. 0-39
         dw      0
 
 text_writer_bitmap_to_video_tbl:                ;converts charset (bitmap) to video bytes. nibble only
-        db      000h,000h                       ;0000_0000b
-        db      000h,00fh                       ;0000_0001b
-        db      000h,0f0h                       ;0000_0010b
-        db      000h,0ffh                       ;0000_0011b
-        db      00fh,000h                       ;0000_0100b
-        db      00fh,00fh                       ;0000_0101b
-        db      00fh,0f0h                       ;0000_0110b
-        db      00fh,0ffh                       ;0000_0111b
+        db      0x00,0x00                       ;0000_0000b
+        db      0x00,0x0f                       ;0000_0001b
+        db      0x00,0xf0                       ;0000_0010b
+        db      0x00,0xff                       ;0000_0011b
+        db      0x0f,0x00                       ;0000_0100b
+        db      0x0f,0x0f                       ;0000_0101b
+        db      0x0f,0xf0                       ;0000_0110b
+        db      0x0f,0xff                       ;0000_0111b
 
-        db      0f0h,000h                       ;0000_1000b
-        db      0f0h,00fh                       ;0000_1001b
-        db      0f0h,0f0h                       ;0000_1010b
-        db      0f0h,0ffh                       ;0000_1011b
-        db      0ffh,000h                       ;0000_1100b
-        db      0ffh,00fh                       ;0000_1101b
-        db      0ffh,0f0h                       ;0000_1110b
-        db      0ffh,0ffh                       ;0000_1111b
+        db      0xf0,0x00                       ;0000_1000b
+        db      0xf0,0x0f                       ;0000_1001b
+        db      0xf0,0xf0                       ;0000_1010b
+        db      0xf0,0xff                       ;0000_1011b
+        db      0xff,0x00                       ;0000_1100b
+        db      0xff,0x0f                       ;0000_1101b
+        db      0xff,0xf0                       ;0000_1110b
+        db      0xff,0xff                       ;0000_1111b
 
 text_writer_idx:                                ;offset to the text_writer_data
         dw      0
@@ -1133,7 +1131,8 @@ raster_colors_tbl:                              ;16 colors in total
         db      1,2,3,4,5,6,7,8
         db      9,10,11,12,13,14,15,0
 raster_color_restore:                           ;must be after raster_colors_tbl
-        db      1
+        db      15
+RASTER_COLORS_MAX equ $-raster_colors_tbl
 
 tick:                                           ;when non zero, a retrace should be done
         db      0
