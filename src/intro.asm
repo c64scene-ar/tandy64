@@ -249,12 +249,15 @@ main_loop:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; IRQ
 new_i08:
-        push    ax
-        push    bx
+        pushf                                   ;FIXME: Don't need to save all these
+        push    ax                              ; variables if I control what happens
+        push    bx                              ; on the non-interrupt code
         push    cx
         push    dx
+        push    di
         push    si
         push    ds
+        push    es
 
         mov     ax,data
         mov     ds,ax
@@ -266,8 +269,8 @@ new_i08:
         mov     al,0x1f                         ;select palette color 15
         out     dx,al
 
-        ;raster bar code: should be done as fast
-        ;as possible
+        ;BEGIN raster bar code
+        ;should be done as fast as possible
         mov     bx,0xdade                       ;used for 3da / 3de. faster than
                                                 ;add / sub 4
 .l0:
@@ -290,7 +293,7 @@ new_i08:
 
         loop    .l0                             ;and do it 17 times
 
-        ;end of raster code
+        ;END raster bar code
 
 ;        call    inc_d020
 
@@ -312,12 +315,15 @@ new_i08:
         mov     al,0x20                         ;Send the EOI signal
         out     0x20,al                         ; to the IRQ controller
 
+        pop     es
         pop     ds
         pop     si
+        pop     di
         pop     dx
         pop     cx
         pop     bx
         pop     ax
+        popf
 
         iret                                    ;Exit interrupt
 
@@ -827,7 +833,6 @@ text_writer_print_char:
 
 TEXT_WRITER_OFFSET_Y    equ     21*2*160        ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
 
-        int 3
         sub     ah,ah
         mov     bx,ax                           ;bx = ax (char to print)
         shl     bx,1
