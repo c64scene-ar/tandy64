@@ -277,35 +277,41 @@ new_i08:
         mov     ds,ax
         mov     si,raster_colors_tbl
 
-        mov     cx,16
+        mov     cx,17
 
         mov     dx,03dah
         mov     al,010h                         ;select palette color 0
         out     dx,al
 
+        ;raster bar code: should be done as fast
+        ;as possible
         mov     bx,0dadeh                       ;used for 3da / 3de. faster than
                                                 ;add / sub 4
 .l0:
-        lodsb
-        mov     ah,al
+        lodsb                                   ;fetch color
+        mov     ah,al                           ; and save it for later
 .w:
-        in      al,dx
+        in      al,dx                           ;test horizontal retrace
         test    al,1
         jnz     .w
 .r:
         in      al,dx
         test    al,1
-        jz      .r
+        jz      .r                              ;after this, in horizontal retrace
 
         mov     dl,bl                           ;add 4 = 3de
         mov     al,ah
-        out     dx,al
+        out     dx,al                           ;set new color
 
         mov     dl,bh                           ;sub 4 = 3da
 
-        loop    .l0
+        loop    .l0                             ;and do it 17 times
+
+        ;end of raster code
 
 ;        call    inc_d020
+
+        ;after raster baster finishes
 
         mov     bx,word [current_state]         ;fetch state
         shl     bx,1                            ; and convert it into offset
@@ -390,6 +396,9 @@ state_fade_to_black_anim:
         add     dl,4
         mov     al,[palette_black_tbl+bx]
         out     dx,al                           ;update color
+
+        mov     [raster_color_restore],al       ;update color after raster bar
+                                                ; which is black
 
         inc     word [palette_black_idx]
         cmp     word [palette_black_idx], PALETTE_BLACK_MAX
@@ -1141,6 +1150,8 @@ old_pic_imr:
 raster_colors_tbl:                              ;16 colors in total
         db      1,2,3,4,5,6,7,8
         db      9,10,11,12,13,14,15,0
+raster_color_restore:                           ;must be after raster_colors_tbl
+        db      1
 
 tick:                                           ;when non zero, a retrace should be done
         db      0
