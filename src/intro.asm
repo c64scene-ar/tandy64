@@ -127,8 +127,8 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
         call    wait_horiz_retrace
         loop    .repeat
 
-        cli
-
+        cli                                     ;disable interrupts
+                                                ; while setting the interrupt
         push    ds
         sub     ax,ax
         mov     ds,ax
@@ -203,23 +203,6 @@ wait_vertical_retrace:
         in      al,dx                           ;wait for vertical retrace
         test    al,8                            ; to start
         jz      .wait_retrace_start
-
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-;waits until the beam is about to start from the top-left again
-;call it to sync the timer with the scanlines
-wait_vertical_retrace_start:
-        mov     dx,03dah
-.wait_retrace_start:
-        in      al,dx                           ;wait for vertical retrace
-        test    al,8                            ; to start
-        jz      .wait_retrace_start
-
-.wait_retrace_finish:
-        in      al,dx                           ;wait for vertical retrace
-        test    al,8                            ; to finish
-        jnz     .wait_retrace_finish
 
         ret
 
@@ -375,11 +358,11 @@ state_fade_to_black_anim:
         mov     bx,word [palette_black_idx]     ;fetch idx to table
 
         mov     cx,PALETTE_COLORS_TO_BLACK_MAX
-        sub     si,si                           ;idx for colors
+        mov     si,palette_colors_to_black
 
         mov     dx,03dah                        ;select color register
 .loop:
-        mov     al,[palette_colors_to_black+si] ;which color to fade
+        lodsb                                   ;color to fade
         or      al,10h                          ;color index start at 0x10
         out     dx,al
 
@@ -388,7 +371,6 @@ state_fade_to_black_anim:
         out     dx,al
 
         sub     dl,4
-        inc     si
         loop    .loop
 
         mov     al,2                            ;select border color register
@@ -439,11 +421,11 @@ state_clemente_fade_in_init:
         mov     word [clemente_lfsr_current_state],LFSR_START_STATE
 
         ;logo should be turned off by default
-        sub     bx,bx
         mov     cx,PALETTE_COLORS_TO_BLACK_MAX
         mov     dx,03dah                        ;select color
+        mov     si,palette_colors_to_black
 .loop:
-        mov     al,[palette_colors_to_black+bx]
+        lodsb                                   ;color to fade
         or      al,10h                          ;colors start at 10h
         out     dx,al
 
@@ -452,7 +434,6 @@ state_clemente_fade_in_init:
         out     dx,al
 
         sub     dl,4
-        inc     bx
         loop    .loop
 
         ret
@@ -1143,10 +1124,11 @@ text_writer_data:
         db      'muy bien y vos',0
         db      255
 
-old_i08:
-        dd      0                               ;segment + offset to old int 8
-old_pic_imr:
-        db      0                               ;PIC IMR original value
+old_i08:                                        ;segment + offset to old int 8
+        dd      0
+old_pic_imr:                                    ;PIC IMR original value
+        db      0
+
 raster_colors_tbl:                              ;16 colors in total
         db      1,2,3,4,5,6,7,8
         db      9,10,11,12,13,14,15,0
