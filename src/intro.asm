@@ -95,15 +95,15 @@ intro_start:
 
         cld
 
-        call    irq_init
-        call    music_init
-        call    text_writer_init
+        call    intro_init
 
-        mov     al,65
-        call    text_writer_print_char
-        inc     byte [text_writer_x_pos]
-        mov     al,66
-        call    text_writer_print_char
+;        mov     al,65
+;        call    text_writer_print_char
+;        inc     byte [text_writer_x_pos]
+;        mov     al,66
+;        call    text_writer_print_char
+
+        call    irq_init
 
         call    main_loop
 
@@ -120,7 +120,7 @@ irq_init:
 PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
                                                 ; make it sync with vertical retrace
 
-        call    wait_vertical_retrace_start
+        call    wait_vertical_retrace
 
         mov     cx,180                          ;and wait for scanlines
 .repeat:
@@ -238,30 +238,22 @@ wait_horiz_retrace:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-main_loop:
-
+intro_init:
         mov     word [current_state],0
-        mov     byte [tick],0
         call    [states_inits]                  ;init state 0
 
+        call    music_init
+        call    text_writer_init
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+main_loop:
+        mov     byte [tick],0
 .loop:
         cmp     byte [tick],0
         je      .loop
 
         dec     byte [tick]
-
-;        call    inc_d020
-
-        mov     bx,word [current_state]         ;fetch state
-        shl     bx,1                            ; and convert it into offset
-        call    [states_callbacks + bx]         ; and call correct state callback
-
-        call    music_anim                      ;play music
-        call    noise_fade_anim                 ;outline fade anim
-        call    text_writer_anim                ;text writer
-        call    scroll_anim                     ;anim scroll
-
-;        call    dec_d020
 
         mov     ah,1
         int     16h                             ; INT 16,AH=1, OUT:ZF=status
@@ -285,7 +277,7 @@ new_i08:
         mov     ds,ax
         mov     si,raster_colors_tbl
 
-        mov     cx,18
+        mov     cx,16
 
         mov     dx,03dah
         mov     al,010h                         ;select palette color 0
@@ -313,10 +305,23 @@ new_i08:
 
         loop    .l0
 
-        mov     al,20h                          ;Send the EOI signal
-        out     20h,al                          ; to the IRQ controller
+;        call    inc_d020
+
+        mov     bx,word [current_state]         ;fetch state
+        shl     bx,1                            ; and convert it into offset
+        call    [states_callbacks + bx]         ; and call correct state callback
+
+        call    music_anim                      ;play music
+        call    noise_fade_anim                 ;outline fade anim
+        call    text_writer_anim                ;text writer
+        call    scroll_anim                     ;anim scroll
+
+;        call    dec_d020
 
         inc     byte [tick]
+
+        mov     al,20h                          ;Send the EOI signal
+        out     20h,al                          ; to the IRQ controller
 
         pop     ds
         pop     si
@@ -1133,10 +1138,9 @@ old_i08:
         dd      0                               ;segment + offset to old int 8
 old_pic_imr:
         db      0                               ;PIC IMR original value
-raster_colors_tbl:
-        db      0,1,2,3,4,5,6,7
-        db      8,9,10,11,12,13,14,15
-        db      0,0,0,0,0,0,0,0,0,0
+raster_colors_tbl:                              ;16 colors in total
+        db      1,2,3,4,5,6,7,8
+        db      9,10,11,12,13,14,15,0
 
 tick:                                           ;when non zero, a retrace should be done
         db      0
