@@ -1,5 +1,6 @@
-; border test
-; riq/pvm
+; Tandy64 intro
+; http://pungas.space
+; code: riq
 
 bits    16
 cpu     8086
@@ -8,6 +9,7 @@ cpu     8086
 ; Structs and others
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 extern c64_charset
+extern wait_vertical_retrace, wait_horiz_retrace
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; CODE
@@ -90,7 +92,7 @@ init_screen:
         mov     al,[delay_after_char]
         cmp     al,1
         jne     .l1
-        call    wait_vert_retrace
+        call    wait_vertical_retrace
 
 .l1:
         pop     cx
@@ -176,7 +178,7 @@ do_anim_cursor:
 do_delay:
         push    dx
 .repeat:
-;        call    wait_vert_retrace
+;        call    wait_vertical_retrace
         call    wait_horiz_retrace
         loop    .repeat
         pop     dx
@@ -271,38 +273,6 @@ video_off:
         in      al,0x70                         ;disable NMI
         and     al,0x7F
 	    out     0x70,al
-
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-wait_vert_retrace:
-        mov     dx,0x03da
-
-.wait_retrace_finish:                           ;if retrace already started, wait
-        in      al,dx                           ; until it finishes
-        test    al,8
-        jnz     .wait_retrace_finish
-
-.wait_retrace_start:
-        in      al,dx                           ;wait until start of the retrace
-        test    al,8
-        jz      .wait_retrace_start
-
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-wait_horiz_retrace:
-        mov     dx,0x3da
-
-.wait_retrace_finish:                           ;if retrace already started, wait
-        in      al,dx                           ; until it finishes
-        test    al,1
-        jnz     .wait_retrace_finish
-
-.wait_retrace_start:
-        in      al,dx                           ;wait until start of the retrace
-        test    al,1
-        jz      .wait_retrace_start
 
         ret
 

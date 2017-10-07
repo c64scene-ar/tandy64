@@ -1,6 +1,7 @@
-; Tandy64
+; Tandy64 intro
 ; http://pungas.space
-;
+; code: riq
+
 bits    16
 cpu     8086
 
@@ -195,6 +196,7 @@ setup_pit:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;waits until the beam is about to return to the top-left
 ;should be the one to call for the effects
+global wait_vertical_retrace
 wait_vertical_retrace:
         mov     dx,0x03da
 .wait_retrace_finish:
@@ -210,6 +212,7 @@ wait_vertical_retrace:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+global wait_horiz_retrace
 wait_horiz_retrace:
         mov     dx,0x3da
 .wait_retrace_finish:                            ;wait for horizontal retrace start
@@ -230,6 +233,7 @@ intro_init:
 
         call    music_init
         call    text_writer_init
+        call    crtc_addr_init
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -266,25 +270,6 @@ new_i08:
         mov     ax,data
         mov     ds,ax
 
-        mov     bx,[crtc_start_addr]
-
-        mov     dx,0x3d4
-        mov     al,0xc                          ;select CRTC start address hi
-        out     dx,al
-
-        inc     dx                              ;set value for CRTC hi address
-        mov     al,bh
-        out     dx,al
-
-        dec     dx
-        mov     al,0xd
-        out     dx,al                           ;select CRTC start address lo
-
-        inc     dx
-        mov     al,bl
-        out     dx,al                           ;set value for CRTC lo address
-
-
         mov     si,raster_colors_tbl
         mov     cx,RASTER_COLORS_MAX
 
@@ -300,13 +285,13 @@ new_i08:
         lodsb                                   ;fetch color
         mov     ah,al                           ; and save it for later
 .w:
-        in      al,dx                           ;test horizontal retrace
-        test    al,1
+        in      al,dx                           ;inline wait horizontal retrace
+        test    al,1                            ; for performance reasons
         jnz     .w
 .r:
         in      al,dx
         test    al,1
-        jz      .r                              ;after this, in horizontal retrace
+        jz      .r                              ;horizontal retrace after this
 
         mov     dl,bl                           ;add 4 = 3de
         mov     al,ah
@@ -320,26 +305,6 @@ new_i08:
 
 ;        call    inc_d020
 
-        sub     bx,bx                           ;restore crtr start address to 0
-
-        mov     dx,0x3d4
-        mov     al,0xc                          ;select CRTC start address hi
-        out     dx,al
-
-        inc     dx                              ;set value for CRTC hi address
-        mov     al,bh
-        out     dx,al
-
-        dec     dx
-        mov     al,0xd
-        out     dx,al                           ;select CRTC start address lo
-
-        inc     dx
-        mov     al,bl
-        out     dx,al                           ;set value for CRTC lo address
-
-        add     word [crtc_start_addr],160
-
 
         ;after raster baster finishes
 
@@ -347,6 +312,7 @@ new_i08:
         shl     bx,1                            ; and convert it into offset (2 bytes per offset)
         call    [states_callbacks+bx]           ; and call correct state callback
 
+        call    crtc_addr_anim                  ;change CRTC start address
         call    music_anim                      ;play music
         call    noise_fade_anim                 ;outline fade anim
         call    text_writer_anim                ;text writer
@@ -896,6 +862,34 @@ text_writer_state_backspace:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_state_cr:
+        ret
+
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+crtc_addr_init:
+        mov     word [crtc_start_addr],0
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+crtc_addr_anim:
+        mov     bx,[crtc_start_addr]
+
+        mov     dx,0x3d4
+        mov     al,0xc                          ;select CRTC start address hi
+        out     dx,al
+
+        inc     dx                              ;set value for CRTC hi address
+        mov     al,bh
+        out     dx,al
+
+        dec     dx
+        mov     al,0xd
+        out     dx,al                           ;select CRTC start address lo
+
+        inc     dx
+        mov     al,bl
+        out     dx,al                           ;set value for CRTC lo address
+
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;

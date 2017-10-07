@@ -5,7 +5,7 @@ bits    16
 cpu     8086
 
 extern ZTimerOn, ZTimerOff, ZTimerReport
-extern intro_start, pre_intro_start
+extern intro_start, pre_intro_start, post_intro_start
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; CODE
@@ -22,6 +22,7 @@ section .text
 
         call    pre_intro_start
         call    intro_start
+        call    post_intro_start
 
         call    cleanup
 
@@ -30,9 +31,6 @@ section .text
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 cleanup:
-        mov     ax,0002h                       ;text mode 80x25
-        int     10h
-
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
