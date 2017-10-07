@@ -129,18 +129,18 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 
         cli                                     ;disable interrupts
                                                 ; while setting the interrupt
-        push    ds
+        push    es
         sub     ax,ax
-        mov     ds,ax
+        mov     es,ax
 
         mov     ax,new_i08
         mov     dx,cs
-        xchg    ax,[ds:8*4]
-        xchg    dx,[ds:8*4+2]
+        xchg    ax,[es:8*4]                     ;new/old IRQ 8: offset
+        xchg    dx,[es:8*4+2]                   ;new/old IRQ 8: segment
         mov     [old_i08],ax
         mov     [old_i08+2],dx
 
-        pop     ds
+        pop     es
 
         mov     ax,PIT_DIVIDER                  ;Configure the PIT to
 
@@ -164,13 +164,16 @@ irq_cleanup:
         mov     ax,0                            ;Reset PIT to defaults (~18.2 Hz)
         call    setup_pit                       ; actually means 0x10000
 
+        push    es
+        les     si,[old_i08]
+
         push    ds
         xor     ax,ax
         mov     ds,ax
-        les     si,[old_i08]
-        mov     [ds:8*4],si
-        mov     [ds:8*4+2],es                   ;Restore the old INT 08 vector
+        mov     [8*4],si
+        mov     [8*4+2],es                      ;Restore the old INT 08 vector
         pop     ds
+        pop     es
 
         sti
         ret
