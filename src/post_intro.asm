@@ -40,7 +40,7 @@ init_screen:
 
         call    update_palette
 
-        mov     cx,90                           ;wait 1.5 seconds
+        mov     cx,45                           ;do delay
 .l1:
         call    wait_vertical_retrace
         loop    .l1
@@ -90,22 +90,32 @@ init_screen:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+;converts palette to emulate a sort of c64 look & feel when ending
 update_palette:
         mov     dx,0x3da                        ;select border color register
         mov     al,2
         out     dx,al
 
-        add     dx,4                            ;change border color
+        mov     dl,0xde                         ;dx=0x3de
         mov     al,9                            ;light blue
         out     dx,al
 
 
-        sub     dx,4
+        mov     dl,0xda                         ;dx=0x3da
         mov     al,0x10                         ;select color=0
         out     dx,al                           ;select palette register
 
-        add     dx,4
+        mov     dl,0xde                         ;dx=0x3de
         mov     al,1                            ;color 0 is blue now (before it was black)
+        out     dx,al
+
+
+        mov     dl,0xda                         ;dx=0x3da
+        mov     al,0x17                         ;select color=7
+        out     dx,al                           ;select palette register
+
+        mov     dl,0xde                         ;dx=0x3de
+        mov     al,9                            ;color light gray is light blue now
         out     dx,al
 
         ret
@@ -127,7 +137,13 @@ c64_screen:
         db `\n`
         db `    **** COMMODORE 64 BASIC V2 ****\n`
         db ` 64K RAM SYSTEM  38911 BASIC BYTES FREE\n`
+        db `\n\n\n`
+        db `        PUNGAS DE VILLA MARTELLI\n`
         db `\n`
+        db `               CODE: RIQ\n`
+        db `             MUSIC: UCTUMI\n`
+        db `           GRAPHICS: ALAKRAN\n`
+        db `\n\n`
         db `READY.\n`
         db 0                                            ; pause / animate cursor
 C64_SCREEN_SIZE equ $ - c64_screen
