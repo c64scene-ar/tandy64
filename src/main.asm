@@ -26,8 +26,15 @@ section .text
 
         call    cleanup
 
-        mov     ax,4c00h
-        int     21h                             ;exit to DOS
+;        mov     ax,4c00h
+;        int     21h                             ;exit to DOS
+
+        mov     ax,0xffff                       ;reset
+        sub     bx,bx
+
+        push    ax
+        push    bx
+        retf
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 cleanup:

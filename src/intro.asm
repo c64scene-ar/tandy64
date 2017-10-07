@@ -111,6 +111,9 @@ intro_start:
         call    sound_cleanup
         call    irq_cleanup
 
+        call    fake_crash
+        call    sound_cleanup
+
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -225,6 +228,45 @@ wait_horiz_retrace:
         test    al,1
         jz      .wait_retrace_start
         ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+fake_crash:
+
+        ;uses 6i bit (63 values) LFSR maximal. So it lasts
+        ;about one second
+
+        mov     byte [fake_crash_lfsr_state],1  ;init LFSR state
+.repeat:
+        call    wait_vertical_retrace
+
+        call    music_anim                      ;4x speed for music
+        call    music_anim
+        call    music_anim
+        call    music_anim
+
+        call    scroll_anim                     ;4x speed for scroll
+        call    scroll_anim
+        call    scroll_anim
+        call    scroll_anim
+
+        mov     al,[fake_crash_lfsr_state]
+
+        mov     ah,al
+        shr     al,1
+        jnc     .skip
+        xor     al,0b0011_0000                  ;Taps 5 and 6 for maximal
+.skip:
+        mov     [fake_crash_lfsr_state],al
+        mov     ah,al                           ;use bx as new crtc start address
+        and     ax,0b0000_0011_1111_1111        ; but limit its range for more
+        mov     [crtc_start_addr],ax            ; pleasant visual effect
+        call    crtc_addr_anim                  ; and update the start address
+
+        cmp     byte [fake_crash_lfsr_state],1  ;lfsr cycle complete?
+        jne     .repeat
+
+.end:
+        ret:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 intro_init:
@@ -1029,6 +1071,8 @@ NOISE_FADE_MAX equ $-noise_fade_tbl
 
 LFSR_START_STATE equ 1973                       ;lfsr start state
 clemente_lfsr_current_state     dw      0       ;lfsr current state
+
+fake_crash_lfsr_state:          db      0       ;lfsr for crash
 
 palette_black_delay:
         dw      0

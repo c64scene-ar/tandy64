@@ -23,6 +23,11 @@ post_intro_start:
 
         call    init_screen
 
+        mov     cx,60*5                         ;do delay
+.l0:
+        call    wait_vertical_retrace
+        loop    .l0
+
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
