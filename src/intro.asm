@@ -262,10 +262,30 @@ new_i08:
         push    ds
         push    es
 
+
         mov     ax,data
         mov     ds,ax
-        mov     si,raster_colors_tbl
 
+        mov     bx,[crtc_start_addr]
+
+        mov     dx,0x3d4
+        mov     al,0xc                          ;select CRTC start address hi
+        out     dx,al
+
+        inc     dx                              ;set value for CRTC hi address
+        mov     al,bh
+        out     dx,al
+
+        dec     dx
+        mov     al,0xd
+        out     dx,al                           ;select CRTC start address lo
+
+        inc     dx
+        mov     al,bl
+        out     dx,al                           ;set value for CRTC lo address
+
+
+        mov     si,raster_colors_tbl
         mov     cx,RASTER_COLORS_MAX
 
         mov     dx,0x03da
@@ -299,6 +319,27 @@ new_i08:
         ;END raster bar code
 
 ;        call    inc_d020
+
+        sub     bx,bx                           ;restore crtr start address to 0
+
+        mov     dx,0x3d4
+        mov     al,0xc                          ;select CRTC start address hi
+        out     dx,al
+
+        inc     dx                              ;set value for CRTC hi address
+        mov     al,bh
+        out     dx,al
+
+        dec     dx
+        mov     al,0xd
+        out     dx,al                           ;select CRTC start address lo
+
+        inc     dx
+        mov     al,bl
+        out     dx,al                           ;set value for CRTC lo address
+
+        add     word [crtc_start_addr],160
+
 
         ;after raster baster finishes
 
@@ -1164,3 +1205,6 @@ RASTER_COLORS_MAX equ $-raster_colors_tbl
 
 tick:                                           ;when non zero, a retrace should be done
         db      0
+
+crtc_start_addr:
+        dw      0                               ;crtc start address
