@@ -281,9 +281,11 @@ intro_init:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 main_loop:
 .loop:
-        cmp     byte [tick],0
-        je      .loop
-
+        cmp     byte [tick],0                   ;in theory, the tick is not needed
+        je      .loop                           ; since i'm not doing anything, but
+                                                ; in practice, if not used, the interrupt could be triggered
+                                                ; in the middle of the BIOS call, some intructions are longer than others,
+                                                ; and it could generate some flicker in the raster bar routine
         dec     byte [tick]
 
         mov     ah,1
@@ -297,9 +299,8 @@ main_loop:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; IRQ
 new_i08:
-        push    ax                              ; variables if I control what happens
-        push    ds
-        push    es
+        ;not saving any variable, since the code at main loop
+        ;happens after the tick
 
         mov     ax,data
         mov     ds,ax
@@ -357,13 +358,10 @@ new_i08:
         mov     al,0x20                         ;Send the EOI signal
         out     0x20,al                         ; to the IRQ controller
 
-        inc     byte [tick]
+        inc     byte [tick]                     ;tell main_loop that it could process
+                                                ;whatever he wants
 
-        pop     es
-        pop     ds
-        pop     ax
-
-        iret                                    ;Exit interrupt
+        iret                                    ;exit interrupt
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 sound_cleanup:
@@ -806,7 +804,7 @@ END     equ     1000_0000b
         je      .is_end
 
 .unsupported:
-        int     3
+        int 3
         mov     [pvm_offset],si                 ;save offset
         ret
 
@@ -896,8 +894,9 @@ text_writer_state_print_char:
         mov     word [text_writer_idx],bx       ;save offset
 
         mov     al,byte [text_writer_data+bx]   ;get char to print or state
-        cmp     al,TW_STATE_CR                  ;next state? CR
-        je      .cr
+        cmp     al,TW_STATE_MAX                 ;is it a char, or a new state?
+        jb      .new_state
+
         call    text_writer_print_char          ;print the char
         inc     byte [text_writer_x_pos]        ;cursor pos += 1
         mov     al,160                          ;select reverse space
@@ -905,21 +904,20 @@ text_writer_state_print_char:
 
         mov     byte [text_writer_state],TW_STATE_IDLE  ;after writing a char, switch to
                                                 ; delay state to make the writing slower
-
         ret
-.cr:
-        mov     byte [text_writer_state],TW_STATE_CR
+.new_state:
+        mov     byte [text_writer_state],al
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_state_backspace:
+        mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;print char is next state
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_state_cr:
         cmp     byte [text_writer_x_pos],0
         jne     .do_cr
-        int 3
         mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;if cr finished
         ret                                     ; then change state to read chars again
 
@@ -929,6 +927,16 @@ text_writer_state_cr:
         dec     byte [text_writer_x_pos]        ;cursor -= 1
         mov     al,160                          ;select reverse space
         jmp     text_writer_print_char          ; print it, and return
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; fetch the next byte from the stream, and use it as an
+; index to the action_call table, and call that action function
+text_writer_state_action:
+        mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;print char is next state
+        inc     word [text_writer_idx]          ;read next byte
+        mov     bx,word [text_writer_idx]       ;FIXME: do something with bx
+        jmp     state_enable_noise_fade_init
+
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 crtc_addr_init:
@@ -1191,8 +1199,6 @@ states_inits:
         dw      state_letters_fade_in_init      ;h
         dw      state_outline_fade_init         ;j
         dw      state_delay_2s_init             ;k
-        dw      state_enable_noise_fade_init    ;l
-        dw      state_delay_2s_init             ;m
         dw      state_enable_text_writer        ;n
         dw      state_nothing_init              ;o
 
@@ -1207,8 +1213,6 @@ states_callbacks:
         dw      state_letters_fade_in_anim      ;h
         dw      state_outline_fade_to_final_anim;j
         dw      state_delay_anim                ;k
-        dw      state_skip_anim                 ;l
-        dw      state_delay_anim                ;m
         dw      state_skip_anim                 ;n
         dw      state_nothing_anim              ;o
 
@@ -1248,20 +1252,29 @@ TW_STATE_IDLE           equ 0
 TW_STATE_PRINT_CHAR     equ 1
 TW_STATE_BACKSPACE      equ 2
 TW_STATE_CR             equ 3
+TW_STATE_ACTION         equ 4
+TW_STATE_MAX            equ 5                   ;should be the last state
 text_writer_callbacks:
         dw      text_writer_state_idle          ;
         dw      text_writer_state_print_char    ;
         dw      text_writer_state_backspace     ;
         dw      text_writer_state_cr            ;
+        dw      text_writer_state_action        ;
         ;control codes: think of it as a printer
         ; 0 - idle
         ; 2 - print char
         ; 3 - backspace
         ; 4 - carriage return
+        ; 5,n - perform an immediate action: eg: call enable_something
 text_writer_data:
                 ;0123456789012345678901234567890123456789
-        db      'Hola hola hola  Hi there               ',TW_STATE_CR
-        db      `               let's add some music`,TW_STATE_CR
+        db      '                Hi there'
+        db      TW_STATE_IDLE
+        db      TW_STATE_CR
+        db      `         let's move to the rythm`
+        db      TW_STATE_IDLE
+        db      TW_STATE_ACTION,0               ;execute action 0: enable rhythm
+        db      TW_STATE_CR
         db      'eh?... que me contrusi',TW_STATE_CR
 TEXT_WRITER_DATA_LEN equ $-text_writer_data
 
