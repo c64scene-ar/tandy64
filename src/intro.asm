@@ -281,6 +281,11 @@ intro_init:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 main_loop:
 .loop:
+        cmp     byte [tick],0
+        je      .loop
+
+        dec     byte [tick]
+
         mov     ah,1
         int     0x16                            ;INT 16,AH=1, OUT:ZF=status
         jz      .loop
@@ -292,16 +297,9 @@ main_loop:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; IRQ
 new_i08:
-        pushf                                   ;FIXME: Don't need to save all these
         push    ax                              ; variables if I control what happens
-        push    bx                              ; on the non-interrupt code
-        push    cx
-        push    dx
-        push    di
-        push    si
         push    ds
         push    es
-
 
         mov     ax,data
         mov     ds,ax
@@ -310,7 +308,7 @@ new_i08:
         mov     cx,RASTER_COLORS_MAX
 
         mov     dx,0x03da
-        mov     al,0x1f                         ;select palette color 15
+        mov     al,0x1f                         ;select palette color 15 (white)
         out     dx,al
 
         ;BEGIN raster bar code
@@ -359,15 +357,11 @@ new_i08:
         mov     al,0x20                         ;Send the EOI signal
         out     0x20,al                         ; to the IRQ controller
 
+        inc     byte [tick]
+
         pop     es
         pop     ds
-        pop     si
-        pop     di
-        pop     dx
-        pop     cx
-        pop     bx
         pop     ax
-        popf
 
         iret                                    ;Exit interrupt
 
@@ -1275,7 +1269,8 @@ text_writer_delay:
         db      0                               ;used by 'delay state' to know who many
                                                 ;vert retrace to wait
 
-
+tick:                                           ;to trigger once the irq was called
+        db      0
 old_i08:                                        ;segment + offset to old int 8
         dd      0
 old_pic_imr:                                    ;PIC IMR original value
