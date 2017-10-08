@@ -339,7 +339,7 @@ new_i08:
 
         ;END raster bar code
 
-;        call    inc_d020
+        call    inc_d020
 
 
         ;after raster baster finishes
@@ -354,7 +354,7 @@ new_i08:
         call    text_writer_anim                ;text writer
         call    scroll_anim                     ;anim scroll
 
-;        call    dec_d020
+        call    dec_d020
 
         mov     al,0x20                         ;Send the EOI signal
         out     0x20,al                         ; to the IRQ controller
@@ -979,7 +979,7 @@ state_enable_noise_fade_init:
 ;           ds: pointer to charset segment
 text_writer_print_char:
 
-TEXT_WRITER_OFFSET_Y    equ     21*2*160        ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
+TEXT_WRITER_OFFSET_Y    equ     19*2*160        ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
 
         sub     ah,ah
         mov     bx,ax                           ;bx = ax (char to print)
