@@ -9,6 +9,7 @@ cpu     8086
 ; Structs and others
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 extern wait_vertical_retrace, wait_horiz_retrace
+extern animated_print_screen
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; CODE
@@ -22,11 +23,6 @@ post_intro_start:
         mov     ds,ax
 
         call    init_screen
-
-        mov     cx,60*5                         ;do delay
-.l0:
-        call    wait_vertical_retrace
-        loop    .l0
 
         ret
 
@@ -52,46 +48,9 @@ init_screen:
 
         mov     cx,C64_SCREEN_SIZE
         mov     si,c64_screen
-
         mov     dx,0x0000                       ;row=0, column=0
 
-.repeat:
-        mov     ah,2                            ;set cursor position
-        mov     bh,0                            ;page 0 (ignored in gfx mode though)
-        int     0x10
-
-        lodsb                                   ;char to write
-        cmp     al,0                            ;anim char
-        je      .do_anim_cursor
-        cmp     al,`\n`
-        je      .do_enter
-
-        mov     ah,0x0a                         ;write char
-        mov     bh,0                            ;page to write to
-        mov     bl,9                            ;color: light blue
-
-        push    dx
-        push    cx
-
-        mov     cx,1                            ;number of times to write to
-        int     0x10
-
-        pop     cx
-        pop     dx
-
-        inc     dl                              ;cursor.x +=1
-
-
-.l0:
-        loop    .repeat
-        ret
-
-.do_enter:
-        inc     dh                              ;inc row
-        mov     dl,0                            ;reset column
-        jmp     .l0
-
-.do_anim_cursor:
+        call    animated_print_screen
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -142,14 +101,14 @@ c64_screen:
         db `\n`
         db `    **** COMMODORE 64 BASIC V2 ****\n`
         db ` 64K RAM SYSTEM  38911 BASIC BYTES FREE\n`
-        db `\n\n\n`
-        db `        PUNGAS DE VILLA MARTELLI\n`
+        db `\n\n`
+        db 2                                            ; turn on user input
         db `\n`
         db `               CODE: RIQ\n`
         db `             MUSIC: UCTUMI\n`
         db `           GRAPHICS: ALAKRAN\n`
-        db `\n\n`
-        db `READY.\n`
-        db 0                                            ; pause / animate cursor
+        db `\n`
+        db '          ',4,'HTTP://PUNGAS.SPACE',5,`\n`
+        db 0,0,0,0,0
 C64_SCREEN_SIZE equ $ - c64_screen
 

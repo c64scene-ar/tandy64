@@ -52,15 +52,15 @@ init_screen:
         int     0x10
 
         call    set_charset
-
         call    update_palette
-
 
         mov     cx,C64_SCREEN_SIZE
         mov     si,c64_screen
-
         mov     dx,0x0000                       ;row=0, column=0
 
+
+global animated_print_screen
+animated_print_screen:
 
 .repeat:
         mov     ah,2                            ;set cursor position
@@ -78,7 +78,15 @@ init_screen:
         je      .do_enable_user_input
         cmp     al,3
         je      .do_disable_user_input
+        cmp     al,4
+        je      .do_reverse_char_on
+        cmp     al,5
+        je      .do_reverse_char_off
 
+        cmp     byte [reverse_char_enabled],1
+        jne     .l2
+        or      al,0x80                         ;use reverse chars charset
+.l2:
         mov     ah,0x0a                         ;write char
         mov     bh,0                            ;page to write to
         mov     bl,9                            ;color: light blue
@@ -112,7 +120,7 @@ init_screen:
 
 .do_delay:
         push    cx
-        mov     cx,60
+        mov     cx,20                           ;wait for a bit
         call    do_delay
         pop     cx
         jmp     .l0
@@ -130,12 +138,20 @@ init_screen:
         mov     byte [delay_after_char],0
         jmp     .l0
 
+.do_reverse_char_on:
+        mov     byte [reverse_char_enabled],1
+        jmp     .l0
+
+.do_reverse_char_off
+        mov     byte [reverse_char_enabled],0
+        jmp     .l0
+
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 do_anim_cursor:
         push    cx
         push    dx
 
-        mov     cx,4
+        mov     cx,2
 .repeat:
         push    cx
         mov     al,219                          ;block char
@@ -178,8 +194,8 @@ do_anim_cursor:
 do_delay:
         push    dx
 .repeat:
-;        call    wait_vertical_retrace
-        call    wait_horiz_retrace
+        call    wait_vertical_retrace
+;        call    wait_horiz_retrace
         loop    .repeat
         pop     dx
 
@@ -287,6 +303,9 @@ border_color:
 delay_after_char:
         db 0
 
+reverse_char_enabled:
+        db 0                                            ;disabled by default
+
 c64_screen:
            ;0123456789012345678901234567890123456789
         db `\n`
@@ -309,8 +328,9 @@ c64_screen:
         db `LIST\n\n`
         db 3                                            ;turn off user input
         db '0 '
-        db 162,208,214,205,160,195,182,180,207,205,193,199,197,160,160,160,160,162         ;inverted chars
-        db 160,185,182,160,178,193
+        db 4                                            ;reverse mode on
+        db `"PVM TANDY64     " 96 2A`
+        db 5                                            ;reverse mode off
         db `\n`
         db `132  "TANDY64"          PRG\n`
         db `532 BLOCKS FREE.\n`

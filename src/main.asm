@@ -24,21 +24,22 @@ section .text
         call    intro_start
         call    post_intro_start
 
-        call    cleanup
+        jmp     cleanup
 
-;        mov     ax,4c00h
-;        int     21h                             ;exit to DOS
-
-        mov     ax,0xffff                       ;reset
-        sub     bx,bx
-
-        push    ax
-        push    bx
-        retf
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 cleanup:
-        ret
+        mov     ax,0x0003
+        int     0x10
+
+        mov     ax,4c00h
+        int     21h                             ;exit to DOS
+
+;        mov     ax,0xffff                       ;reboot machine
+;        sub     bx,bx
+;        push    ax
+;        push    bx
+;        retf
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; STACK

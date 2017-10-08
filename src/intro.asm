@@ -280,13 +280,7 @@ intro_init:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 main_loop:
-        mov     byte [tick],0
 .loop:
-        cmp     byte [tick],0
-        je      .loop
-
-        dec     byte [tick]
-
         mov     ah,1
         int     0x16                            ;INT 16,AH=1, OUT:ZF=status
         jz      .loop
@@ -361,8 +355,6 @@ new_i08:
         call    scroll_anim                     ;anim scroll
 
 ;        call    dec_d020
-
-        inc     byte [tick]
 
         mov     al,0x20                         ;Send the EOI signal
         out     0x20,al                         ; to the IRQ controller
@@ -879,7 +871,9 @@ END     equ     1000_0000b
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_init:
-        mov     byte [text_writer_idx],0
+        mov     byte [text_writer_state],TW_STATE_PRINT_CHAR
+        mov     word [text_writer_idx],0        ;data offset 0
+        mov     byte [text_writer_delay],10      ;delay waits 5 refreshes
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -892,10 +886,38 @@ text_writer_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_state_idle:
+        cmp     byte [text_writer_delay],0
+        je      .end_delay
+
+.end_delay:
+        mov     byte [text_writer_delay],10      ;make it ready for next delay
+        mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;print char is next state
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_state_print_char:
+        mov     bx,word [text_writer_idx]       ;data offset
+        inc     bx                              ;data offset += 1
+        cmp     bx,TEXT_WRITER_DATA_LEN         ;end of line?
+        jne     .l0
+        sub     bx,bx                           ;new offset is 0
+.l0:
+        mov     word [text_writer_idx],bx       ;save offset
+
+        mov     al,byte [text_writer_data+bx]   ;get char to print or state
+        cmp     al,TW_STATE_CR                  ;next state? CR
+        je      .cr
+        call    text_writer_print_char          ;print the char
+        inc     byte [text_writer_x_pos]        ;cursor pos += 1
+        mov     al,160                          ;select reverse space
+        call    text_writer_print_char          ; and print it
+
+        mov     byte [text_writer_state],TW_STATE_IDLE  ;after writing a char, switch to
+                                                ; delay state to make the writing slower
+
+        ret
+.cr:
+        mov     byte [text_writer_state],TW_STATE_CR
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -904,8 +926,19 @@ text_writer_state_backspace:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_state_cr:
-        ret
+        cmp     byte [text_writer_x_pos],0
+        jne     .do_cr
+        int 3
+        mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;if cr finished
+        ret                                     ; then change state to read chars again
 
+.do_cr:
+        mov     al,' '                          ;select space
+        call    text_writer_print_char          ; and print it
+        dec     byte [text_writer_x_pos]        ;cursor -= 1
+        mov     al,160                          ;select reverse space
+        call    text_writer_print_char          ; and print it
+        ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 crtc_addr_init:
@@ -958,7 +991,7 @@ TEXT_WRITER_OFFSET_Y    equ     21*2*160        ;start at line 21:160 bytes per 
         mov     ax,word [text_writer_x_pos]     ;x pos, from 0 to 39
         shl     ax,1
         shl     ax,1                            ;times 4 (each char takes 4 bytes wide)
-        or      di,ax                           ;or is cheaper than add
+        add     di,ax                           ;or is cheaper than add
 
         sub     ah,ah
 
@@ -1210,24 +1243,32 @@ text_writer_bitmap_to_video_tbl:                ;converts charset (bitmap) to vi
 text_writer_idx:                                ;offset to the text_writer_data
         dw      0
 
-        ;control codes: think of it as a printer
-        ; 0 - carriage return (no line feed)
-        ; 1 - backspace
-        ; 2,n - idle vertical retraces
-        ; 3,n - change foreground color
-        ; 4,n - change background color
-        ; 5 - clear line
-        ; 255 - start over
-text_writer_data:
-        db      'hola como estas',0
-        db      'muy bien y vos',0
-        db      255
-
+        ;text writer enums. must be syncced with callbacks order
+TW_STATE_IDLE           equ 0
+TW_STATE_PRINT_CHAR     equ 1
+TW_STATE_BACKSPACE      equ 2
+TW_STATE_CR             equ 3
 text_writer_callbacks:
         dw      text_writer_state_idle          ;
         dw      text_writer_state_print_char    ;
         dw      text_writer_state_backspace     ;
         dw      text_writer_state_cr            ;
+        ;control codes: think of it as a printer
+        ; 0 - idle
+        ; 2 - print char
+        ; 3 - backspace
+        ; 4 - carriage return
+text_writer_data:
+                ;0123456789012345678901234567890123456789
+        db      'Hola... aca los Pungas de Villa Martelli',TW_STATE_CR
+        db      'presentando una intro para la Tandy 1000',TW_STATE_CR
+        db      'eh?... que me contrusi',TW_STATE_CR
+TEXT_WRITER_DATA_LEN equ $-text_writer_data
+
+text_writer_delay:
+        db      0                               ;used by 'delay state' to know who many
+                                                ;vert retrace to wait
+
 
 old_i08:                                        ;segment + offset to old int 8
         dd      0
@@ -1240,9 +1281,6 @@ raster_colors_tbl:                              ;16 colors in total
 raster_color_restore:                           ;must be after raster_colors_tbl
         db      15
 RASTER_COLORS_MAX equ $-raster_colors_tbl
-
-tick:                                           ;when non zero, a retrace should be done
-        db      0
 
 crtc_start_addr:
         dw      0                               ;crtc start address
