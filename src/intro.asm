@@ -339,7 +339,7 @@ new_i08:
 
         ;END raster bar code
 
-        call    inc_d020
+;        call    inc_d020
 
 
         ;after raster baster finishes
@@ -354,7 +354,7 @@ new_i08:
         call    text_writer_anim                ;text writer
         call    scroll_anim                     ;anim scroll
 
-        call    dec_d020
+;        call    dec_d020
 
         mov     al,0x20                         ;Send the EOI signal
         out     0x20,al                         ; to the IRQ controller
@@ -460,8 +460,7 @@ state_delay_anim:
         dec     word [delay_frames]
         ret
 .next:
-        call    state_next
-        ret
+        jmp     state_next                      ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_clemente_fade_in_init:
@@ -531,8 +530,7 @@ state_clemente_fade_in_anim:
 
 .end:
         pop     ds
-        call    state_next
-        ret
+        jmp     state_next                      ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_letters_fade_in_init:
@@ -579,8 +577,7 @@ state_letters_fade_in_anim:
         inc     word [palette_idx]
         ret
 .end:
-        call    state_next
-        ret
+        jmp     state_next                      ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_nothing_init:
@@ -591,8 +588,7 @@ state_nothing_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_skip_anim:
-        call    state_next
-        ret
+        jmp     state_next                      ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_outline_fade_init:
@@ -616,8 +612,7 @@ state_outline_fade_in_anim:
         inc     word [palette_outline_fade_idx]
         ret
 .end:
-        call    state_next
-        ret
+        jmp     state_next                      ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_outline_fade_out_anim:
@@ -636,8 +631,7 @@ state_outline_fade_out_anim:
         inc     word [palette_outline_fade_idx]
         ret
 .end:
-        call    state_next
-        ret
+        jmp     state_next                      ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_outline_fade_to_final_anim:
@@ -656,8 +650,7 @@ state_outline_fade_to_final_anim:
         inc     word [palette_outline_fade_idx]
         ret
 .end:
-        call    state_next
-        ret
+        jmp     state_next                      ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_anim:
@@ -872,17 +865,21 @@ END     equ     1000_0000b
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_init:
         mov     byte [text_writer_state],TW_STATE_PRINT_CHAR
-        mov     word [text_writer_idx],0        ;data offset 0
-        mov     byte [text_writer_delay],10      ;delay waits 5 refreshes
+        mov     word [text_writer_idx],-1       ;HACK: data offset is -1, because we do a +1 at anim
+        mov     byte [text_writer_delay],10     ;delay waits 5 refreshes
+        mov     byte [text_writer_enabled],0    ;disabled by default
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_anim:
-        sub     bh,bh
-        mov     bl,[text_writer_state]
-        shl     bl,1
-        call    [text_writer_callbacks+bx]
+        cmp     byte [text_writer_enabled],0    ;enabled?
+        jne     .ok                             ; if not,return
         ret
+.ok:
+        sub     bh,bh                           ;fetch state
+        mov     bl,[text_writer_state]          ; and get state address from
+        shl     bl,1                            ; table, and call it
+        jmp     [text_writer_callbacks+bx]      ; and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_state_idle:
@@ -937,8 +934,7 @@ text_writer_state_cr:
         call    text_writer_print_char          ; and print it
         dec     byte [text_writer_x_pos]        ;cursor -= 1
         mov     al,160                          ;select reverse space
-        call    text_writer_print_char          ; and print it
-        ret
+        jmp     text_writer_print_char          ; print it, and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 crtc_addr_init:
@@ -968,10 +964,14 @@ crtc_addr_anim:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_enable_text_writer:
+        mov     byte [text_writer_enabled],1
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_enable_noise_fade_init:
         inc     byte [noise_fade_enabled]
         ret
-
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; IN:   al=char to print
@@ -979,7 +979,7 @@ state_enable_noise_fade_init:
 ;           ds: pointer to charset segment
 text_writer_print_char:
 
-TEXT_WRITER_OFFSET_Y    equ     19*2*160        ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
+TEXT_WRITER_OFFSET_Y    equ     21*2*160        ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
 
         sub     ah,ah
         mov     bx,ax                           ;bx = ax (char to print)
@@ -1198,7 +1198,9 @@ states_inits:
         dw      state_outline_fade_init         ;j
         dw      state_delay_2s_init             ;k
         dw      state_enable_noise_fade_init    ;l
-        dw      state_nothing_init              ;m
+        dw      state_delay_2s_init             ;m
+        dw      state_enable_text_writer        ;n
+        dw      state_nothing_init              ;o
 
 states_callbacks:
         dw      state_delay_anim                ;a
@@ -1209,11 +1211,12 @@ states_callbacks:
         dw      state_outline_fade_out_anim     ;f
         dw      state_delay_anim                ;g
         dw      state_letters_fade_in_anim      ;h
-        dw      state_outline_fade_to_final_anim        ;j
+        dw      state_outline_fade_to_final_anim;j
         dw      state_delay_anim                ;k
         dw      state_skip_anim                 ;l
-        dw      state_nothing_anim              ;m
-
+        dw      state_delay_anim                ;m
+        dw      state_skip_anim                 ;n
+        dw      state_nothing_anim              ;o
 
 text_writer_state:
         db      0
@@ -1221,24 +1224,27 @@ text_writer_state:
 text_writer_x_pos:                              ;position x for the cursor. 0-39
         dw      0
 
-text_writer_bitmap_to_video_tbl:                ;converts charset (bitmap) to video bytes. nibble only
-        db      0x00,0x00                       ;0000_0000b
-        db      0x00,0x0f                       ;0000_0001b
-        db      0x00,0xf0                       ;0000_0010b
-        db      0x00,0xff                       ;0000_0011b
-        db      0x0f,0x00                       ;0000_0100b
-        db      0x0f,0x0f                       ;0000_0101b
-        db      0x0f,0xf0                       ;0000_0110b
-        db      0x0f,0xff                       ;0000_0111b
+text_writer_enabled:
+        db      0                               ;boolean: whether the text_writer anim is enabled
 
-        db      0xf0,0x00                       ;0000_1000b
-        db      0xf0,0x0f                       ;0000_1001b
-        db      0xf0,0xf0                       ;0000_1010b
-        db      0xf0,0xff                       ;0000_1011b
-        db      0xff,0x00                       ;0000_1100b
-        db      0xff,0x0f                       ;0000_1101b
-        db      0xff,0xf0                       ;0000_1110b
-        db      0xff,0xff                       ;0000_1111b
+text_writer_bitmap_to_video_tbl:                ;converts charset (bitmap) to video bytes. nibble only
+        db      0x00,0x00                       ;0000
+        db      0x00,0x07                       ;0001
+        db      0x00,0x70                       ;0010
+        db      0x00,0x77                       ;0011
+        db      0x07,0x00                       ;0100
+        db      0x07,0x07                       ;0101
+        db      0x07,0x70                       ;0110
+        db      0x07,0x77                       ;0111
+
+        db      0x70,0x00                       ;1000
+        db      0x70,0x07                       ;1001
+        db      0x70,0x70                       ;1010
+        db      0x70,0x77                       ;1011
+        db      0x77,0x00                       ;1100
+        db      0x77,0x07                       ;1101
+        db      0x77,0x70                       ;1110
+        db      0x77,0x77                       ;1111
 
 text_writer_idx:                                ;offset to the text_writer_data
         dw      0
@@ -1260,8 +1266,8 @@ text_writer_callbacks:
         ; 4 - carriage return
 text_writer_data:
                 ;0123456789012345678901234567890123456789
-        db      'Hola... aca los Pungas de Villa Martelli',TW_STATE_CR
-        db      'presentando una intro para la Tandy 1000',TW_STATE_CR
+        db      'Hola hola hola  Hi there               ',TW_STATE_CR
+        db      `               let's add some music`,TW_STATE_CR
         db      'eh?... que me contrusi',TW_STATE_CR
 TEXT_WRITER_DATA_LEN equ $-text_writer_data
 
