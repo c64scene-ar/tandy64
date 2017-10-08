@@ -682,9 +682,9 @@ OFFSET_Y        equ     23*2*160                ;start at line 23:160 bytes per 
 
         ;update the cache with the next 32 bytes (2x2 chars)
         mov     bx,[scroll_char_idx]            ;scroll text offset
-        sub     bh,bh
         mov     bl,byte [scroll_text+bx]        ;char to print
         and     bl,0011_1111b                   ;only use lower 63 bits
+        sub     bh,bh
         shl     bx,1                            ;bx * 8 since each char takes 8
         shl     bx,1                            ; bytes in the charset
         shl     bx,1
@@ -751,7 +751,8 @@ OFFSET_Y        equ     23*2*160                ;start at line 23:160 bytes per 
         inc     word [scroll_char_idx]          ;scroll_char_idx++
         cmp     word [scroll_char_idx],SCROLL_TEXT_LEN  ;end of scroll?
         jnz     .end                            ; if so, reset index
-        mov     word [scroll_char_idx],ax
+        int 3
+        mov     word [scroll_char_idx],ax       ;reset to 0
 
 .end:
         mov     ax,0xb800                       ;restore es to video memory
@@ -1135,12 +1136,37 @@ cache_charset:
         resb    32                              ;the 32 bytes to print in the current frame
                                                 ; char aligned like: top-left, bottom-left,
                                                 ; top-right, bottom-right
+        ; # = tm
+        ; % = closing double quotes
+        ; $ = smiley
 scroll_text:
-        db 'ABCDEFGHIJKLMNOPQRSTUVWXYZ A B C D E 0123456789    '
+        db 'HI THERE. PUNGAS HERE. THIS IS OUR FIRST TANDY RELEASE. THIS IS '
+        db 'THE STORY: WE WENT TO PICK UP A COMMODORE 64 BUNDLE '
+        db 'AND THE GUY WHO WAS SELLING IT ALSO GAVE US TWO TANDY 1000 HX. '
+        db 'WTF IS A TANDY 1000 HX? WE GOOGLED IT, AND WE LIKED IT. '
+        db `HEY, IT HAS AN 8088 (WE DON'T NEED NO FANCY 386), SOME NON-`
+        db 'STANDARD VIDEO MODES, A DECENT SOUND CARD, AND JOYSTICK PORTS '
+        db '(UNIJOYSTICLE COMMING SOON#). '
+        db 'ANYWAY, HERE WE ARE, WITH OUR FIRST TANDY 1000 RELEASE. WE CALL IT '
+        db `"TANDY64%... GOT IT ? & . `
+        db 'SENDING OUR REGARDS TO ALL THE TANDY 1000 SCENE, STARTING WITH: '
+        db '                      '
+        db 'WTF. THERE IS NO TANDY 1000 SCENE ??? HOW DARE YOU !!! '
+        db `HOPEFULLY THIS WON'T BE OUR LAST TANDY RELEASE. `
+        db 'PROBLEM IS THERE ARE NO PARTIES ACCEPTING TANDY RELEASES (BESIDES THIS ONE). '
+        db 'DO US A FAVOR: PING YOUR FAVOURITE PARTY-ORGANIZER AND TELL HIM/HER '
+        db 'THAT YOU DEMAND SUPPORT FOR IT. RADIO SHACK DESERVES IT ! '
+        db '     '
+        db 'WE WOULD LIKE TO SAY THAT WE ARE DOING THIS RELEASE AS A TRIBUTE TO '
+        db `RADIO SHACK. IT IS NOT, IT IS JUST A COINCIDICE. BUT DON'T GET US `
+        db 'WRONG. WE LOVE RADIO SHACK, WE ARE FOND OF THIS MACHINE, AND THE TRS-80. '
+        db `BTW, CURRENTLY WE DON'T HAVE ANY TRS-80, BUT WE ACCEPT DONATIONS $. `
+        db '   CODE:RIQ, MUSIC: UCTUMI, GRAPHICS: ALAKRAN.  CONTACT: HTTP://PUNGAS.SPACE '
+        db '   - PUNGAS DE VILLA MARTELLI SIGNING OFF...                          '
 SCROLL_TEXT_LEN equ $-scroll_text
 
 scroll_char_idx:                                ;pointer to the next char
-        db 0
+        dw 0
 scroll_bit_idx:                                 ;pointer to the next bit in the char
         db 0
 scroll_col_used:
