@@ -1140,9 +1140,10 @@ cache_charset:
         ; % = closing double quotes
         ; $ = smiley
 scroll_text:
-        db 'HI THERE. PUNGAS HERE. THIS IS OUR FIRST TANDY RELEASE. THIS IS '
-        db 'THE STORY: WE WENT TO PICK UP A COMMODORE 64 BUNDLE '
-        db 'AND THE GUY WHO WAS SELLING IT ALSO GAVE US TWO TANDY 1000 HX. '
+        db 'HI THERE. PUNGAS DE VILLA MARTELLI HERE. '
+        db 'THIS IS OUR FIRST TANDY RELEASE. '
+        db 'THIS IS THE STORY: WE WENT TO PICK UP A COMMODORE 64 BUNDLE '
+        db 'AND THE SELLER INCLUDED TWO TANDY 1000 HX IN THE BUNDLE. '
         db 'WTF IS A TANDY 1000 HX? WE GOOGLED IT, AND WE LIKED IT. '
         db `HEY, IT HAS AN 8088 (WE DON'T NEED NO FANCY 386), SOME NON-`
         db 'STANDARD VIDEO MODES, A DECENT SOUND CARD, AND JOYSTICK PORTS '
@@ -1154,15 +1155,21 @@ scroll_text:
         db 'WTF. THERE IS NO TANDY 1000 SCENE ??? HOW DARE YOU !!! '
         db `HOPEFULLY THIS WON'T BE OUR LAST TANDY RELEASE. `
         db 'PROBLEM IS THERE ARE NO PARTIES ACCEPTING TANDY RELEASES (BESIDES THIS ONE). '
-        db 'DO US A FAVOR: PING YOUR FAVOURITE PARTY-ORGANIZER AND TELL HIM/HER '
-        db 'THAT YOU DEMAND SUPPORT FOR IT. RADIO SHACK DESERVES IT ! '
+        db 'DO US A FAVOR: PING YOUR FAVORITE PARTY-ORGANIZER AND DEMAND HIM/HER '
+        db 'TANDY SUPPORT. '
+        db 27,28,29,30,31,42,43                 ; Radio Shack (using Radio Shack font)
+        db ' DESERVES IT ! '
         db '     '
         db 'WE WOULD LIKE TO SAY THAT WE ARE DOING THIS RELEASE AS A TRIBUTE TO '
-        db `RADIO SHACK. IT IS NOT, IT IS JUST A COINCIDICE. BUT DON'T GET US `
-        db 'WRONG. WE LOVE RADIO SHACK, WE ARE FOND OF THIS MACHINE, AND THE TRS-80. '
+        db 27,28,29,30,31,42,43                 ; Radio Shack (using Radio Shack font)
+        db `. IT IS NOT, IT IS JUST A COINCIDENCE. HOWEVER, DON'T GET US `
+        db 'WRONG. WE LOVE '
+        db 27,28,29,30,31,42,43                 ; Radio Shack (using Radio Shack font)
+        db ', WE ARE FOND OF THIS MACHINE, AND THE TRS-80. '
         db `BTW, CURRENTLY WE DON'T HAVE ANY TRS-80, BUT WE ACCEPT DONATIONS $. `
-        db '   CODE:RIQ, MUSIC: UCTUMI, GRAPHICS: ALAKRAN.  CONTACT: HTTP://PUNGAS.SPACE '
-        db '   - PUNGAS DE VILLA MARTELLI SIGNING OFF...                          '
+        db '   '
+        db '*+ CODE:RIQ, MUSIC: UCTUMI, GRAPHICS: ALAKRAN *+ HTTP://PUNGAS.SPACE *+ '
+        db 'SIGNING OFF...                          '
 SCROLL_TEXT_LEN equ $-scroll_text
 
 scroll_char_idx:                                ;pointer to the next char
