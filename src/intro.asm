@@ -1142,26 +1142,26 @@ cache_charset:
         ; $ = smiley
         ; ; = ~ (kind of separator)
 scroll_text:
-        db 'HI THERE. PUNGAS DE VILLA MARTELLI HERE. '
-        db 'THIS IS OUR FIRST TANDY RELEASE. '
-        db 'THIS IS THE STORY: WE WENT TO PICK UP A COMMODORE 64 BUNDLE '
-        db 'AND THE SELLER INCLUDED TWO TANDY 1000 HX IN THE BUNDLE. '
+        db 'HI THERE. PUNGAS DE VILLA MARTELLI HERE, WITH OUR FIRST TANDY RELEASE. '
+        db 'IT ALL BEGAN WHEN WE WENT TO PICK UP A COMMODORE 64 BUNDLE '
+        db 'AND THE SELLER INCLUDED TWO TANDY 1000 HX IN IT. '
         db 'WTF IS A TANDY 1000 HX? WE GOOGLED IT, AND WE LIKED IT. '
         db `HEY, IT HAS AN 8088 (WE DON'T NEED NO FANCY 386), SOME NON-`
-        db 'STANDARD VIDEO MODES, A DECENT SOUND CARD, AND JOYSTICK PORTS '
+        db 'STANDARD VIDEO MODES, A BETTER-THAN-SPEAKER SOUNDCARD, AND JOYSTICK PORTS '
         db '(UNIJOYSTICLE COMMING SOON#). '
         db 'ANYWAY, HERE WE ARE, WITH OUR FIRST TANDY 1000 RELEASE. WE CALL IT '
         db `"TANDY 64%... GOT IT ? & . `
+        db '   ;    '
         db 'SENDING OUR REGARDS TO ALL THE TANDY 1000 SCENE, STARTING WITH: '
         db '                      '
         db 'WTF. THERE IS NO TANDY 1000 SCENE ??? HOW DARE YOU !!! '
         db `HOPEFULLY THIS WON'T BE OUR LAST TANDY RELEASE. `
-        db 'PROBLEM IS THERE ARE NO PARTIES ACCEPTING TANDY RELEASES (BESIDES THIS ONE). '
+        db 'PROBLEM IS THERE ARE ALMOST NO PARTIES ACCEPTING TANDY RELEASES. '
         db 'DO US A FAVOR: PING YOUR FAVORITE PARTY-ORGANIZER AND DEMAND HIM/HER '
         db 'TANDY SUPPORT. '
         db 27,28,29,30,31,42,43                 ; Radio Shack (using Radio Shack font)
         db ' DESERVES IT ! '
-        db '     '
+        db '   ;   '
         db 'WE WOULD LIKE TO SAY THAT WE ARE DOING THIS RELEASE AS A TRIBUTE TO '
         db 27,28,29,30,31,42,43                 ; Radio Shack (using Radio Shack font)
         db `. IT IS NOT, IT IS JUST A COINCIDENCE. HOWEVER, DON'T GET US `
@@ -1169,8 +1169,9 @@ scroll_text:
         db 27,28,29,30,31,42,43                 ; Radio Shack (using Radio Shack font)
         db ', WE ARE FOND OF THIS MACHINE, AND THE TRS-80. '
         db `BTW, CURRENTLY WE DON'T HAVE ANY TRS-80, BUT WE ACCEPT DONATIONS $. `
-        db '   '
-        db '; CODE:RIQ, MUSIC: UCTUMI, GRAPHICS: ALAKRAN ; HTTP://PUNGAS.SPACE ; '
+        db '   ;   '
+        db 'CODE:RIQ, MUSIC: UCTUMI, GRAPHICS: ALAKRAN'
+        db '   ;   '
         db 'SIGNING OFF...                          '
 SCROLL_TEXT_LEN equ $-scroll_text
 
