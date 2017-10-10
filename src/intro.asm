@@ -258,7 +258,7 @@ fake_crash:
 .skip:
         mov     [fake_crash_lfsr_state],al
         mov     ah,al                           ;use bx as new crtc start address
-        and     ax,0b0000_0011_1111_1111        ; but limit its range for more
+        and     ax,0b0000_1010_1000_0000        ; but limit its range for more
         mov     [crtc_start_addr],ax            ; pleasant visual effect
         call    crtc_addr_anim                  ; and update the start address
 
@@ -859,7 +859,7 @@ END     equ     1000_0000b
 text_writer_init:
         mov     byte [text_writer_state],TW_STATE_PRINT_CHAR
         mov     word [text_writer_idx],-1       ;HACK: data offset is -1, because we do a +1 at anim
-        mov     byte [text_writer_delay],10     ;delay waits 5 refreshes
+        mov     byte [text_writer_delay],10     ;delay waits 10 refreshes
         mov     byte [text_writer_enabled],0    ;disabled by default
         ret
 
@@ -878,9 +878,11 @@ text_writer_anim:
 text_writer_state_idle:
         cmp     byte [text_writer_delay],0
         je      .end_delay
+        dec     byte [text_writer_delay]
+        ret
 
 .end_delay:
-        mov     byte [text_writer_delay],10      ;make it ready for next delay
+        mov     byte [text_writer_delay],1      ;make it ready for next delay
         mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;print char is next state
         ret
 
@@ -1010,7 +1012,7 @@ TEXT_WRITER_OFFSET_Y    equ     21*2*160        ;start at line 21:160 bytes per 
         render_nibble
 
 
-        sub     di,24576-156                    ;160-2
+        sub     di,24576-156                    ;160-4
         render_nibble
 
         add     di,8192-4
@@ -1079,7 +1081,6 @@ dec_d020:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 section .gfx data
         incbin 'src/logo.raw'                   ;MUST be the first variable in the segment
-;        times 32768 db 0x00                     ;black/black
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; DATA MUSIC + CHARSET + MISC
@@ -1139,6 +1140,7 @@ cache_charset:
         ; # = tm
         ; % = closing double quotes
         ; $ = smiley
+        ; ; = ~ (kind of separator)
 scroll_text:
         db 'HI THERE. PUNGAS DE VILLA MARTELLI HERE. '
         db 'THIS IS OUR FIRST TANDY RELEASE. '
@@ -1149,7 +1151,7 @@ scroll_text:
         db 'STANDARD VIDEO MODES, A DECENT SOUND CARD, AND JOYSTICK PORTS '
         db '(UNIJOYSTICLE COMMING SOON#). '
         db 'ANYWAY, HERE WE ARE, WITH OUR FIRST TANDY 1000 RELEASE. WE CALL IT '
-        db `"TANDY64%... GOT IT ? & . `
+        db `"TANDY 64%... GOT IT ? & . `
         db 'SENDING OUR REGARDS TO ALL THE TANDY 1000 SCENE, STARTING WITH: '
         db '                      '
         db 'WTF. THERE IS NO TANDY 1000 SCENE ??? HOW DARE YOU !!! '
@@ -1168,7 +1170,7 @@ scroll_text:
         db ', WE ARE FOND OF THIS MACHINE, AND THE TRS-80. '
         db `BTW, CURRENTLY WE DON'T HAVE ANY TRS-80, BUT WE ACCEPT DONATIONS $. `
         db '   '
-        db '*+ CODE:RIQ, MUSIC: UCTUMI, GRAPHICS: ALAKRAN *+ HTTP://PUNGAS.SPACE *+ '
+        db '; CODE:RIQ, MUSIC: UCTUMI, GRAPHICS: ALAKRAN ; HTTP://PUNGAS.SPACE ; '
         db 'SIGNING OFF...                          '
 SCROLL_TEXT_LEN equ $-scroll_text
 
