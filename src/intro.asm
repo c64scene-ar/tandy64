@@ -232,12 +232,12 @@ wait_horiz_retrace:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 fake_crash:
 
-        ;uses 6i bit (63 values) LFSR maximal. So it lasts
-        ;about one second
+        ;uses 5 bit (31 values) LFSR maximal.
 
         mov     byte [fake_crash_lfsr_state],1  ;init LFSR state
 .repeat:
-        call    wait_vertical_retrace
+        call    wait_vertical_retrace           ;wait x 2 to create
+        call    wait_vertical_retrace           ; a better effect
 
         call    music_anim                      ;4x speed for music
         call    music_anim
@@ -254,7 +254,7 @@ fake_crash:
         mov     ah,al
         shr     al,1
         jnc     .skip
-        xor     al,0b0011_0000                  ;Taps 5 and 6 for maximal
+        xor     al,0b0001_0100                  ;Taps 5 and 3 for maximal
 .skip:
         mov     [fake_crash_lfsr_state],al
         mov     ah,al                           ;use bx as new crtc start address
@@ -1188,9 +1188,9 @@ scroll_text:
         db 27,28,29,30,31,42,43                 ; Radio Shack (using Radio Shack font)
         db ' DESERVES IT ! '
         db '   ;   '
-        db 'WE WOULD LIKE TO SAY THAT WE ARE DOING THIS RELEASE AS A TRIBUTE TO '
+        db 'AS MUCH AS WE WOULD LIKE TO SAY THAT WE DID THIS RELEASE AS A TRIBUTE TO '
         db 27,28,29,30,31,42,43                 ; Radio Shack (using Radio Shack font)
-        db `. IT IS NOT, IT IS JUST A COINCIDENCE. HOWEVER, DON'T GET US `
+        db `, IT IS NOT, IT WAS JUST A COINCIDENCE. HOWEVER, DON'T GET US `
         db 'WRONG. WE LOVE '
         db 27,28,29,30,31,42,43                 ; Radio Shack (using Radio Shack font)
         db ', WE ARE FOND OF THIS MACHINE, AND THE TRS-80. '
