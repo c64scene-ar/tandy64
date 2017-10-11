@@ -525,14 +525,14 @@ state_clemente_fade_in_anim:
         jmp     state_next                      ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_letters_fade_in_init:
+state_pvm_logo_fade_in_init:
         mov     word [palette_idx],0
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_letters_fade_in_anim:
+state_pvm_logo_fade_in_anim:
         mov     bx,word [palette_idx]
-        cmp     bx,PALETTE_LETTERS_FADE_MAX
+        cmp     bx,PALETTE_PVM_LOGO_FADE_MAX
         je      .end
 
         ;letter P
@@ -541,7 +541,7 @@ state_letters_fade_in_anim:
         out     dx,al
 
         mov     dl,0xde                         ;dx=0x03de
-        mov     al,[palette_letters_fade_tbl+bx]
+        mov     al,[palette_pvm_logo_fade_tbl+bx]
         out     dx,al
 
 
@@ -552,7 +552,7 @@ state_letters_fade_in_anim:
 
         sub     bx,8                            ;offset -8
         mov     dl,0xde                         ;dx=0x03de
-        mov     al,[palette_letters_fade_tbl+bx]
+        mov     al,[palette_pvm_logo_fade_tbl+bx]
         out     dx,al
 
 
@@ -563,7 +563,7 @@ state_letters_fade_in_anim:
 
         sub     bx,8                            ;offset -8
         mov     dl,0xde                         ;dx=0x03de
-        mov     al,[palette_letters_fade_tbl+bx]
+        mov     al,[palette_pvm_logo_fade_tbl+bx]
         out     dx,al
 
         inc     word [palette_idx]
@@ -872,22 +872,33 @@ text_writer_anim:
         sub     bh,bh                           ;fetch state
         mov     bl,[text_writer_state]          ; and get state address from
         shl     bl,1                            ; table, and call it
-        jmp     [text_writer_callbacks+bx]      ; and return
+        jmp     [text_writer_callbacks_anim+bx] ; and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-text_writer_state_idle:
+text_writer_state_idle_init:
+        inc     word [text_writer_idx]          ;offset += 1
+        mov     bx,[text_writer_idx]            ;get current data offset
+        mov     al,[text_writer_data+bx]        ;fetch value value using offset
+        mov     [text_writer_delay],al          ;move it to delay
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_state_idle_anim:
         cmp     byte [text_writer_delay],0
         je      .end_delay
         dec     byte [text_writer_delay]
         ret
 
 .end_delay:
-        mov     byte [text_writer_delay],1      ;make it ready for next delay
         mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;print char is next state
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-text_writer_state_print_char:
+text_writer_state_print_char_init:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_state_print_char_anim:
         mov     bx,word [text_writer_idx]       ;data offset
         inc     bx                              ;data offset += 1
         cmp     bx,TEXT_WRITER_DATA_LEN         ;end of line?
@@ -905,26 +916,37 @@ text_writer_state_print_char:
         mov     al,160                          ;select reverse space
         call    text_writer_print_char          ; and print it
 
+        mov     byte [text_writer_delay],1      ;cycles to wait
         mov     byte [text_writer_state],TW_STATE_IDLE  ;after writing a char, switch to
                                                 ; delay state to make the writing slower
         ret
+
 .new_state:
-        mov     byte [text_writer_state],al
+        mov     byte [text_writer_state],al     ;store new state
+
+        sub     bh,bh                           ;move it to bx so we can use it
+        mov     bl,al                           ; as index
+        shl     bl,1                            ;bx *= 2 since each addr takes 2 bytes
+        jmp     [text_writer_callbacks_init+bx] ;call init callback and return
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_state_backspace_to_init:
+        inc     word [text_writer_idx]          ;data offset += 1
+        mov     bx,word [text_writer_idx]       ;get data offset
+        mov     al,byte [text_writer_data+bx]   ;pos to go back to
+        mov     byte [text_writer_x_dst],al     ;update destination
+
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-text_writer_state_backspace:
-        mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;print char is next state
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-text_writer_state_cr:
-        cmp     byte [text_writer_x_pos],0
-        jne     .do_cr
-        mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;if cr finished
+text_writer_state_backspace_to_anim:
+        mov     al,byte [text_writer_x_dst]     ;fetch destination pos
+        cmp     byte [text_writer_x_pos],al     ; and compare with current pos
+        ja      .do_back
+        mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;if back finished
         ret                                     ; then change state to read chars again
 
-.do_cr:
+.do_back:
         mov     al,' '                          ;select space
         call    text_writer_print_char          ; and print it
         dec     byte [text_writer_x_pos]        ;cursor -= 1
@@ -932,11 +954,15 @@ text_writer_state_cr:
         jmp     text_writer_print_char          ; print it, and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_state_call_action_init:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; fetch the next byte from the stream, and use it as an
 ; index to the action_call table, and call that action function
-text_writer_state_action:
+text_writer_state_call_action_anim:
+        inc     word [text_writer_idx]          ;offset + 1
         mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;print char is next state
-        inc     word [text_writer_idx]          ;read next byte
         mov     bx,word [text_writer_idx]       ;FIXME: do something with bx
         jmp     state_enable_noise_fade_init
 
@@ -993,7 +1019,7 @@ TEXT_WRITER_OFFSET_Y    equ     21*2*160        ;start at line 21:160 bytes per 
         shl     bx,1                            ;bx*8 since each char takes 8 bytes
 
         mov     di,TEXT_WRITER_OFFSET_Y         ;writer start point
-        mov     ax,word [text_writer_x_pos]     ;x pos, from 0 to 39
+        mov     al,byte [text_writer_x_pos]     ;x pos, from 0 to 39
         shl     ax,1
         shl     ax,1                            ;times 4 (each char takes 4 bytes wide)
         add     di,ax                           ;or is cheaper than add
@@ -1149,12 +1175,12 @@ scroll_text:
         db `HEY, IT HAS AN 8088 (WE DON'T NEED NO FANCY 386), SOME NON-`
         db 'STANDARD VIDEO MODES, A BETTER-THAN-SPEAKER SOUNDCARD, AND JOYSTICK PORTS '
         db '(UNIJOYSTICLE COMMING SOON#). '
-        db 'ANYWAY, HERE WE ARE, WITH OUR FIRST TANDY 1000 RELEASE. WE CALL IT '
+        db 'AND HERE WE ARE, WITH OUR FIRST TANDY 1000 RELEASE. WE CALL IT '
         db `"TANDY 64%... GOT IT ? & . `
         db '   ;    '
         db 'SENDING OUR REGARDS TO ALL THE TANDY 1000 SCENE, STARTING WITH: '
         db '                      '
-        db 'WTF. THERE IS NO TANDY 1000 SCENE ??? HOW DARE YOU !!! '
+        db 'WHAT !? THERE IS NO TANDY 1000 SCENE ??? HOW DARE YOU !!! '
         db `HOPEFULLY THIS WON'T BE OUR LAST TANDY RELEASE. `
         db 'PROBLEM IS THERE ARE ALMOST NO PARTIES ACCEPTING TANDY RELEASES. '
         db 'DO US A FAVOR: PING YOUR FAVORITE PARTY-ORGANIZER AND DEMAND HIM/HER '
@@ -1168,7 +1194,8 @@ scroll_text:
         db 'WRONG. WE LOVE '
         db 27,28,29,30,31,42,43                 ; Radio Shack (using Radio Shack font)
         db ', WE ARE FOND OF THIS MACHINE, AND THE TRS-80. '
-        db `BTW, CURRENTLY WE DON'T HAVE ANY TRS-80, BUT WE ACCEPT DONATIONS $. `
+        db `BTW, CURRENTLY WE DON'T HAVE ANY TRS-80, AND IF YOU WANT TO DONATE US ONE `
+        db 'WE WILL HAPPILY ACCEPT IT $. '
         db '   ;   '
         db 'CODE:RIQ, MUSIC: UCTUMI, GRAPHICS: ALAKRAN'
         db '   ;   '
@@ -1206,13 +1233,13 @@ palette_idx:
 
         db      0,0,0,0,0,0,0,0                 ;buffer for letter M
         db      0,0,0,0,0,0,0,0                 ;buffer for letter P
-palette_letters_fade_tbl:                       ;inner logo color
+palette_pvm_logo_fade_tbl:                      ;inner logo color
         db      8,8,8,8,7,7,7,7
         db      11,11,11,11,9,9,9,9
 
         db      9,9,9,9,9,9,9,9
         db      9,9,9,9,9,9,9,9
-PALETTE_LETTERS_FADE_MAX equ $-palette_letters_fade_tbl
+PALETTE_PVM_LOGO_FADE_MAX equ $-palette_pvm_logo_fade_tbl
 
 volume_0:
         db      0b1001_1111                     ;vol 0 channel 0
@@ -1232,7 +1259,7 @@ states_inits:
         dw      state_outline_fade_init         ;e
         dw      state_outline_fade_init         ;f
         dw      state_delay_5s_init             ;g
-        dw      state_letters_fade_in_init      ;h
+        dw      state_pvm_logo_fade_in_init     ;h
         dw      state_outline_fade_init         ;j
         dw      state_delay_2s_init             ;k
         dw      state_enable_text_writer        ;n
@@ -1246,7 +1273,7 @@ states_callbacks:
         dw      state_outline_fade_in_anim      ;e
         dw      state_outline_fade_out_anim     ;f
         dw      state_delay_anim                ;g
-        dw      state_letters_fade_in_anim      ;h
+        dw      state_pvm_logo_fade_in_anim     ;h
         dw      state_outline_fade_to_final_anim;j
         dw      state_delay_anim                ;k
         dw      state_skip_anim                 ;n
@@ -1256,7 +1283,9 @@ text_writer_state:
         db      0
 
 text_writer_x_pos:                              ;position x for the cursor. 0-39
-        dw      0
+        db      0
+text_writer_x_dst:                              ;dst position x for the cursor. 0-39
+        db      0
 
 text_writer_enabled:
         db      0                               ;boolean: whether the text_writer anim is enabled
@@ -1286,16 +1315,22 @@ text_writer_idx:                                ;offset to the text_writer_data
         ;text writer enums. must be syncced with callbacks order
 TW_STATE_IDLE           equ 0
 TW_STATE_PRINT_CHAR     equ 1
-TW_STATE_BACKSPACE      equ 2
-TW_STATE_CR             equ 3
-TW_STATE_ACTION         equ 4
-TW_STATE_MAX            equ 5                   ;should be the last state
-text_writer_callbacks:
-        dw      text_writer_state_idle          ;
-        dw      text_writer_state_print_char    ;
-        dw      text_writer_state_backspace     ;
-        dw      text_writer_state_cr            ;
-        dw      text_writer_state_action        ;
+TW_STATE_BACKSPACE_TO   equ 2
+TW_STATE_CALL_ACTION    equ 3
+TW_STATE_MAX            equ 4                   ;should be the last state
+
+text_writer_callbacks_init:
+        dw      text_writer_state_idle_init             ;
+        dw      0                                       ;no init for print_char
+        dw      text_writer_state_backspace_to_init     ;
+        dw      text_writer_state_call_action_init      ;
+
+text_writer_callbacks_anim:
+        dw      text_writer_state_idle_anim             ;
+        dw      text_writer_state_print_char_anim       ;
+        dw      text_writer_state_backspace_to_anim     ;
+        dw      text_writer_state_call_action_anim      ;
+
         ;control codes: think of it as a printer
         ; 0 - idle
         ; 2 - print char
@@ -1305,13 +1340,15 @@ text_writer_callbacks:
 text_writer_data:
                 ;0123456789012345678901234567890123456789
         db      '                Hi there'
-        db      TW_STATE_IDLE
-        db      TW_STATE_CR
-        db      `         let's move to the rythm`
-        db      TW_STATE_IDLE
-        db      TW_STATE_ACTION,0               ;execute action 0: enable rhythm
-        db      TW_STATE_CR
-        db      'eh?... que me contrusi',TW_STATE_CR
+        db      TW_STATE_IDLE,30                ;wait cycles
+        db      TW_STATE_BACKSPACE_TO,9         ;back to pos 9
+        db                `let's move to the rythm`
+        db      TW_STATE_IDLE,30                ;wait 5 cycles
+        db      TW_STATE_CALL_ACTION,0          ;execute action 0: enable rhythm
+        db      TW_STATE_BACKSPACE_TO,0         ;back to pos 0
+        db      'eh?... que me contrusi'
+        db      TW_STATE_IDLE,30                ;idle 5 cycles
+        db      TW_STATE_BACKSPACE_TO,0         ;back to pos 0
 TEXT_WRITER_DATA_LEN equ $-text_writer_data
 
 text_writer_delay:
@@ -1331,6 +1368,14 @@ raster_colors_tbl:                              ;16 colors in total
 raster_color_restore:                           ;must be after raster_colors_tbl
         db      15
 RASTER_COLORS_MAX equ $-raster_colors_tbl
+
+raster_colors_ibm_tbl:
+        db      1,1,0,1, 1,0,1,1                ;blue and black
+        db      0,1,1,0, 1,1,0,1
+
+raster_colors_grayscale_tbl:
+        db      1,1,0,1, 1,0,1,1                ;blue and black
+        db      0,1,1,0, 1,1,0,1
 
 crtc_start_addr:
         dw      0                               ;crtc start address

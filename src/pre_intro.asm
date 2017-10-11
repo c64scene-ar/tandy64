@@ -329,10 +329,10 @@ c64_screen:
         db 3                                            ;turn off user input
         db '0 '
         db 4                                            ;reverse mode on
-        db `"PVM TANDY64     " 96 2A`
+        db `"PVM TANDY 64    " 96 2A`
         db 5                                            ;reverse mode off
         db `\n`
-        db `132  "TANDY64"          PRG\n`
+        db `132  "TANDY 64"         PRG\n`
         db `532 BLOCKS FREE.\n`
         db `READY.\n`
         db 0                                            ; pause / animate cursor
