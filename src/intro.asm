@@ -1180,7 +1180,7 @@ scroll_text:
         db '   ;    '
         db 'SENDING OUR REGARDS TO ALL THE TANDY 1000 SCENE, STARTING WITH: '
         db '                      '
-        db 'WHAT !? THERE IS NO TANDY 1000 SCENE ??? HOW DARE YOU !!! '
+        db 'WHAT !? NO TANDY 1000 SCENE ??? HOW DARE YOU !!! '
         db `HOPEFULLY THIS WON'T BE OUR LAST TANDY RELEASE. `
         db 'PROBLEM IS THERE ARE ALMOST NO PARTIES ACCEPTING TANDY RELEASES. '
         db 'DO US A FAVOR: PING YOUR FAVORITE PARTY-ORGANIZER AND DEMAND HIM/HER '
@@ -1190,12 +1190,11 @@ scroll_text:
         db '   ;   '
         db 'AS MUCH AS WE WOULD LIKE TO SAY THAT WE DID THIS RELEASE AS A TRIBUTE TO '
         db 27,28,29,30,31,42,43                 ; Radio Shack (using Radio Shack font)
-        db `, IT IS NOT, IT WAS JUST A COINCIDENCE. HOWEVER, DON'T GET US `
-        db 'WRONG. WE LOVE '
+        db ', IT WAS JUST MERE CHANCE. HOWEVER, WE LOVE '
         db 27,28,29,30,31,42,43                 ; Radio Shack (using Radio Shack font)
         db ', WE ARE FOND OF THIS MACHINE, AND THE TRS-80. '
-        db `BTW, CURRENTLY WE DON'T HAVE ANY TRS-80, AND IF YOU WANT TO DONATE US ONE `
-        db 'WE WILL HAPPILY ACCEPT IT $. '
+        db `BTW, CURRENTLY WE DON'T HAVE ANY TRS-80, AND IF YOU HAVE A SPARE ONE THAT YOU DON'T USE `
+        db 'AND WANT TO DONATE IT, HERE WE ARE $.'
         db '   ;   '
         db 'CODE:RIQ, MUSIC: UCTUMI, GRAPHICS: ALAKRAN'
         db '   ;   '
