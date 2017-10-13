@@ -1063,7 +1063,7 @@ plasma_init:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-PLASMA_X equ 92
+PLASMA_X equ 48
 PLASMA_Y equ 16
 PLASMA_OFFSET equ 23*2*160+32
 plasma_anim:
