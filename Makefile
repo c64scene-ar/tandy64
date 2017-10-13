@@ -36,3 +36,10 @@ run: $(TARGET)
 	echo "Running game..."
 	dosbox-x -conf conf/dosbox-x.conf -c "mount c bin/ && dir" -c "c:" -c ${TARGET_NAME}
 
+x: $(TARGET)
+	echo "Compressing game..."
+	-upx --8086 $(TARGET)
+
+runx: x
+	echo "Running game..."
+	dosbox-x -conf conf/dosbox-x.conf -c "mount c bin/ && dir" -c "c:" -c ${TARGET_NAME}

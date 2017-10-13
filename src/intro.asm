@@ -276,6 +276,7 @@ intro_init:
         call    music_init
         call    text_writer_init
         call    crtc_addr_init
+        call    plasma_init
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -351,6 +352,7 @@ new_i08:
         call    music_anim                      ;play music
         call    noise_fade_anim                 ;outline fade anim
         call    text_writer_anim                ;text writer
+        call    plasma_anim
         call    scroll_anim                     ;anim scroll
 
 ;        call    dec_d020
@@ -861,6 +863,7 @@ text_writer_init:
         mov     word [text_writer_idx],-1       ;HACK: data offset is -1, because we do a +1 at anim
         mov     byte [text_writer_delay],10     ;delay waits 10 refreshes
         mov     byte [text_writer_enabled],0    ;disabled by default
+        mov     byte [text_writer_cursor_blink_delay],0 ;how many blinks to wait
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -873,25 +876,6 @@ text_writer_anim:
         mov     bl,[text_writer_state]          ; and get state address from
         shl     bl,1                            ; table, and call it
         jmp     [text_writer_callbacks_anim+bx] ; and return
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-text_writer_state_idle_init:
-        inc     word [text_writer_idx]          ;offset += 1
-        mov     bx,[text_writer_idx]            ;get current data offset
-        mov     al,[text_writer_data+bx]        ;fetch value value using offset
-        mov     [text_writer_delay],al          ;move it to delay
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-text_writer_state_idle_anim:
-        cmp     byte [text_writer_delay],0
-        je      .end_delay
-        dec     byte [text_writer_delay]
-        ret
-
-.end_delay:
-        mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;print char is next state
-        ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_state_print_char_init:
@@ -930,7 +914,26 @@ text_writer_state_print_char_anim:
         jmp     [text_writer_callbacks_init+bx] ;call init callback and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-text_writer_state_backspace_to_init:
+text_writer_state_idle_init:
+        inc     word [text_writer_idx]          ;offset += 1
+        mov     bx,[text_writer_idx]            ;get current data offset
+        mov     al,[text_writer_data+bx]        ;fetch value value using offset
+        mov     [text_writer_delay],al          ;move it to delay
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_state_idle_anim:
+        cmp     byte [text_writer_delay],0
+        je      .end_delay
+        dec     byte [text_writer_delay]
+        ret
+
+.end_delay:
+        mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;print char is next state
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_state_goto_init:
         inc     word [text_writer_idx]          ;data offset += 1
         mov     bx,word [text_writer_idx]       ;get data offset
         mov     al,byte [text_writer_data+bx]   ;pos to go back to
@@ -939,19 +942,30 @@ text_writer_state_backspace_to_init:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-text_writer_state_backspace_to_anim:
+text_writer_state_goto_anim:
         mov     al,byte [text_writer_x_dst]     ;fetch destination pos
         cmp     byte [text_writer_x_pos],al     ; and compare with current pos
-        ja      .do_back
-        mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;if back finished
+        jb      .right
+        ja      .left
+
+        mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;if equal, means finished
         ret                                     ; then change state to read chars again
 
-.do_back:
+.right:
         mov     al,' '                          ;select space
         call    text_writer_print_char          ; and print it
-        dec     byte [text_writer_x_pos]        ;cursor -= 1
+        inc     byte [text_writer_x_pos]        ;cursor += 1. destintation is to the right
         mov     al,160                          ;select reverse space
         jmp     text_writer_print_char          ; print it, and return
+
+.left:
+        mov     al,' '                          ;select space
+        call    text_writer_print_char          ; and print it
+        dec     byte [text_writer_x_pos]        ;cursor -= 1. destintation is to the left
+        mov     al,160                          ;select reverse space
+        jmp     text_writer_print_char          ; print it, and return
+
+
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_state_call_action_init:
@@ -966,6 +980,42 @@ text_writer_state_call_action_anim:
         mov     bx,word [text_writer_idx]       ;FIXME: do something with bx
         jmp     state_enable_noise_fade_init
 
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_state_cursor_blink_init:
+        inc     word [text_writer_idx]          ;offset += 1
+        mov     bx,[text_writer_idx]            ;get current data offset
+        mov     al,[text_writer_data+bx]        ;fetch value value using offset
+        mov     [text_writer_cursor_blink_delay],al ;move it to blinks-to-wait
+        mov     byte [text_writer_delay],30     ;delay blink lasts 30 cycles
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_state_cursor_blink_anim:
+        cmp     byte [text_writer_cursor_blink_delay],0
+        je      .end_blink_state
+
+        dec     byte [text_writer_delay]
+        cmp     byte [text_writer_delay],15     ;half cycles
+        je      .cursor_off
+        cmp     byte [text_writer_delay],0
+        je      .next_blink
+        ret
+
+.next_blink:
+        dec     byte [text_writer_cursor_blink_delay]
+        cmp     byte [text_writer_cursor_blink_delay],0
+        je      .end_blink_state
+        mov     byte [text_writer_delay],30     ;init blink delay
+        mov     al,160                          ;select full char
+        jmp     text_writer_print_char          ; print it, and return
+
+.cursor_off:
+        mov     al,' '                          ;select space char (empty char)
+        jmp     text_writer_print_char          ; print it, and return
+
+.end_blink_state:
+        mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;print char is next state
+        ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 crtc_addr_init:
@@ -1002,6 +1052,88 @@ state_enable_text_writer:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_enable_noise_fade_init:
         inc     byte [noise_fade_enabled]
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+plasma_init:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+PLASMA_X equ 32
+PLASMA_Y equ 16
+PLASMA_OFFSET equ 20*2*160+65
+plasma_anim:
+        int 3
+
+        ; x
+        sub     bh,bh
+        mov     bl,byte [sine_xbuf_1_idx]
+        mov     cl,bl
+        sub     ah,ah
+        mov     al,byte [sine_xbuf_2_idx]
+        mov     dl,al
+        mov     si,ax
+
+        %assign XX 0
+        %rep    PLASMA_X
+                mov     al,[sine_table+bx]
+                add     al,[sine_table+si]
+                mov     [plasma_xbuf+XX],al
+                add     bl,3
+                add     si,9
+                and     si,255
+        %assign XX XX+1
+        %endrep
+
+        add     cl,3
+        sub     dl,5
+        mov     byte [sine_xbuf_1_idx],cl
+        mov     byte [sine_xbuf_2_idx],dl
+
+
+        ; y
+        sub     bh,bh
+        mov     bl,byte [sine_ybuf_1_idx]
+        mov     cl,bl
+        sub     ah,ah
+        mov     al,byte [sine_ybuf_2_idx]
+        mov     dl,al
+        mov     si,ax
+
+        %assign YY 0
+        %rep    PLASMA_Y
+                mov     al,[sine_table+bx]
+                add     al,[sine_table+si]
+                mov     [plasma_ybuf+YY],al
+                add     bl,3
+                add     si,4
+                and     si,255
+        %assign YY YY+1
+        %endrep
+
+        add     cl,2
+        sub     dl,3
+        mov     byte [sine_ybuf_1_idx],cl
+        mov     byte [sine_ybuf_2_idx],dl
+
+        ; do plasma
+        mov     bx,luminances_tbl
+
+        %assign YY 0
+        %rep    PLASMA_Y
+        %assign XX 0
+        %rep    PLASMA_X
+
+        mov     al,[plasma_xbuf+XX]
+        add     al,[plasma_ybuf+YY]
+        xlat
+        mov     [es:PLASMA_OFFSET + (YY/4) * 160 + (YY % 4) * 8192 + XX],al
+
+        %assign XX XX+1
+        %endrep
+        %assign YY YY+1
+        %endrep
+
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1190,15 +1322,12 @@ scroll_text:
         db '   ;   '
         db 'AS MUCH AS WE WOULD LIKE TO SAY THAT WE DID THIS RELEASE AS A TRIBUTE TO '
         db 27,28,29,30,31,42,43                 ; Radio Shack (using Radio Shack font)
-        db ', IT WAS JUST MERE CHANCE. HOWEVER, WE LOVE '
+        db ', IT WAS JUST MERE CHANCE. HOWEVER, WE ARE FOND OF '
         db 27,28,29,30,31,42,43                 ; Radio Shack (using Radio Shack font)
-        db ', WE ARE FOND OF THIS MACHINE, AND THE TRS-80. '
-        db `BTW, CURRENTLY WE DON'T HAVE ANY TRS-80, AND IF YOU HAVE A SPARE ONE THAT YOU DON'T USE `
-        db 'AND WANT TO DONATE IT, HERE WE ARE $.'
+        db ` .HEY, WHO DOESN'T?`
         db '   ;   '
         db 'CODE:RIQ, MUSIC: UCTUMI, GRAPHICS: ALAKRAN'
         db '   ;   '
-        db 'SIGNING OFF...                          '
 SCROLL_TEXT_LEN equ $-scroll_text
 
 scroll_char_idx:                                ;pointer to the next char
@@ -1312,44 +1441,57 @@ text_writer_idx:                                ;offset to the text_writer_data
         dw      0
 
         ;text writer enums. must be syncced with callbacks order
-TW_STATE_IDLE           equ 0
-TW_STATE_PRINT_CHAR     equ 1
-TW_STATE_BACKSPACE_TO   equ 2
+TW_STATE_PRINT_CHAR     equ 0
+TW_STATE_IDLE           equ 1
+TW_STATE_GOTO   equ 2
 TW_STATE_CALL_ACTION    equ 3
-TW_STATE_MAX            equ 4                   ;should be the last state
+TW_STATE_CURSOR_BLINK   equ 4
+TW_STATE_MAX            equ 5                   ;should be the last state
 
 text_writer_callbacks_init:
-        dw      text_writer_state_idle_init             ;
         dw      0                                       ;no init for print_char
-        dw      text_writer_state_backspace_to_init     ;
+        dw      text_writer_state_idle_init             ;
+        dw      text_writer_state_goto_init     ;
         dw      text_writer_state_call_action_init      ;
+        dw      text_writer_state_cursor_blink_init     ;
 
 text_writer_callbacks_anim:
-        dw      text_writer_state_idle_anim             ;
         dw      text_writer_state_print_char_anim       ;
-        dw      text_writer_state_backspace_to_anim     ;
+        dw      text_writer_state_idle_anim             ;
+        dw      text_writer_state_goto_anim     ;
         dw      text_writer_state_call_action_anim      ;
+        dw      text_writer_state_cursor_blink_anim     ;
 
         ;control codes: think of it as a printer
         ; 0 - idle
         ; 2 - print char
-        ; 3 - backspace
+        ; 3 - go to
         ; 4 - carriage return
         ; 5,n - perform an immediate action: eg: call enable_something
 text_writer_data:
                 ;0123456789012345678901234567890123456789
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,39                ;go to pos 38
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,0                 ;go to pos 0
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+
         db      '                Hi there'
-        db      TW_STATE_IDLE,30                ;wait cycles
-        db      TW_STATE_BACKSPACE_TO,9         ;back to pos 9
-        db                `let's move to the rythm`
-        db      TW_STATE_IDLE,30                ;wait 5 cycles
+        db      TW_STATE_CURSOR_BLINK,5         ;wait blinks
+        db      TW_STATE_GOTO,9                 ;go to pos 9
+
+        db                'My name is cursorito'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_CALL_ACTION,0          ;execute action 0: enable rhythm
-        db      TW_STATE_BACKSPACE_TO,0         ;back to pos 0
+        db      TW_STATE_GOTO,0                 ;go to pos 0
+
         db      'eh?... que me contrusi'
-        db      TW_STATE_IDLE,30                ;idle 5 cycles
-        db      TW_STATE_BACKSPACE_TO,0         ;back to pos 0
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,0                 ;go to pos 0
 TEXT_WRITER_DATA_LEN equ $-text_writer_data
 
+text_writer_cursor_blink_delay:                 ;how many cursor blinks to wait
+        db      0
 text_writer_delay:
         db      0                               ;used by 'delay state' to know who many
                                                 ;vert retrace to wait
@@ -1378,3 +1520,69 @@ raster_colors_grayscale_tbl:
 
 crtc_start_addr:
         dw      0                               ;crtc start address
+
+sine_xbuf_1_idx:                                ;plasma: xbuf idx 1
+        db      0
+sine_xbuf_2_idx:                                ;plasma: xbuf idx 2
+        db      0
+sine_ybuf_1_idx:                                ;plasma: ybuf idx 1
+        db      0
+sine_ybuf_2_idx:                                ;plasma: ybuf idx 2
+        db      0
+plasma_xbuf:                                    ;plama: xbuffer
+        resb   PLASMA_X
+plasma_ybuf:                                    ;plasma ybuffer
+        resb   PLASMA_Y
+sine_table:
+; autogenerated table: easing_table_generator.py -s128 -m255 -aTrue -r bezier:0,0.02,0.98,1
+        db        0,  0,  1,  1,  2,  2,  3,  4
+        db        4,  5,  6,  7,  8, 10, 11, 12
+        db       14, 15, 17, 18, 20, 21, 23, 25
+        db       27, 29, 31, 33, 35, 37, 39, 41
+        db       44, 46, 48, 51, 53, 55, 58, 60
+        db       63, 66, 68, 71, 73, 76, 79, 82
+        db       84, 87, 90, 93, 96, 98,101,104
+        db      107,110,113,116,119,122,125,128
+        db      130,133,136,139,142,145,148,151
+        db      154,157,159,162,165,168,171,173
+        db      176,179,182,184,187,189,192,195
+        db      197,200,202,204,207,209,211,214
+        db      216,218,220,222,224,226,228,230
+        db      232,234,235,237,238,240,241,243
+        db      244,245,247,248,249,250,251,251
+        db      252,253,253,254,254,255,255,255
+; reversed
+        db      255,255,254,254,253,253,252,251
+        db      251,250,249,248,247,245,244,243
+        db      241,240,238,237,235,234,232,230
+        db      228,226,224,222,220,218,216,214
+        db      211,209,207,204,202,200,197,195
+        db      192,189,187,184,182,179,176,173
+        db      171,168,165,162,159,157,154,151
+        db      148,145,142,139,136,133,130,128
+        db      125,122,119,116,113,110,107,104
+        db      101, 98, 96, 93, 90, 87, 84, 82
+        db       79, 76, 73, 71, 68, 66, 63, 60
+        db       58, 55, 53, 51, 48, 46, 44, 41
+        db       39, 37, 35, 33, 31, 29, 27, 25
+        db       23, 21, 20, 18, 17, 15, 14, 12
+        db       11, 10,  8,  7,  6,  5,  4,  4
+        db        3,  2,  2,  1,  1,  0,  0,  0
+
+luminances_tbl:
+        db      0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff         ;white/white
+        db      0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff         ;white/white
+        db      0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff         ;white/white
+        db      0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff         ;white/white
+        db      0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77
+        db      0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77
+        db      0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77
+        db      0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77
+        db      0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88
+        db      0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88
+        db      0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88
+        db      0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88
+        db      0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+        db      0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+        db      0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+        db      0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
