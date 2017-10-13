@@ -10,6 +10,7 @@ extern ZTimerOn, ZTimerOff, ZTimerReport
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; MACROS
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+%define DEBUG 1
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; render vertically 4 bits needed for the scroll. grabs the firts for bytes from the cache,
@@ -339,8 +340,9 @@ new_i08:
 
         ;END raster bar code
 
-;        call    inc_d020
-
+%if DEBUG
+        call    inc_d020
+%endif
 
         ;after raster baster finishes
 
@@ -353,9 +355,11 @@ new_i08:
         call    noise_fade_anim                 ;outline fade anim
         call    text_writer_anim                ;text writer
         call    plasma_anim
-        call    scroll_anim                     ;anim scroll
+;        call    scroll_anim                     ;anim scroll
 
-;        call    dec_d020
+%if DEBUG
+        call    dec_d020
+%endif
 
         mov     al,0x20                         ;Send the EOI signal
         out     0x20,al                         ; to the IRQ controller
@@ -1059,9 +1063,9 @@ plasma_init:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-PLASMA_X equ 32
+PLASMA_X equ 92
 PLASMA_Y equ 16
-PLASMA_OFFSET equ 20*2*160+65
+PLASMA_OFFSET equ 23*2*160+32
 plasma_anim:
         int 3
 
