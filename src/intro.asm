@@ -1063,78 +1063,77 @@ plasma_init:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-PLASMA_X equ 48
-PLASMA_Y equ 16
-PLASMA_OFFSET equ 23*2*160+32
+PLASMA_X equ 24                                 ;plasma: pixels wide
+PLASMA_Y equ 16                                 ;plasma: pixels height
+PLASMA_OFFSET equ 23*2*160+32                   ;plasma: video offset
 plasma_anim:
-        int 3
-
         ; x
         sub     bh,bh
-        mov     bl,byte [sine_xbuf_1_idx]
+        mov     bl,byte [sine_xbuf_1_idx]       ;bx=offset for buffer x1
         mov     cl,bl
         sub     ah,ah
-        mov     al,byte [sine_xbuf_2_idx]
+        mov     al,byte [sine_xbuf_2_idx]       ;si=offset for buffer x2
         mov     dl,al
         mov     si,ax
 
         %assign XX 0
         %rep    PLASMA_X
-                mov     al,[sine_table+bx]
+                mov     al,[sine_table+bx]      ;xbuf[idx] = sine[bx]+sine[si]
                 add     al,[sine_table+si]
                 mov     [plasma_xbuf+XX],al
-                add     bl,3
+                add     bl,3                    ;update offsets to sine tables
                 add     si,9
-                and     si,255
+                and     si,255                  ;only use LSB part of si
         %assign XX XX+1
         %endrep
 
-        add     cl,3
-        sub     dl,5
+        add     cl,3                            ;update buffer x1 and x2 offsets
+        sub     dl,5                            ; for the next frame
         mov     byte [sine_xbuf_1_idx],cl
         mov     byte [sine_xbuf_2_idx],dl
 
 
         ; y
-        sub     bh,bh
-        mov     bl,byte [sine_ybuf_1_idx]
+        sub     bh,bh                           ;do the same thing, but for buffer y
+        mov     bl,byte [sine_ybuf_1_idx]       ;bx=offset for buffer y1
         mov     cl,bl
         sub     ah,ah
-        mov     al,byte [sine_ybuf_2_idx]
+        mov     al,byte [sine_ybuf_2_idx]       ;si=offset for buffer y2
         mov     dl,al
         mov     si,ax
 
         %assign YY 0
         %rep    PLASMA_Y
-                mov     al,[sine_table+bx]
+                mov     al,[sine_table+bx]      ;ybuff[YY] = sine[bx]+sine[si]
                 add     al,[sine_table+si]
-                mov     [plasma_ybuf+YY],al
+                mov     [plasma_ybuf+YY],al     ;update y buffer with sine+sine
                 add     bl,3
                 add     si,4
-                and     si,255
+                and     si,255                  ;update offets, and use only LSB part of si
         %assign YY YY+1
         %endrep
 
         add     cl,2
         sub     dl,3
-        mov     byte [sine_ybuf_1_idx],cl
-        mov     byte [sine_ybuf_2_idx],dl
+        mov     byte [sine_ybuf_1_idx],cl       ;update buffer y1 and y2 offests
+        mov     byte [sine_ybuf_2_idx],dl       ; to be used in the next frame
 
         ; do plasma
-        mov     bx,luminances_tbl
+        mov     bx,luminances_tbl               ;to be used by xlat. has the colors for the plasma
 
         %assign YY 0
         %rep    PLASMA_Y
-        %assign XX 0
-        %rep    PLASMA_X
+                %assign XX 0
+                %rep    PLASMA_X
 
-        mov     al,[plasma_xbuf+XX]
-        add     al,[plasma_ybuf+YY]
-        xlat
-        mov     [es:PLASMA_OFFSET + (YY/4) * 160 + (YY % 4) * 8192 + XX],al
+                        mov     al,[plasma_xbuf+XX]     ;fetch plasma X buffer
+                        add     al,[plasma_ybuf+YY]     ; and add it to plasma Y buffer
+                        xlat                            ; and get the color value from luminances_tble
+                        mov     [es:PLASMA_OFFSET + (YY/4) * 160 + (YY % 4) * 8192 + XX],al     ; and update video buffer. 2 pixels per plasma point. cheaper.
+                        mov     [es:PLASMA_OFFSET + (YY/4) * 160 + (YY % 4) * 8192 + PLASMA_X * 2 - XX - 1],al  ; and generate mirror. cheaper than to calculate it
 
-        %assign XX XX+1
-        %endrep
+                %assign XX XX+1
+                %endrep
         %assign YY YY+1
         %endrep
 
