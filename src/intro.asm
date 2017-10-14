@@ -571,8 +571,8 @@ state_clemente_fade_in_anim:
         mov     di,ax
         mov     si,ax
         mov     dx,di
-        and     dx,0x1a00                       ;don't write pixel if in scroll space
-        cmp     dx,0x1a00                       ;areas: 1c00-1fff,3c00-3fff,5c00-5fff,7c00-7fff should not be written
+        and     dx,0x1800                       ;don't write pixel if in scroll space
+        cmp     dx,0x1800                       ;areas: 1800-1fff,3800-3fff,5800-5fff,7800-7fff should not be written
         je      .skip_write
         movsb                                   ;update pixel
 .skip_write:
