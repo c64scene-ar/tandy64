@@ -127,7 +127,7 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 
         call    wait_vertical_retrace
 
-        mov     cx,180                          ;and wait for scanlines
+        mov     cx,167                          ;and wait for scanlines
 .repeat:
         call    wait_horiz_retrace
         loop    .repeat
@@ -307,38 +307,16 @@ new_i08:
         mov     ax,data
         mov     ds,ax
 
-        mov     si,raster_colors_tbl
-        mov     cx,RASTER_COLORS_MAX
-
-        mov     dx,0x03da
-        mov     al,0x1f                         ;select palette color 15 (white)
-        out     dx,al
-
-        ;BEGIN raster bar code
-        ;should be done as fast as possible
-        mov     bx,0xdade                       ;used for 3da / 3de. faster than
-                                                ;add / sub 4
+        cmp     byte [raster_state],0           ;which raster effect to do?
+        jne     .raster_bars
+        call    cycle_palette_anim              ;do cycle palette
+        jmp     .l0
+.raster_bars:
+        call    raster_bars_anim                ;do raster bars
 .l0:
-        lodsb                                   ;fetch color
-        mov     ah,al                           ; and save it for later
-.w:
-        in      al,dx                           ;inline wait horizontal retrace
-        test    al,1                            ; for performance reasons
-        jnz     .w
-.r:
-        in      al,dx
-        test    al,1
-        jz      .r                              ;horizontal retrace after this
 
-        mov     dl,bl                           ;add 4 = 3de
-        mov     al,ah
-        out     dx,al                           ;set new color
-
-        mov     dl,bh                           ;sub 4 = 3da
-
-        loop    .l0                             ;and do it 17 times
-
-        ;END raster bar code
+        mov     si,top_palette_tbl              ;points to colors used at the top of the screen
+        call    refresh_palette                 ;refresh the palette
 
 %if DEBUG
         call    inc_d020
@@ -386,6 +364,90 @@ state_next:
         mov     bx,word [current_state]
         shl     bx,1
         call    [states_inits+bx]
+        ret
+
+        mov     si,raster_colors_tbl
+        mov     cx,RASTER_COLORS_MAX
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; si: table with the palette to update
+refresh_palette:
+        mov     cx,16                           ;repeat it 16 times
+        mov     bl,0x10                         ;starts with color 0 (0 + 0x10)
+
+        mov     dx,0x03da                       ;select color register
+.l0:
+        mov     al,bl                           ;color to update
+        out     dx,al
+
+        lodsb                                   ;load new color value
+        mov     dl,0xde                         ;dx=0x3de
+        out     dx,al
+
+        mov     dl,0xda                         ;dx=0x3da
+        inc     bl
+        loop    .l0
+
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+cycle_palette_anim:
+
+        mov     si,bottom_palette_tbl           ;points to colors used at the bottom
+        call    refresh_palette                 ;refresh the palette
+
+        dec     byte [cycle_palette_delay]      ;ready to cycle palette?
+        cmp     byte [cycle_palette_delay],0
+        jne     .end
+
+        mov     byte [cycle_palette_delay],2    ;update delay counter
+
+        mov     bx,es                           ;save bx for later
+        mov     ax,data
+        mov     es,ax                           ;update es use
+
+        ;cycles the palette
+        mov     dl,[bottom_palette_tbl]         ;save first value
+        mov     cx,15                           ;shift table to the left once
+        mov     si,bottom_palette_tbl+1         ;table[dst++] = table[src++]
+        mov     di,bottom_palette_tbl
+        rep     movsb
+        mov     [bottom_palette_tbl+15],dl      ;
+
+        mov     es,bx                           ;restore bx
+
+.end:
+        jmp     wait_vertical_retrace           ;keep these colors until the vert retrace
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+raster_bars_anim:
+        mov     dx,0x03da
+        mov     al,0x1f                         ;select palette color 15 (white)
+        out     dx,al
+
+        ;BEGIN raster bar code
+        ;should be done as fast as possible
+        mov     bx,0xdade                       ;used for 3da / 3de. faster than
+                                                ;add / sub 4
+.l0:
+        lodsb                                   ;fetch color
+        mov     ah,al                           ; and save it for later
+.wait:
+        in      al,dx                           ;inline wait horizontal retrace
+        test    al,1                            ; for performance reasons
+        jnz     .wait
+.retrace:
+        in      al,dx
+        test    al,1
+        jz      .retrace                        ;horizontal retrace after this
+
+        mov     dl,bl                           ;dx = 0x3de
+        mov     al,ah
+        out     dx,al                           ;set new color
+
+        mov     dl,bh                           ;dx = 0x3da
+
+        loop    .l0                             ;and do it 17 times
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -509,8 +571,8 @@ state_clemente_fade_in_anim:
         mov     di,ax
         mov     si,ax
         mov     dx,di
-        and     dx,0x1c00                       ;don't write pixel if in scroll space
-        cmp     dx,0x1c00                       ;areas: 1c00-1fff,3c00-3fff,5c00-5fff,7c00-7fff should not be written
+        and     dx,0x1a00                       ;don't write pixel if in scroll space
+        cmp     dx,0x1a00                       ;areas: 1c00-1fff,3c00-3fff,5c00-5fff,7c00-7fff should not be written
         je      .skip_write
         movsb                                   ;update pixel
 .skip_write:
@@ -1090,7 +1152,7 @@ plasma_to_video_anim:
         %assign YY YY+1
         %endrep
 
-        cmp     word [plasma_x_offset],-160
+        cmp     word [plasma_x_offset],-158
         jne     .minus_1
         mov     word [plasma_x_offset],0
         ret
@@ -1179,7 +1241,7 @@ plasma_to_buffer_anim:
 ;           ds: pointer to charset segment
 text_writer_print_char:
 
-TEXT_WRITER_OFFSET_Y    equ     21*2*160        ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
+TEXT_WRITER_OFFSET_Y    equ     19*2*160        ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
 
         sub     ah,ah
         mov     bx,ax                           ;bx = ax (char to print)
@@ -1444,9 +1506,6 @@ states_callbacks:
         dw      state_skip_anim                 ;n
         dw      state_nothing_anim              ;o
 
-text_writer_state:
-        db      0
-
 text_writer_x_pos:                              ;position x for the cursor. 0-39
         db      0
 text_writer_x_dst:                              ;dst position x for the cursor. 0-39
@@ -1484,6 +1543,8 @@ TW_STATE_GOTO   equ 2
 TW_STATE_CALL_ACTION    equ 3
 TW_STATE_CURSOR_BLINK   equ 4
 TW_STATE_MAX            equ 5                   ;should be the last state
+text_writer_state:
+        db      0
 
 text_writer_callbacks_init:
         dw      0                                       ;no init for print_char
@@ -1540,6 +1601,11 @@ old_i08:                                        ;segment + offset to old int 8
 old_pic_imr:                                    ;PIC IMR original value
         db      0
 
+RASTER_STATE_PALETTE equ 0
+RASTER_STATE_RASTERBARS equ 1
+raster_state:                                   ;raster state machine. which effect to perform?
+        db      0                               ;0=palette, 1=raster bars
+
 raster_colors_tbl:                              ;16 colors in total
         db      1,2,3,4,5,6,7,8
         db      9,10,11,12,13,14,15,0
@@ -1547,13 +1613,22 @@ raster_color_restore:                           ;must be after raster_colors_tbl
         db      15
 RASTER_COLORS_MAX equ $-raster_colors_tbl
 
-raster_colors_ibm_tbl:
-        db      1,1,0,1, 1,0,1,1                ;blue and black
-        db      0,1,1,0, 1,1,0,1
+top_palette_tbl:                                ;palette used for the upper part of the screen
+        db      0,1,2,3,4,5,6,7
+        db      8,9,10,11,12,13,14,15
 
-raster_colors_grayscale_tbl:
-        db      1,1,0,1, 1,0,1,1                ;blue and black
-        db      0,1,1,0, 1,1,0,1
+bottom_palette_tbl:                             ;these colors should have the same
+        db      0,8                             ; order as the table used for the plasma
+        db      1,9                             ; since it is used to cycle the colors
+        db      2,10
+        db      3,11
+        db      4,12
+        db      5,13
+        db      6,14
+        db      7,15
+
+cycle_palette_delay:                            ;delay for the palette cycle animation
+        db      1
 
 crtc_start_addr:
         dw      0                               ;crtc start address
