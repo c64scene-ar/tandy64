@@ -38,7 +38,7 @@ run: $(TARGET)
 
 x: $(TARGET)
 	echo "Compressing game..."
-	-upx --8086 $(TARGET)
+	-upx -9 --8086 $(TARGET)
 
 runx: x
 	echo "Running game..."
