@@ -1165,11 +1165,14 @@ PLASMA_OFFSET equ 21*2*160+160                  ;plasma: video offset
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_plasma_red_tex_init:
-        mov     word [plasma_x_offset],0
+        sub     ax,ax                           ;faster to use register than value
+        mov     word [plasma_x_offset],ax
         mov     bx,luminances_6_colors          ;use 6 colors table
         mov     [luminances_addr],bx
-        mov     byte [luminance_idx],0
-        mov     byte [red_plasma_state],0       ;initial state
+        mov     byte [luminance_idx],al
+        mov     byte [red_plasma_state],al      ;initial state
+        mov     byte [red_plasma_colors_updated],al
+        mov     byte [red_plasma_delay],al
 
         mov     bx,es                           ;save es in bx for later
 
@@ -1186,20 +1189,90 @@ state_plasma_red_tex_init:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_plasma_red_tex_anim:
-
+        ;has 3 states:
+        ;0 = render texture
+        ;1 = texture fade in
+        ;2 = texture fade out
         cmp     byte [red_plasma_state],0
         je      .render_texture
+        cmp     byte [red_plasma_state],1
+        je      .palette_fade_in
 
-        mov     bx,es                           ;save es for later
+.palette_fade_out:
+        ;shift right the palette colors one by one
+        ;until all all black
+        cmp     byte [red_plasma_colors_updated],0
+        je      .next_state
+
+        cmp     byte [red_plasma_delay],0
+        je      .do_it
+        dec     byte [red_plasma_delay]
+        ret
+
+.do_it:
+        mov     byte [red_plasma_delay],3       ;reset delay
+
+        mov     bx,es                           ;save it for later
         mov     ax,data
         mov     es,ax
-        mov     si,red_plasma_palette
-        mov     di,bottom_palette
-        mov     cx,8
-        rep movsw
-        mov     es,bx                           ;retore es. es=0xb800
 
+        sub     ch,ch
+        mov     cl,[red_plasma_colors_updated]  ;numbers of colors to copy
+        dec     cl                              ; minus one, since previous state left it +1
+
+        int 3
+        std                                     ;copy backwards
+        mov     si,bottom_palette+1
+        mov     si,bottom_palette+1+RED_PLASMA_PALETTE_MAX-2    ;last element -1
+        mov     di,bottom_palette+1+RED_PLASMA_PALETTE_MAX-1    ;last element
+        rep movsb
+        mov     byte [di],0                     ;fill the first element with black, since
+                                                ; we are fading to black
+        cld                                     ;restore direction flag
+
+        dec     byte [red_plasma_colors_updated];number of colors updated -= 1
+        mov     es,bx                           ;restore es
+        ret
+
+.next_state:
         jmp     state_next
+
+
+.palette_fade_in:
+        ;shift left the colors one by one
+        ;until all of them are in the final position
+        cmp     byte [red_plasma_colors_updated],RED_PLASMA_PALETTE_MAX
+        je      .next_internal_state
+
+        cmp     byte [red_plasma_delay],0
+        je      .do_in
+        dec     byte [red_plasma_delay]
+        ret
+
+.do_in:
+        mov     byte [red_plasma_delay],3       ;reset delay
+
+        mov     bx,es                           ;save it for later
+        mov     ax,data
+        mov     es,ax
+
+        sub     ch,ch
+        mov     cl,[red_plasma_colors_updated]  ;number colors to copy
+        inc     cl                              ;plus 1 (when 0, copy 1 color)
+
+        mov     di,bottom_palette+1             ;skip color black
+        mov     si,red_plasma_palette+RED_PLASMA_PALETTE_MAX
+        sub     si,cx
+        rep movsb
+
+        inc     byte [red_plasma_colors_updated]        ;number of colors updated +=1
+        mov     es,bx
+        ret
+
+.next_internal_state:
+        mov     byte [red_plasma_delay],3       ;delay before starting next state
+        inc     byte [red_plasma_state]         ;set next state
+        ret
 
 .render_texture:
         mov     cx,5
@@ -1230,12 +1303,12 @@ plasma_to_video_anim:
         %endrep
 
         cmp     word [plasma_x_offset],159
-        je      .next_state
+        je      .next_internal_state
 
         inc     word [plasma_x_offset]
         ret
 
-.next_state:
+.next_internal_state:
         inc     byte [red_plasma_state]
         ret
 
@@ -1628,20 +1701,15 @@ bottom_palette:                                 ;palette used for the bottom par
 
 
 red_plasma_palette:
-        db      0                               ;black should always be black
-
         db      0xf                             ;white
         db      0x7                             ;light gray
         db      0xc                             ;light red
         db      0x8                             ;gray
         db      0x4                             ;red
         db      0                               ;black
-
-        db      7,8,9,0xa,0xb,0xc,0xd,0xf       ;rest of colors as they should be
+RED_PLASMA_PALETTE_MAX equ $-red_plasma_palette
 
 green_plasma_palette:
-        db      0                               ;black should always be black
-
         db      0xf                             ;white
         db      0x7                             ;light gray
         db      0xa                             ;light green
@@ -1649,11 +1717,7 @@ green_plasma_palette:
         db      0x2                             ;green
         db      0                               ;black
 
-        db      7,8,9,0xa,0xb,0xc,0xd,0xf       ;rest of colors as they should be
-
 blue_plasma_palette:
-        db      0                               ;black should always be black
-
         db      0xf                             ;white
         db      0x7                             ;light gray
         db      0x9                             ;light blue
@@ -1661,11 +1725,12 @@ blue_plasma_palette:
         db      0x1                             ;blue
         db      0                               ;black
 
-        db      7,8,9,0xa,0xb,0xc,0xd,0xf       ;rest of colors as they should be
-
-
 red_plasma_state:                               ;internal state used inside the state_plasma_red state
         db      0                               ;0=render texture, 1=fade in palette
+red_plasma_colors_updated:                      ;number of palette colors that were updated
+        db      0
+red_plasma_delay:                               ;refreshes to wait for the palette update
+        db      0
 
 cycle_palette_delay:                            ;delay for the palette cycle animation
         db      1
