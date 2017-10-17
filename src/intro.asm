@@ -12,11 +12,14 @@ extern ZTimerOn, ZTimerOff, ZTimerReport
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 %define DEBUG 1
 
-BOTTOM_OFFSET   equ     21*2*160                ;start at line 20:160 bytes per line, lines are every 4 -> 8/4 =2
-SCROLL_OFFSET   equ     22*2*160                ;start at line 22:160 bytes per line, lines are every 4 -> 8/4 =2
 TEXT_WRITER_OFFSET_Y    equ     19*2*160        ;start at line 19:160 bytes per line, lines are every 4 -> 8/4 =2
-PLASMA_OFFSET equ 21*2*160+160                  ;plasma: video offset
-
+BOTTOM_OFFSET   equ     21*2*160                ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
+SCROLL_OFFSET   equ     22*2*160                ;start at line 22:160 bytes per line, lines are every 4 -> 8/4 =2
+PLASMA_TEX_OFFSET       equ 21*2*160+160        ;plasma texture: video offset
+PLASMA_TEX_WIDTH        equ 160                 ;plasma texture: pixels wide
+PLASMA_TEX_HEIGHT       equ 32                  ;plasma texture: pixels height
+PLASMA_WIDTH    equ 32                          ;plasma: pixels wide
+PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1148,14 +1151,7 @@ state_enable_scroll:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-plasma_init:
-        mov     word [plasma_x_offset],0
-        jmp     plasma_init_sine_table
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-plasma_init_sine_table:
-PLASMA_X equ 160                                ;plasma: pixels wide
-PLASMA_Y equ 32                                 ;plasma: pixels height
+plasma_tex_init_sine_table:
         ; x
         sub     bh,bh
         mov     bl,byte [sine_xbuf_1_idx]       ;bx=offset for buffer x1
@@ -1166,11 +1162,11 @@ PLASMA_Y equ 32                                 ;plasma: pixels height
         mov     si,ax
 
         %assign XX 0
-        %rep    PLASMA_X
+        %rep    PLASMA_TEX_WIDTH
                 mov     al,[sine_table+bx]      ;xbuf[idx] = sine[bx]+sine[si]
                 add     al,[sine_table+si]
-                mov     [plasma_xbuf+XX],al
-                add     bl,5;7                    ;update offsets to sine tables
+                mov     [plasma_tex_xbuf+XX],al
+                add     bl,5;7                  ;update offsets to sine tables
                 sub     si,8;9
                 and     si,255                  ;only use LSB part of si
         %assign XX XX+1
@@ -1192,10 +1188,10 @@ PLASMA_Y equ 32                                 ;plasma: pixels height
         mov     si,ax
 
         %assign YY 0
-        %rep    PLASMA_Y
+        %rep    PLASMA_TEX_HEIGHT
                 mov     al,[sine_table+bx]      ;ybuff[YY] = sine[bx]+sine[si]
                 add     al,[sine_table+si]
-                mov     [plasma_ybuf+YY],al     ;update y buffer with sine+sine
+                mov     [plasma_tex_ybuf+YY],al ;update y buffer with sine+sine
                 add     bl,3;3
                 sub     si,5;4
                 and     si,255                  ;update offets, and use only LSB part of si
@@ -1212,12 +1208,12 @@ PLASMA_Y equ 32                                 ;plasma: pixels height
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_plasma_red_tex_init:
         sub     ax,ax                           ;faster to use register than value
-        mov     word [plasma_x_offset],ax
+        mov     word [plasma_tex_x_offset],ax
         mov     byte [plasma_tex_state],al      ;initial state
         mov     byte [plasma_tex_colors_updated],al
         mov     byte [plasma_tex_delay],al
         mov     word [plasma_tex_palette_addr],plasma_tex_red_palette
-        mov     byte [plasma_tex_letter_color],2        ;letter P uses color 2
+        mov     byte [plasma_tex_letter_color],2;letter P uses color 2
 
         mov     bx,es                           ;save es in bx for later
 
@@ -1230,17 +1226,17 @@ state_plasma_red_tex_init:
 
         mov     es,bx                           ;restore es. es=0xb800
 
-        jmp     plasma_init_sine_table
+        jmp     plasma_tex_init_sine_table
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_plasma_green_tex_init:
         sub     ax,ax                           ;faster to use register than value
-        mov     word [plasma_x_offset],ax
+        mov     word [plasma_tex_x_offset],ax
         mov     byte [plasma_tex_state],al      ;initial state
         mov     byte [plasma_tex_colors_updated],al
         mov     byte [plasma_tex_delay],al
         mov     word [plasma_tex_palette_addr],plasma_tex_green_palette
-        mov     byte [plasma_tex_letter_color],0xa        ;letter V uses color 0xa
+        mov     byte [plasma_tex_letter_color],0xa      ;letter V uses color 0xa
 
         mov     bx,es                           ;save es in bx for later
 
@@ -1253,12 +1249,12 @@ state_plasma_green_tex_init:
 
         mov     es,bx                           ;restore es. es=0xb800
 
-        jmp     plasma_init_sine_table
+        jmp     plasma_tex_init_sine_table
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_plasma_blue_tex_init:
         sub     ax,ax                           ;faster to use register than value
-        mov     word [plasma_x_offset],ax
+        mov     word [plasma_tex_x_offset],ax
         mov     byte [plasma_tex_state],al      ;initial state
         mov     byte [plasma_tex_colors_updated],al
         mov     byte [plasma_tex_delay],al
@@ -1276,7 +1272,7 @@ state_plasma_blue_tex_init:
 
         mov     es,bx                           ;restore es. es=0xb800
 
-        jmp     plasma_init_sine_table
+        jmp     plasma_tex_init_sine_table
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_plasma_tex_anim:
@@ -1339,9 +1335,9 @@ state_plasma_tex_anim:
         cmp     byte [plasma_tex_colors_updated],PLASMA_TEX_PALETTE_MAX
         je      .next_internal_state
 
-        cmp     byte [plasma_tex_delay],0
-        je      .do_in
-        dec     byte [plasma_tex_delay]
+        cmp     byte [plasma_tex_delay],0       ;end of wait?
+        je      .do_in                          ; if so, jump to the effect
+        dec     byte [plasma_tex_delay]         ;delay--
         ret
 
 .do_in:
@@ -1361,7 +1357,7 @@ state_plasma_tex_anim:
         sub     si,cx                           ; minus the colors already copied
         rep movsb
 
-        inc     byte [plasma_tex_colors_updated]        ;number of colors updated +=1
+        inc     byte [plasma_tex_colors_updated];number of colors updated +=1
         mov     es,bx
 
         mov     al,[bottom_palette+1]           ;color value
@@ -1379,40 +1375,86 @@ state_plasma_tex_anim:
         mov     cx,5
 .anim:
         push    cx
-        call    plasma_to_video_anim
+        call    plasma_tex_render_to_video
         pop     cx
         loop    .anim
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-plasma_to_video_anim:
+plasma_tex_render_to_video:
 
-        ; do plasma
         mov     bx,luminances_6_colors          ;to be used by xlat. has the colors for the plasma
-        mov     si,[plasma_x_offset]            ;to be used for the plasma_xbuff offset
+        mov     si,[plasma_tex_x_offset]        ;to be used for the plasma_tex_xbuff offset
         mov     di,si
         not     di                              ;
 
         %assign YY 0
-        %rep    PLASMA_Y
+        %rep    PLASMA_TEX_HEIGHT
 
-                mov     al,[plasma_xbuf+si]     ;fetch plasma X buffer
-                add     al,[plasma_ybuf+YY]     ; and add it to plasma Y buffer
+                mov     al,[plasma_tex_xbuf+si] ;fetch plasma X buffer
+                add     al,[plasma_tex_ybuf+YY] ; and add it to plasma Y buffer
                 xlat                            ; and get the color value from luminances_tble
-                mov     [es:PLASMA_OFFSET+(YY/4)*160+(YY % 4)*8192+di],al
+                mov     [es:PLASMA_TEX_OFFSET+(YY/4)*160+(YY % 4)*8192+di],al
         %assign YY YY+1
         %endrep
 
-        cmp     word [plasma_x_offset],159
-        je      .next_internal_state
+        cmp     word [plasma_tex_x_offset],159  ;rendered 159 lines (whole width)?
+        je      .next_internal_state            ; if so, trigger next state
 
-        inc     word [plasma_x_offset]
+        inc     word [plasma_tex_x_offset]      ;offset_x++. render in next column next time
         ret
 
 .next_internal_state:
-        inc     byte [plasma_tex_state]
+        inc     byte [plasma_tex_state]         ;trigger next internal state
         ret
 
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_plasma_init:
+        sub     ax,ax
+
+        mov     [plasma_counter],ax             ;ticks at 0
+
+        ;clear the bottom part with black pixels
+        ;previously it was filled with the plasma pixels
+
+        mov     cx,640                          ;8 rows
+        mov     di,BOTTOM_OFFSET+8192*0         ;destination
+        rep stosw                               ;do the 'clean screen'
+
+        mov     cx,640                          ;8 rows
+        mov     di,BOTTOM_OFFSET+8192*1         ;destination
+        rep stosw                               ;do the 'clean screen'
+
+        mov     cx,640                          ;8 rows
+        mov     di,BOTTOM_OFFSET+8192*2         ;destination
+        rep stosw                               ;do the 'clean screen'
+
+        mov     cx,640                          ;8 rows
+        mov     di,BOTTOM_OFFSET+8192*3         ;destination
+        rep stosw                               ;do the 'clean screen'
+
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_plasma_anim:
+        inc     word [plasma_counter]
+        cmp     word [plasma_counter],60*5      ;5 seconds
+        jne     .do_plasma
+
+        jmp     state_next                      ;reached end of effect. trigger
+                                                ; next state
+
+.do_plasma:
+        call    plasma_update_sine_table
+        jmp     plasma_render_to_video
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+plasma_update_sine_table:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+plasma_render_to_video:
+        ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; IN:   al=char to print
@@ -1669,6 +1711,7 @@ states_inits:
         dw      state_enable_text_writer        ;n
         dw      state_pvm_logo_fade_in_init     ;h
         dw      state_outline_fade_init         ;j
+        dw      state_plasma_init               ;g
         dw      state_delay_2s_init             ;k
         dw      state_enable_scroll             ;l
         dw      state_nothing_init              ;o
@@ -1685,6 +1728,7 @@ states_callbacks:
         dw      state_skip_anim                 ;n
         dw      state_pvm_logo_fade_in_anim     ;h
         dw      state_outline_fade_to_final_anim;j
+        dw      state_plasma_anim               ;g
         dw      state_delay_anim                ;k
         dw      state_skip_anim                 ;l
         dw      state_nothing_anim              ;o
@@ -1845,6 +1889,8 @@ plasma_tex_palette_addr:                        ;palette address to use
         resw    1
 plasma_tex_letter_color:                        ;color of the PVM letter to update
         resb    1
+plasma_tex_x_offset:                            ;plama x offset. to make it scroll
+        dw      0
 
 cycle_palette_delay:                            ;delay for the palette cycle animation
         db      1
@@ -1860,12 +1906,12 @@ sine_ybuf_1_idx:                                ;plasma: ybuf idx 1
         db      0
 sine_ybuf_2_idx:                                ;plasma: ybuf idx 2
         db      0
-plasma_x_offset:                                ;plama x offset. to make it scroll
+plasma_tex_xbuf:                                ;plasma tex xbuffer
+        resb   PLASMA_TEX_WIDTH
+plasma_tex_ybuf:                                ;plasma tex ybuffer
+        resb   PLASMA_TEX_HEIGHT
+plasma_counter:                                 ;ticks elapsed in plasma effect
         dw      0
-plasma_xbuf:                                    ;plama: xbuffer
-        resb   PLASMA_X
-plasma_ybuf:                                    ;plasma ybuffer
-        resb   PLASMA_Y
 sine_table:
 ; autogenerated table: easing_table_generator.py -s128 -m255 -aTrue -r bezier:0,0.02,0.98,1
         db        0,  0,  1,  1,  2,  2,  3,  4
