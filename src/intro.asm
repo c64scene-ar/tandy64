@@ -326,8 +326,6 @@ new_i08:
 
         call    raster_bars_anim                ;do raster bars
 
-        call    wait_vertical_retrace
-
         mov     si,top_palette                  ;points to colors used at the top of the screen
         mov     cx,16                           ;update all 16 colors
         mov     bl,0x10                         ; starting with color 0 (black)
