@@ -32,7 +32,7 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 ;       dx      -> pointer to pixel color table
 ;       bx      -> row index
 ; Args: %1: offset line.
-%macro render_bit 1
+%macro RENDER_BIT 1
 
         mov     di,SCROLL_OFFSET+160*(%1+1)-1   ;es:di points to video memory
         mov     cx,4                            ;times to loop
@@ -68,7 +68,7 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 ;       es:di   -> where to render (ponter to video memory)
 ;       bx      -> offset of nibble to render
 ;       ah      -> must be 0
-%macro render_nibble 0
+%macro RENDER_NIBBLE 0
 
         mov     al,byte [c64_charset+bx]        ;first byte to print from charset. represents 8 pixels
         mov     dl,al                           ;save al
@@ -91,6 +91,47 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
         movsw                                   ;render LSB nibble (4 pixels, 2 bytes)
 
         inc     bx                              ;get ready for next call
+%endmacro
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; refreshes the palette. used as a macro (and not function) since it is being
+; called from time-critical sections
+;
+; IN:
+;       ds:si   -> table with the palette to update
+;       cx      -> number of colors to update. 16 to update all of them
+;       bl      -> starting color + 0x10. example: use 0x1f for white: 0x10 + 0xf
+;
+; Arg:  0       -> don't wait for horizontal retrace
+;       1       -> wait fro horizontal retrace
+%macro REFRESH_PALETTE 1
+        mov     bh,0xde                         ;register is faster than memory
+        mov     dx,0x03da                       ;select color register
+%%repeat:
+        mov     al,bl                           ;color to update
+        out     dx,al
+
+        lodsb                                   ;load new color value
+        mov     ah,al
+
+%if %1
+        %%wait:
+                in      al,dx                           ;inline wait horizontal retrace for performance reasons
+                test    al,dh                           ;FIXME: using 0x3 instead of 0x1. Might break with light pen
+                jnz     %%wait
+        %%retrace:
+                in      al,dx
+                test    al,dh                           ;FIXME: using 0x3 instead of 0x1. might break with light pen
+                jz      %%retrace                       ;horizontal retrace after this
+%endif
+
+        mov     dl,bh                           ;dx=0x3de
+        mov     al,ah
+        out     dx,al
+
+        mov     dl,0xda                         ;dx=0x3da
+        inc     bl
+        loop    %%repeat
 %endmacro
 
 
@@ -316,22 +357,51 @@ new_i08:
         ;not saving any variable, since the code at main loop
         ;happens after the tick
 
-        push    ax
-
         mov     ax,data
         mov     ds,ax
 
+        ;update bottom-screen palette
         mov     si,bottom_palette               ;points to colors used at the bottom
         mov     cx,7                            ;only update 7 colors
         mov     bl,0x11                         ; starting with color 1 (skip black)
-        call    refresh_palette                 ;refresh the palette
+        REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
-        call    raster_bars_anim                ;do raster bars
 
+        mov     cx,RASTER_COLORS_MAX            ;total number of raster bars
+        mov     si,raster_colors_tbl            ;where the colors are for each raster bar
+        mov     dx,0x03da
+        mov     al,0x1f                         ;select palette color 15 (white)
+        out     dx,al
+
+        ;BEGIN raster bar code
+        ;should be done as fast as possible
+        mov     bx,0xdade                       ;used for 3da / 3de. faster than add / sub 4
+.l0:
+        lodsb                                   ;fetch color
+        mov     ah,al                           ; and save it for later
+.wait:
+        in      al,dx                           ;inline wait horizontal retrace for performance reasons
+        test    al,dh                           ;FIXME: using 0x3 instead of 0x1. Might break with light pen
+        jnz     .wait
+.retrace:
+        in      al,dx
+        test    al,dh                           ;FIXME: using 0x3 instead of 0x1. Might break with light pen
+        jz      .retrace                        ;horizontal retrace after this
+
+        mov     dl,bl                           ;dx = 0x3de
+        mov     al,ah
+        out     dx,al                           ;set new color
+
+        mov     dl,bh                           ;dx = 0x3da
+        loop    .l0                             ;and do it 17 times
+        ;END raster bar code
+
+
+        ;update top-screen palette
         mov     si,top_palette                  ;points to colors used at the top of the screen
         mov     cx,15                           ;update 15 colors. skip white. already white
         mov     bl,0x10                         ; starting with color 0 (black)
-        call    refresh_palette                 ;refresh the palette
+        REFRESH_PALETTE 0                       ;refresh the palette. don't wait for horizontal retrace
 
 %if DEBUG
         call    inc_d020
@@ -358,7 +428,6 @@ new_i08:
 
         inc     byte [tick]                     ;tell main_loop that it could process
                                                 ; whatever he wants
-        pop     ax
         iret                                    ;exit interrupt
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -378,70 +447,6 @@ state_next:
         mov     bx,word [current_state]
         shl     bx,1
         call    [states_inits+bx]
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; si: table with the palette to update
-; cx: number of colors to update. 16 to update all of them
-; bl: starting color + 0x10. example: use 0x1f for white: 0x10 + 0xf
-refresh_palette:
-        mov     bh,0xde                         ;register is faster than memory
-        mov     dx,0x03da                       ;select color register
-.l0:
-        mov     al,bl                           ;color to update
-        out     dx,al
-
-        lodsb                                   ;load new color value
-        mov     ah,al
-
-.retrace:
-        in      al,dx
-        test    al,1
-        jz      .retrace                        ;horizontal retrace after this
-
-        mov     dl,bh                           ;dx=0x3de
-        mov     al,ah
-        out     dx,al
-
-        mov     dl,0xda                         ;dx=0x3da
-        inc     bl
-        loop    .l0
-
-        ret
-
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-raster_bars_anim:
-        mov     cx,RASTER_COLORS_MAX            ;total number of raster bars
-        mov     si,raster_colors_tbl            ;where the colors are for each raster bar
-
-        mov     dx,0x03da
-        mov     al,0x1f                         ;select palette color 15 (white)
-        out     dx,al
-
-        ;BEGIN raster bar code
-        ;should be done as fast as possible
-        mov     bx,0xdade                       ;used for 3da / 3de. faster than
-                                                ;add / sub 4
-.l0:
-        lodsb                                   ;fetch color
-        mov     ah,al                           ; and save it for later
-.wait:
-        in      al,dx                           ;inline wait horizontal retrace
-        test    al,1                            ; for performance reasons
-        jnz     .wait
-.retrace:
-        in      al,dx
-        test    al,1
-        jz      .retrace                        ;horizontal retrace after this
-
-        mov     dl,bl                           ;dx = 0x3de
-        mov     al,ah
-        out     dx,al                           ;set new color
-
-        mov     dl,bh                           ;dx = 0x3da
-
-        loop    .l0                             ;and do it 17 times
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -719,9 +724,9 @@ scroll_anim:
         mov     ds,ax
 
         cmp     byte [scroll_bit_idx],0         ;only update cache if scroll_bit_idx == 0
-        jnz     .render_bits                    ; and scroll_col_used == 0
+        jnz     .RENDER_BITs                    ; and scroll_col_used == 0
         cmp     byte [scroll_col_used],0
-        jnz     .render_bits
+        jnz     .RENDER_BITs
 
         ;update the cache with the next 32 bytes (2x2 chars)
         mov     bx,[scroll_char_idx]            ;scroll text offset
@@ -753,7 +758,7 @@ scroll_anim:
         rep movsw
 
 
-.render_bits:
+.RENDER_BITs:
         mov     ax,0xb800
         mov     es,ax
 
@@ -762,10 +767,10 @@ scroll_anim:
         sub     bx,bx                           ;used for the cache index in the macros
         mov     dx,scroll_pixel_color_tbl       ;used in the macros
 
-        render_bit 0
-        render_bit 1
-        render_bit 2
-        render_bit 3
+        RENDER_BIT 0
+        RENDER_BIT 1
+        RENDER_BIT 2
+        RENDER_BIT 3
 
         inc     byte [scroll_bit_idx]           ;two incs, since it prints 2 bits at the time
         inc     byte [scroll_bit_idx]
@@ -1237,13 +1242,13 @@ state_plasma_green_tex_init:
         jmp     plasma_tex_init_sine_table
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_plasma_blue_tex_init:
+state_plasma_magenta_tex_init:
         sub     ax,ax                           ;faster to use register than value
         mov     word [plasma_tex_x_offset],ax
         mov     byte [plasma_tex_state],al      ;initial state
         mov     byte [plasma_tex_colors_updated],al
         mov     byte [plasma_tex_delay],al
-        mov     word [plasma_tex_palette_addr],plasma_tex_blue_palette
+        mov     word [plasma_tex_palette_addr],plasma_tex_magenta_palette
         mov     byte [plasma_tex_letter_color],0xd        ;letter M uses color 0xd
 
         mov     bx,es                           ;save es in bx for later
@@ -1524,29 +1529,29 @@ text_writer_print_char:
 
         sub     ah,ah
 
-        render_nibble
+        RENDER_NIBBLE
 
         add     di,8192-4
-        render_nibble
+        RENDER_NIBBLE
 
         add     di,8192-4
-        render_nibble
+        RENDER_NIBBLE
 
         add     di,8192-4
-        render_nibble
+        RENDER_NIBBLE
 
 
         sub     di,24576-156                    ;160-4
-        render_nibble
+        RENDER_NIBBLE
 
         add     di,8192-4
-        render_nibble
+        RENDER_NIBBLE
 
         add     di,8192-4
-        render_nibble
+        RENDER_NIBBLE
 
         add     di,8192-4
-        render_nibble
+        RENDER_NIBBLE
 
         ret
 
@@ -1755,7 +1760,7 @@ states_inits:
         dw      state_outline_fade_init         ;e
         dw      state_plasma_red_tex_init       ;f
         dw      state_plasma_green_tex_init     ;g
-        dw      state_plasma_blue_tex_init      ;h
+        dw      state_plasma_magenta_tex_init   ;h
         dw      state_enable_text_writer        ;i
         dw      state_pvm_logo_fade_in_init     ;j
         dw      state_outline_fade_init         ;k
@@ -1882,7 +1887,7 @@ raster_colors_tbl:                              ;16 colors in total
         db      1,2,3,4,5,6,7,8
         db      9,10,11,12,13,14,15,0
         db      1,2,3,4,5,6,7,8
-        db      9,10,11,12,13
+        db      9,10,11,12,13,14,15
 raster_color_restore:                           ;must be after raster_colors_tbl
         db      15
 RASTER_COLORS_MAX equ $-raster_colors_tbl
@@ -1916,6 +1921,14 @@ plasma_tex_green_palette:
         db      0xa                             ;light green
         db      0x8                             ;gray
         db      0x2                             ;green
+        db      0                               ;black
+
+plasma_tex_magenta_palette:
+        db      0xf                             ;white
+        db      0x7                             ;light gray
+        db      0xd                             ;light magenta
+        db      0x8                             ;gray
+        db      0x5                             ;magenta
         db      0                               ;black
 
 plasma_tex_blue_palette:
