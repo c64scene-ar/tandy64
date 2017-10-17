@@ -1153,55 +1153,39 @@ state_enable_scroll:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 plasma_tex_init_sine_table:
         ; x
-        sub     bh,bh
-        mov     bl,byte [sine_xbuf_1_idx]       ;bx=offset for buffer x1
-        mov     cl,bl
-        sub     ah,ah
-        mov     al,byte [sine_xbuf_2_idx]       ;si=offset for buffer x2
-        mov     dl,al
-        mov     si,ax
+        mov     bp,255                          ;register is faster than memory
+        sub     si,si
+        sub     bx,bx
+        mov     dh,5                            ;register is faster than memory
+        mov     cx,8                            ;register is faster than memory
 
         %assign XX 0
         %rep    PLASMA_TEX_WIDTH
                 mov     al,[sine_table+bx]      ;xbuf[idx] = sine[bx]+sine[si]
                 add     al,[sine_table+si]
                 mov     [plasma_tex_xbuf+XX],al
-                add     bl,5;7                  ;update offsets to sine tables
-                sub     si,8;9
-                and     si,255                  ;only use LSB part of si
+                add     bl,dh                   ;dh=5. update offsets to sine tables
+                sub     si,cx                   ;cx=8
+                and     si,bp                   ;only use LSB part of si
         %assign XX XX+1
         %endrep
 
-        add     cl,9                            ;update buffer x1 and x2 offsets
-        sub     dl,5                            ; for the next frame
-        mov     byte [sine_xbuf_1_idx],cl
-        mov     byte [sine_xbuf_2_idx],dl
-
-
         ; y
-        sub     bh,bh                           ;do the same thing, but for buffer y
-        mov     bl,byte [sine_ybuf_1_idx]       ;bx=offset for buffer y1
-        mov     cl,bl
-        sub     ah,ah
-        mov     al,byte [sine_ybuf_2_idx]       ;si=offset for buffer y2
-        mov     dl,al
-        mov     si,ax
+        sub     si,si
+        sub     bx,bx
+        mov     dh,3                            ;register is faster than memory
+        mov     cx,5                            ;register is faster than memory
 
         %assign YY 0
         %rep    PLASMA_TEX_HEIGHT
                 mov     al,[sine_table+bx]      ;ybuff[YY] = sine[bx]+sine[si]
                 add     al,[sine_table+si]
                 mov     [plasma_tex_ybuf+YY],al ;update y buffer with sine+sine
-                add     bl,3;3
-                sub     si,5;4
-                and     si,255                  ;update offets, and use only LSB part of si
+                add     bl,dh                   ;dh=3
+                sub     si,cx                   ;cx=5
+                and     si,bp                   ;bp=255. update offets, and use only LSB part of si
         %assign YY YY+1
         %endrep
-
-        add     cl,7
-        sub     dl,3
-        mov     byte [sine_ybuf_1_idx],cl       ;update buffer y1 and y2 offests
-        mov     byte [sine_ybuf_2_idx],dl       ; to be used in the next frame
 
         ret
 
@@ -1450,6 +1434,62 @@ state_plasma_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 plasma_update_sine_table:
+        ; x
+        sub     bh,bh
+        mov     bl,byte [sine_xbuf_1_idx]       ;bx=offset for buffer x1
+        mov     cl,bl
+        sub     ah,ah
+        mov     al,byte [sine_xbuf_2_idx]       ;si=offset for buffer x2
+        mov     dl,al
+        mov     si,ax
+
+        mov     dh,5                            ;register is faster than memory
+        mov     bp,255                          ;register is faster than memory
+
+        %assign XX 0
+        %rep    PLASMA_WIDTH
+                mov     al,[sine_table+bx]      ;xbuf[idx] = sine[bx]+sine[si]
+                add     al,[sine_table+si]
+                mov     [plasma_xbuf+XX],al
+                add     bl,dh                   ;update offsets to sine tables
+                sub     si,8;9
+                and     si,bp                   ;bp=255. only use LSB part of si
+        %assign XX XX+1
+        %endrep
+
+        add     cl,9                            ;update buffer x1 and x2 offsets
+        sub     dl,5                            ; for the next frame
+        mov     byte [sine_xbuf_1_idx],cl
+        mov     byte [sine_xbuf_2_idx],dl
+
+
+        ; y
+        sub     bh,bh                           ;do the same thing, but for buffer y
+        mov     bl,byte [sine_ybuf_1_idx]       ;bx=offset for buffer y1
+        mov     cl,bl
+        sub     ah,ah
+        mov     al,byte [sine_ybuf_2_idx]       ;si=offset for buffer y2
+        mov     dl,al
+        mov     si,ax
+
+        mov     dh,3                            ;register is faster than memory
+
+        %assign YY 0
+        %rep    PLASMA_HEIGHT
+                mov     al,[sine_table+bx]      ;ybuff[YY] = sine[bx]+sine[si]
+                add     al,[sine_table+si]
+                mov     [plasma_ybuf+YY],al     ;update y buffer with sine+sine
+                add     bl,dh;3
+                sub     si,5;4
+                and     si,bp                   ;bp=255. update offets, and use only LSB part of si
+        %assign YY YY+1
+        %endrep
+
+        add     cl,7
+        sub     dl,3
+        mov     byte [sine_ybuf_1_idx],cl       ;update buffer y1 and y2 offests
+        mov     byte [sine_ybuf_2_idx],dl       ; to be used in the next frame
+
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1910,6 +1950,10 @@ plasma_tex_xbuf:                                ;plasma tex xbuffer
         resb   PLASMA_TEX_WIDTH
 plasma_tex_ybuf:                                ;plasma tex ybuffer
         resb   PLASMA_TEX_HEIGHT
+plasma_xbuf:                                    ;plasma xbuffer
+        resb   PLASMA_WIDTH
+plasma_ybuf:                                    ;plasma ybuffer
+        resb   PLASMA_HEIGHT
 plasma_counter:                                 ;ticks elapsed in plasma effect
         dw      0
 sine_table:
