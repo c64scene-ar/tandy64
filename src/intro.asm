@@ -12,6 +12,13 @@ extern ZTimerOn, ZTimerOff, ZTimerReport
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 %define DEBUG 1
 
+BOTTOM_OFFSET   equ     21*2*160                ;start at line 20:160 bytes per line, lines are every 4 -> 8/4 =2
+SCROLL_OFFSET   equ     22*2*160                ;start at line 22:160 bytes per line, lines are every 4 -> 8/4 =2
+TEXT_WRITER_OFFSET_Y    equ     19*2*160        ;start at line 19:160 bytes per line, lines are every 4 -> 8/4 =2
+PLASMA_OFFSET equ 21*2*160+160                  ;plasma: video offset
+
+
+
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; render vertically 4 bits needed for the scroll. grabs the firts for bytes from the cache,
 ; use the MSB bit. If it is on, use white, else black color
@@ -23,7 +30,7 @@ extern ZTimerOn, ZTimerOff, ZTimerReport
 ; Args: %1: offset line.
 %macro render_bit 1
 
-        mov     di,OFFSET_Y+160*(%1+1)-1        ;es:di points to video memory
+        mov     di,SCROLL_OFFSET+160*(%1+1)-1   ;es:di points to video memory
         mov     cx,4                            ;times to loop
 %%loop_print:
         lodsb                                   ;fetches byte from the cache
@@ -703,26 +710,24 @@ scroll_anim:
         mov     ax,0xb800                       ;ds points to video memory
         mov     ds,ax                           ;es already points to it
 
-OFFSET_Y        equ     22*2*160                ;start at line 22:160 bytes per line, lines are every 4 -> 8/4 =2
-
         mov     cx,320                          ;scroll 4 lines of 80 chars
-        mov     si,OFFSET_Y+1                   ;source: last char of screen
-        mov     di,OFFSET_Y                     ;dest: last char of screen - 1
+        mov     si,SCROLL_OFFSET+1              ;source: last char of screen
+        mov     di,SCROLL_OFFSET                ;dest: last char of screen - 1
         rep movsw                               ;do the copy
 
         mov     cx,320                          ;scroll 4 lines of 80 chars
-        mov     si,OFFSET_Y+8192+1              ;source: last char of screen
-        mov     di,OFFSET_Y+8192                ;dest: last char of screen - 1
+        mov     si,SCROLL_OFFSET+8192+1         ;source: last char of screen
+        mov     di,SCROLL_OFFSET+8192           ;dest: last char of screen - 1
         rep movsw                               ;do the copy
 
         mov     cx,320                          ;scroll 4 lines of 80 chars
-        mov     si,OFFSET_Y+16384+1             ;source: last char of screen
-        mov     di,OFFSET_Y+16384               ;dest: last char of screen - 1
+        mov     si,SCROLL_OFFSET+16384+1        ;source: last char of screen
+        mov     di,SCROLL_OFFSET+16384          ;dest: last char of screen - 1
         rep movsw                               ;do the copy
 
         mov     cx,320                          ;scroll 4 lines of 80 chars
-        mov     si,OFFSET_Y+24576+1             ;source: last char of screen
-        mov     di,OFFSET_Y+24576               ;dest: last char of screen - 1
+        mov     si,SCROLL_OFFSET+24576+1        ;source: last char of screen
+        mov     di,SCROLL_OFFSET+24576          ;dest: last char of screen - 1
         rep movsw                               ;do the copy
 
 
@@ -768,7 +773,7 @@ OFFSET_Y        equ     22*2*160                ;start at line 22:160 bytes per 
         mov     ax,0xb800
         mov     es,ax
 
-        mov     di,OFFSET_Y+159                 ;es:di points to video memory
+        mov     di,SCROLL_OFFSET+159            ;es:di points to video memory
         mov     si,cache_charset                ;ds:si points to cache_charset
         sub     bx,bx                           ;used for the cache index in the macros
         mov     dx,scroll_pixel_color_tbl       ;used in the macros
@@ -1119,6 +1124,27 @@ state_enable_scroll:
         rep movsw                               ;copy the new 16 colors
 
         mov     es,bx                           ;restore es
+
+        ;clear the bottom part with black pixels
+        ;previously it was filled with the plasma pixels
+        sub     ax,ax
+
+        mov     cx,640                          ;8 rows
+        mov     di,BOTTOM_OFFSET+8192*0         ;destination
+        rep stosw                               ;do the 'clean screen'
+
+        mov     cx,640                          ;8 rows
+        mov     di,BOTTOM_OFFSET+8192*1         ;destination
+        rep stosw                               ;do the 'clean screen'
+
+        mov     cx,640                          ;8 rows
+        mov     di,BOTTOM_OFFSET+8192*2         ;destination
+        rep stosw                               ;do the 'clean screen'
+
+        mov     cx,640                          ;8 rows
+        mov     di,BOTTOM_OFFSET+8192*3         ;destination
+        rep stosw                               ;do the 'clean screen'
+
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1182,9 +1208,6 @@ PLASMA_Y equ 32                                 ;plasma: pixels height
         mov     byte [sine_ybuf_2_idx],dl       ; to be used in the next frame
 
         ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-PLASMA_OFFSET equ 21*2*160+160                  ;plasma: video offset
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_plasma_red_tex_init:
@@ -1396,8 +1419,6 @@ plasma_to_video_anim:
 ; ASSUMES:  es: pointer to video segment
 ;           ds: pointer to charset segment
 text_writer_print_char:
-
-TEXT_WRITER_OFFSET_Y    equ     19*2*160        ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
 
         sub     ah,ah
         mov     bx,ax                           ;bx = ax (char to print)
