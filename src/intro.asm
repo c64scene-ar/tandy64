@@ -19,7 +19,7 @@ PLASMA_TEX_OFFSET       equ 21*2*160+160        ;plasma texture: video offset
 PLASMA_TEX_WIDTH        equ 160                 ;plasma texture: pixels wide
 PLASMA_TEX_HEIGHT       equ 32                  ;plasma texture: pixels height
 PLASMA_OFFSET   equ 22*2*160+64                 ;plasma: video offset
-PLASMA_WIDTH    equ 32                          ;plasma: pixels wide
+PLASMA_WIDTH    equ 24                          ;plasma: pixels wide
 PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 
 
@@ -316,6 +316,8 @@ new_i08:
         ;not saving any variable, since the code at main loop
         ;happens after the tick
 
+        push    ax
+
         mov     ax,data
         mov     ds,ax
 
@@ -327,7 +329,7 @@ new_i08:
         call    raster_bars_anim                ;do raster bars
 
         mov     si,top_palette                  ;points to colors used at the top of the screen
-        mov     cx,16                           ;update all 16 colors
+        mov     cx,15                           ;update 15 colors. skip white. already white
         mov     bl,0x10                         ; starting with color 0 (black)
         call    refresh_palette                 ;refresh the palette
 
@@ -355,8 +357,8 @@ new_i08:
         out     0x20,al                         ; to the IRQ controller
 
         inc     byte [tick]                     ;tell main_loop that it could process
-                                                ;whatever he wants
-
+                                                ; whatever he wants
+        pop     ax
         iret                                    ;exit interrupt
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -390,7 +392,15 @@ refresh_palette:
         out     dx,al
 
         lodsb                                   ;load new color value
+        mov     ah,al
+
+.retrace:
+        in      al,dx
+        test    al,1
+        jz      .retrace                        ;horizontal retrace after this
+
         mov     dl,bh                           ;dx=0x3de
+        mov     al,ah
         out     dx,al
 
         mov     dl,0xda                         ;dx=0x3da
@@ -1872,8 +1882,7 @@ raster_colors_tbl:                              ;16 colors in total
         db      1,2,3,4,5,6,7,8
         db      9,10,11,12,13,14,15,0
         db      1,2,3,4,5,6,7,8
-        db      9,10,11,12,13,14,15,0
-        db      1,2,3,4
+        db      9,10,11,12,13
 raster_color_restore:                           ;must be after raster_colors_tbl
         db      15
 RASTER_COLORS_MAX equ $-raster_colors_tbl
