@@ -19,8 +19,8 @@ PLASMA_TEX_OFFSET       equ 21*2*160+160        ;plasma texture: video offset
 PLASMA_TEX_WIDTH        equ 160                 ;plasma texture: pixels wide
 PLASMA_TEX_HEIGHT       equ 32                  ;plasma texture: pixels height
 PLASMA_OFFSET   equ 22*2*160+64                 ;plasma: video offset
-PLASMA_WIDTH    equ 24                          ;plasma: pixels wide
-PLASMA_HEIGHT   equ 24                          ;plasma: pixels height
+PLASMA_WIDTH    equ 32                          ;plasma: pixels wide
+PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -319,15 +319,18 @@ new_i08:
         mov     ax,data
         mov     ds,ax
 
-        cmp     byte [raster_state],0           ;which raster effect to do?
-        jne     .raster_bars
-        call    cycle_palette_anim              ;do cycle palette
-        jmp     .l0
-.raster_bars:
+        mov     si,bottom_palette               ;points to colors used at the bottom
+        mov     cx,7                            ;only update 7 colors
+        mov     bl,0x11                         ; starting with color 1 (skip black)
+        call    refresh_palette                 ;refresh the palette
+
         call    raster_bars_anim                ;do raster bars
-.l0:
+
+        call    wait_vertical_retrace
 
         mov     si,top_palette                  ;points to colors used at the top of the screen
+        mov     cx,16                           ;update all 16 colors
+        mov     bl,0x10                         ; starting with color 0 (black)
         call    refresh_palette                 ;refresh the palette
 
 %if DEBUG
@@ -377,18 +380,13 @@ state_next:
         call    [states_inits+bx]
         ret
 
-        mov     si,raster_colors_tbl
-        mov     cx,RASTER_COLORS_MAX
-
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; si: table with the palette to update
+; cx: number of colors to update. 16 to update all of them
+; bl: starting color + 0x10. example: use 0x1f for white: 0x10 + 0xf
 refresh_palette:
-        mov     cx,16                           ;repeat it 16 times
-        mov     bl,0x10                         ;starts with color 0 (0 + 0x10)
         mov     bh,0xde                         ;register is faster than memory
-
         mov     dx,0x03da                       ;select color register
-
 .l0:
         mov     al,bl                           ;color to update
         out     dx,al
@@ -403,38 +401,12 @@ refresh_palette:
 
         ret
 
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-cycle_palette_anim:
-
-        mov     si,bottom_palette               ;points to colors used at the bottom
-        call    refresh_palette                 ;refresh the palette
-
-        dec     byte [cycle_palette_delay]      ;ready to cycle palette?
-        cmp     byte [cycle_palette_delay],0
-        jne     .end
-        je      .end
-
-        mov     byte [cycle_palette_delay],2    ;update delay counter
-
-        mov     bx,es                           ;save bx for later
-        mov     ax,data
-        mov     es,ax                           ;update es use
-
-        ;cycles the palette
-        mov     dl,[bottom_palette+1]           ;save first value
-        mov     cx,14                           ;shift table to the left once
-        mov     si,bottom_palette+2             ; but don't touch color black
-        mov     di,bottom_palette+1             ; needed to avoid flicker
-        rep     movsb
-        mov     [bottom_palette+15],dl          ;color[15] = color[1]
-
-        mov     es,bx                           ;restore bx
-
-.end:
-        jmp     wait_vertical_retrace           ;keep these colors until the vert retrace
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 raster_bars_anim:
+        mov     cx,RASTER_COLORS_MAX            ;total number of raster bars
+        mov     si,raster_colors_tbl            ;where the colors are for each raster bar
+
         mov     dx,0x03da
         mov     al,0x1f                         ;select palette color 15 (white)
         out     dx,al
@@ -1115,6 +1087,7 @@ state_enable_noise_fade_init:
         inc     byte [noise_fade_enabled]
         ret
 
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_enable_scroll:
         mov     byte [scroll_enabled],1         ;enable scroll
 
@@ -1128,11 +1101,25 @@ state_enable_scroll:
         rep movsw                               ;copy the new 16 colors
 
         mov     es,bx                           ;restore es
+        ret
 
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_clear_bottom_init:
+        mov     byte [clear_bottom_state],0
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_clear_bottom_anim:
         ;clear the bottom part with black pixels
         ;previously it was filled with the plasma pixels
-        sub     ax,ax
+        ;do it in two parts since there is not enough CPU power to do it in
+        ;just one pass
+        mov     ax,0xffff                       ;white * 4
 
+        cmp     byte [clear_bottom_state],0
+        jne     .second_half
+
+.first_half:
         mov     cx,640                          ;8 rows
         mov     di,BOTTOM_OFFSET+8192*0         ;destination
         rep stosw                               ;do the 'clean screen'
@@ -1141,6 +1128,10 @@ state_enable_scroll:
         mov     di,BOTTOM_OFFSET+8192*1         ;destination
         rep stosw                               ;do the 'clean screen'
 
+        inc     byte [clear_bottom_state]       ;ready for next half
+        ret
+
+.second_half:
         mov     cx,640                          ;8 rows
         mov     di,BOTTOM_OFFSET+8192*2         ;destination
         rep stosw                               ;do the 'clean screen'
@@ -1149,7 +1140,8 @@ state_enable_scroll:
         mov     di,BOTTOM_OFFSET+8192*3         ;destination
         rep stosw                               ;do the 'clean screen'
 
-        ret
+        jmp     state_next                      ;finish and set next state
+
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 plasma_tex_init_sine_table:
@@ -1399,33 +1391,13 @@ state_plasma_init:
 
         mov     [plasma_counter],ax             ;ticks at 0
 
-        ;clear the bottom part with black pixels
-        ;previously it was filled with the plasma pixels
-
-        mov     cx,640                          ;8 rows
-        mov     di,BOTTOM_OFFSET+8192*0         ;destination
-        rep stosw                               ;do the 'clean screen'
-
-        mov     cx,640                          ;8 rows
-        mov     di,BOTTOM_OFFSET+8192*1         ;destination
-        rep stosw                               ;do the 'clean screen'
-
-        mov     cx,640                          ;8 rows
-        mov     di,BOTTOM_OFFSET+8192*2         ;destination
-        rep stosw                               ;do the 'clean screen'
-
-        mov     cx,640                          ;8 rows
-        mov     di,BOTTOM_OFFSET+8192*3         ;destination
-        rep stosw                               ;do the 'clean screen'
-
-
         ;update palette
         mov     ax,data
         mov     es,ax                           ;es=ds
-        mov     cx,8                            ;16 colors (16 bytes == 8 words)
-        mov     di,bottom_palette               ;destination: bottom palette
-        mov     si,palette_default              ;source: default palette
-        rep movsw                               ;copy the new 16 colors
+        mov     cx,PLASMA_TEX_PALETTE_MAX       ;number of colors to update
+        mov     di,bottom_palette+1             ;destination: bottom palette, skipping black
+        mov     si,plasma_tex_blue_palette      ;source: blue palette
+        rep movsb                               ;copy the new palette
         mov     ax,0xb800
         mov     es,ax                           ;restore es
 
@@ -1768,38 +1740,40 @@ current_state:                                  ;current state. index for the
         dw      0                               ; function to call.
 
 states_inits:
-        dw      state_gfx_fade_in_init          ;b
-        dw      state_fade_to_black_init        ;c
-        dw      state_delay_2s_init             ;d
+        dw      state_gfx_fade_in_init          ;a
+        dw      state_fade_to_black_init        ;b
+        dw      state_delay_2s_init             ;c
+        dw      state_outline_fade_init         ;d
         dw      state_outline_fade_init         ;e
-        dw      state_outline_fade_init         ;f
-        dw      state_plasma_red_tex_init       ;d'
-        dw      state_plasma_green_tex_init     ;d''
-        dw      state_plasma_blue_tex_init      ;d'''
-        dw      state_enable_text_writer        ;n
-        dw      state_pvm_logo_fade_in_init     ;h
-        dw      state_outline_fade_init         ;j
-        dw      state_plasma_init               ;g
-        dw      state_delay_2s_init             ;k
-        dw      state_enable_scroll             ;l
-        dw      state_nothing_init              ;o
+        dw      state_plasma_red_tex_init       ;f
+        dw      state_plasma_green_tex_init     ;g
+        dw      state_plasma_blue_tex_init      ;h
+        dw      state_enable_text_writer        ;i
+        dw      state_pvm_logo_fade_in_init     ;j
+        dw      state_outline_fade_init         ;k
+        dw      state_clear_bottom_init         ;l
+        dw      state_plasma_init               ;m
+        dw      state_clear_bottom_init         ;n
+        dw      state_enable_scroll             ;o
+        dw      state_nothing_init              ;p
 
 states_callbacks:
-        dw      state_gfx_fade_in_anim          ;b
-        dw      state_fade_to_black_anim        ;c
-        dw      state_delay_anim                ;d
-        dw      state_outline_fade_in_anim      ;e
-        dw      state_outline_fade_out_anim     ;f
-        dw      state_plasma_tex_anim           ;d'
-        dw      state_plasma_tex_anim           ;d''
-        dw      state_plasma_tex_anim           ;d'''
-        dw      state_skip_anim                 ;n
-        dw      state_pvm_logo_fade_in_anim     ;h
-        dw      state_outline_fade_to_final_anim;j
-        dw      state_plasma_anim               ;g
-        dw      state_delay_anim                ;k
-        dw      state_skip_anim                 ;l
-        dw      state_nothing_anim              ;o
+        dw      state_gfx_fade_in_anim          ;a
+        dw      state_fade_to_black_anim        ;b
+        dw      state_delay_anim                ;c
+        dw      state_outline_fade_in_anim      ;d
+        dw      state_outline_fade_out_anim     ;e
+        dw      state_plasma_tex_anim           ;f
+        dw      state_plasma_tex_anim           ;g
+        dw      state_plasma_tex_anim           ;h
+        dw      state_skip_anim                 ;i
+        dw      state_pvm_logo_fade_in_anim     ;k
+        dw      state_outline_fade_to_final_anim;k
+        dw      state_clear_bottom_anim         ;l
+        dw      state_plasma_anim               ;m
+        dw      state_clear_bottom_anim         ;n
+        dw      state_skip_anim                 ;o
+        dw      state_nothing_anim              ;p
 
 text_writer_x_pos:                              ;position x for the cursor. 0-39
         db      0
@@ -1896,14 +1870,12 @@ old_i08:                                        ;segment + offset to old int 8
 old_pic_imr:                                    ;PIC IMR original value
         db      0
 
-RASTER_STATE_PALETTE equ 0
-RASTER_STATE_RASTERBARS equ 1
-raster_state:                                   ;raster state machine. which effect to perform?
-        db      0                               ;0=palette, 1=raster bars
-
 raster_colors_tbl:                              ;16 colors in total
         db      1,2,3,4,5,6,7,8
         db      9,10,11,12,13,14,15,0
+        db      1,2,3,4,5,6,7,8
+        db      9,10,11,12,13,14,15,0
+        db      1,2,3,4
 raster_color_restore:                           ;must be after raster_colors_tbl
         db      15
 RASTER_COLORS_MAX equ $-raster_colors_tbl
@@ -1962,6 +1934,9 @@ plasma_tex_x_offset:                            ;plama x offset. to make it scro
 
 cycle_palette_delay:                            ;delay for the palette cycle animation
         db      1
+
+clear_bottom_state:                             ;used by state_clearn_bottom_anim
+        db      0                               ;when 0, clear first half. when 1, clear second half
 
 crtc_start_addr:
         dw      0                               ;crtc start address
