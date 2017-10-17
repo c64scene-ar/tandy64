@@ -18,7 +18,8 @@ SCROLL_OFFSET   equ     22*2*160                ;start at line 22:160 bytes per 
 PLASMA_TEX_OFFSET       equ 21*2*160+160        ;plasma texture: video offset
 PLASMA_TEX_WIDTH        equ 160                 ;plasma texture: pixels wide
 PLASMA_TEX_HEIGHT       equ 32                  ;plasma texture: pixels height
-PLASMA_WIDTH    equ 32                          ;plasma: pixels wide
+PLASMA_OFFSET   equ 22*2*160+56                 ;plasma: video offset
+PLASMA_WIDTH    equ 48                          ;plasma: pixels wide
 PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 
 
@@ -1417,17 +1418,27 @@ state_plasma_init:
         mov     di,BOTTOM_OFFSET+8192*3         ;destination
         rep stosw                               ;do the 'clean screen'
 
+
+        ;update palette
+        mov     ax,data
+        mov     es,ax                           ;es=ds
+        mov     cx,8                            ;16 colors (16 bytes == 8 words)
+        mov     di,bottom_palette               ;destination: bottom palette
+        mov     si,palette_default              ;source: default palette
+        rep movsw                               ;copy the new 16 colors
+        mov     ax,0xb800
+        mov     es,ax                           ;restore es
+
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_plasma_anim:
         inc     word [plasma_counter]
-        cmp     word [plasma_counter],60*5      ;5 seconds
+        cmp     word [plasma_counter],60*20     ;20 seconds
         jne     .do_plasma
 
         jmp     state_next                      ;reached end of effect. trigger
                                                 ; next state
-
 .do_plasma:
         call    plasma_update_sine_table
         jmp     plasma_render_to_video
@@ -1435,15 +1446,16 @@ state_plasma_anim:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 plasma_update_sine_table:
         ; x
-        sub     bh,bh
-        mov     bl,byte [sine_xbuf_1_idx]       ;bx=offset for buffer x1
-        mov     cl,bl
-        sub     ah,ah
-        mov     al,byte [sine_xbuf_2_idx]       ;si=offset for buffer x2
-        mov     dl,al
-        mov     si,ax
+        sub     bh,bh                           ;bx MSB = 0
+        mov     ah,bh                           ;ax MSB = 0
+        mov     cx,word [sine_xbuf_1_idx]       ;fetches both xbuf_1 and xbuf_2
+        mov     bl,cl                           ;bx = xbuf_1
+        mov     al,ch                           ;ax = xbuf_2
+        mov     si,ax                           ;si = xbuf_2
 
+        push    cx                              ;save cx for later
         mov     dh,5                            ;register is faster than memory
+        mov     cx,8                            ;register is faster than memory
         mov     bp,255                          ;register is faster than memory
 
         %assign XX 0
@@ -1452,48 +1464,64 @@ plasma_update_sine_table:
                 add     al,[sine_table+si]
                 mov     [plasma_xbuf+XX],al
                 add     bl,dh                   ;update offsets to sine tables
-                sub     si,8;9
+                sub     si,cx
                 and     si,bp                   ;bp=255. only use LSB part of si
         %assign XX XX+1
         %endrep
 
+        pop cx                                  ;restore cx
         add     cl,9                            ;update buffer x1 and x2 offsets
-        sub     dl,5                            ; for the next frame
-        mov     byte [sine_xbuf_1_idx],cl
-        mov     byte [sine_xbuf_2_idx],dl
-
+        sub     ch,5                            ; for the next frame
+        mov     word [sine_xbuf_1_idx],cx       ;udpates both xbuf_1 and xbuf_2
 
         ; y
-        sub     bh,bh                           ;do the same thing, but for buffer y
-        mov     bl,byte [sine_ybuf_1_idx]       ;bx=offset for buffer y1
-        mov     cl,bl
-        sub     ah,ah
-        mov     al,byte [sine_ybuf_2_idx]       ;si=offset for buffer y2
-        mov     dl,al
-        mov     si,ax
+        sub     bh,bh                           ;bx MSB = 0
+        mov     ah,bh                           ;ax MSB = 0
+        mov     cx,word [sine_ybuf_1_idx]       ;fetches both ybuf_1 and ybuf_2
+        mov     bl,cl                           ;bx = xbuf_1
+        mov     al,ch                           ;ax = xbuf_2
+        mov     si,ax                           ;si = xbuf_2
 
+        push    cx                              ;save cx for later
         mov     dh,3                            ;register is faster than memory
+        mov     cx,5
 
         %assign YY 0
         %rep    PLASMA_HEIGHT
                 mov     al,[sine_table+bx]      ;ybuff[YY] = sine[bx]+sine[si]
                 add     al,[sine_table+si]
                 mov     [plasma_ybuf+YY],al     ;update y buffer with sine+sine
-                add     bl,dh;3
-                sub     si,5;4
+                add     bl,dh
+                sub     si,cx
                 and     si,bp                   ;bp=255. update offets, and use only LSB part of si
         %assign YY YY+1
         %endrep
 
-        add     cl,7
-        sub     dl,3
-        mov     byte [sine_ybuf_1_idx],cl       ;update buffer y1 and y2 offests
-        mov     byte [sine_ybuf_2_idx],dl       ; to be used in the next frame
+        pop     cx                              ;restore cx
+        add     cl,7                            ;update sine values for later
+        sub     ch,3
+        mov     word [sine_ybuf_1_idx],cx       ;udpates both ybuf_1 and ybuf_2
 
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 plasma_render_to_video:
+        mov     bx,luminances_6_colors          ;to be used by xlat. has the colors for the plasma
+
+        %assign YY 0
+        %rep    PLASMA_HEIGHT
+
+                %assign XX 0
+                %rep    PLASMA_WIDTH
+                        mov     al,[plasma_xbuf+XX]     ;fetch plasma X buffer
+                        add     al,[plasma_ybuf+YY]     ; and add it to plasma Y buffer
+                        xlat                            ; and get the color value from luminances_tble
+                        mov     [es:PLASMA_OFFSET+(YY/4)*160+(YY % 4)*8192+XX],al
+                %assign XX XX+1
+                %endrep
+        %assign YY YY+1
+        %endrep
+
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
