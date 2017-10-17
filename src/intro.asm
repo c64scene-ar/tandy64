@@ -18,9 +18,9 @@ SCROLL_OFFSET   equ     22*2*160                ;start at line 22:160 bytes per 
 PLASMA_TEX_OFFSET       equ 21*2*160+160        ;plasma texture: video offset
 PLASMA_TEX_WIDTH        equ 160                 ;plasma texture: pixels wide
 PLASMA_TEX_HEIGHT       equ 32                  ;plasma texture: pixels height
-PLASMA_OFFSET   equ 22*2*160+56                 ;plasma: video offset
-PLASMA_WIDTH    equ 48                          ;plasma: pixels wide
-PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
+PLASMA_OFFSET   equ 22*2*160+64                 ;plasma: video offset
+PLASMA_WIDTH    equ 24                          ;plasma: pixels wide
+PLASMA_HEIGHT   equ 24                          ;plasma: pixels height
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
