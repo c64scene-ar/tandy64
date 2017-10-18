@@ -1858,16 +1858,88 @@ text_writer_data:
 
         db      '                Hi there'
         db      TW_STATE_CURSOR_BLINK,5         ;wait blinks
-        db      TW_STATE_GOTO,9                 ;go to pos 9
+        db      TW_STATE_GOTO,0                 ;go to pos
 
-        db                'My name is cursorito'
+        db      'Never saw a plasma effect so small ?'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_CALL_ACTION,0          ;execute action 0: enable rhythm
-        db      TW_STATE_GOTO,0                 ;go to pos 0
+        db      TW_STATE_GOTO,9                 ;go to pos
 
-        db      'eh?... que me contrusi'
+        db              'Ha ha, we neither'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,0                 ;go to pos 0
+        db      TW_STATE_GOTO,4                 ;go to pos
+
+        db         'At least it runs at 60 FPS'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,5                 ;go to pos
+
+        db         'And it has raster bars!'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,6                 ;go to pos
+
+        db         'And it can cycle colors'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,2                 ;go to pos
+
+        db        `And we run out of time`
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,2                 ;go to pos 5
+
+        db        'Tip: run this intro in real hardware'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,3                 ;go to pos 5
+
+        db         'in particular, in a Tandy 1000 HX'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,5                 ;go to pos 5
+
+        db      'Tested with 256K RAM and DOS v2.0'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,5                 ;go to pos 5
+
+        db      'Should work with 128K too'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,5                 ;go to pos 5
+
+        db      'Might not work correctly on emulators'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,0                 ;go to pos 5
+
+        db      `Or if run on non-8088 Tandy's`
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,5                 ;go to pos 5
+
+        db      `Works both in RGB and composite modes`
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,0                 ;go to pos 5
+
+        db      `But better on RGB mode (better colors)`
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,0                 ;go to pos 5
+
+        db      `We tried our best to support DosBox-x`
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,0                 ;go to pos 5
+
+        db      `But some glitches appear every now and then`
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,0                 ;go to pos 5
+
+        db      `Do you have a IBM PC Jr. ?`
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,0                 ;go to pos 5
+
+        db      `Do you mind testing it there ?`
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,0                 ;go to pos 5
+
+        db      `We know it will run rather slow`
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,0                 ;go to pos 5
+
+        db      `but we want to know how slow it runs`
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO,0                 ;go to pos 5
 TEXT_WRITER_DATA_LEN equ $-text_writer_data
 
 text_writer_cursor_blink_delay:                 ;how many cursor blinks to wait
@@ -1884,10 +1956,12 @@ old_pic_imr:                                    ;PIC IMR original value
         db      0
 
 raster_colors_tbl:                              ;16 colors in total
-        db      1,2,3,4,5,6,7,8
-        db      9,10,11,12,13,14,15,0
-        db      1,2,3,4,5,6,7,8
-        db      9,10,11,12,13,14,15
+        db      15,7,9,8,1,0
+        db      0,1,8,9,7,15
+        db      15,7,9,8,1,0
+        db      0,1,8,9,7,15
+        db      15,7,9,8,1,0
+        db      0
 raster_color_restore:                           ;must be after raster_colors_tbl
         db      15
 RASTER_COLORS_MAX equ $-raster_colors_tbl
