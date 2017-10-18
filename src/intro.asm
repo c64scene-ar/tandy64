@@ -115,10 +115,10 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
         mov     ah,al
 
 %if %1
-        %%wait:
-                in      al,dx                           ;inline wait horizontal retrace for performance reasons
-                test    al,dh                           ;FIXME: using 0x3 instead of 0x1. Might break with light pen
-                jnz     %%wait
+;        %%wait:
+;                in      al,dx                           ;inline wait horizontal retrace for performance reasons
+;                test    al,dh                           ;FIXME: using 0x3 instead of 0x1. Might break with light pen
+;                jnz     %%wait
         %%retrace:
                 in      al,dx
                 test    al,dh                           ;FIXME: using 0x3 instead of 0x1. might break with light pen
@@ -401,7 +401,7 @@ new_i08:
         mov     si,top_palette                  ;points to colors used at the top of the screen
         mov     cx,15                           ;update 15 colors. skip white. already white
         mov     bl,0x10                         ; starting with color 0 (black)
-        REFRESH_PALETTE 0                       ;refresh the palette. don't wait for horizontal retrace
+        REFRESH_PALETTE 1                       ;refresh the palette. don't wait for horizontal retrace
 
 %if DEBUG
         call    inc_d020
