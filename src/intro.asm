@@ -74,7 +74,7 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
         mov     dl,al                           ;save al
         shr     al,1                            ;process hi nibble. shift 3 times to right
         shr     al,1                            ; instead of shifting 4 times
-        shr     al,1                            ; and then one shift left
+        shr     al,1                            ; and then one shift left (needed for table offset)
         and     al,0001_1110b                   ;turn off bit 0 in case it is one
         mov     si,text_writer_bitmap_to_video_tbl
         add     si,ax
@@ -361,8 +361,8 @@ new_i08:
 
         ;update bottom-screen palette
         mov     si,bottom_palette               ;points to colors used at the bottom
-        mov     cx,8                            ;only update 7 colors
-        mov     bl,0x10                         ; starting with color 1 (skip black)
+        mov     cx,7                            ;only update 7 colors
+        mov     bl,0x11                         ; starting with color 1 (skip black)
         REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
 
@@ -400,7 +400,7 @@ new_i08:
         mov     si,top_palette                  ;points to colors used at the top of the screen
         mov     cx,15                           ;update 15 colors. skip white. already white
         mov     bl,0x10                         ; starting with color 0 (black)
-        REFRESH_PALETTE 1                       ;refresh the palette. don't wait for horizontal retrace
+        REFRESH_PALETTE 0                       ;refresh the palette. don't wait for horizontal retrace
 
 %if DEBUG
         call    inc_d020
@@ -1524,7 +1524,7 @@ text_writer_print_char:
         mov     al,byte [text_writer_x_pos]     ;x pos, from 0 to 39
         shl     ax,1
         shl     ax,1                            ;times 4 (each char takes 4 bytes wide)
-        add     di,ax                           ;or is cheaper than add
+        add     di,ax
 
         sub     ah,ah
 
