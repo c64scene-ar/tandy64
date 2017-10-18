@@ -61,7 +61,7 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 %endmacro
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; render horizontally 2 bytes (4 pixels)
+; render horizontally 4 bytes (8 pixels)
 ; useful to render a char from a 1x1 charset
 ;
 ; IN:
@@ -91,6 +91,25 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
         movsw                                   ;render LSB nibble (4 pixels, 2 bytes)
 
         inc     bx                              ;get ready for next call
+%endmacro
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; render horizontally 8 bytes (16 pixels)
+; useful to render a blocky double char
+;
+; IN:
+;       es:di   -> where to render (ponter to video memory)
+;       bx      -> pattern for first char
+;       cx      -> pattern for 2nd char
+%macro RENDER_DOUBLE_PATTERN 0
+
+        mov     ax,bx
+        stosw
+        stosw
+
+        mov     ax,cx
+        stosw
+        stosw
 %endmacro
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -904,11 +923,15 @@ END     equ     1000_0000b
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_init:
+        sub     ax,ax
         mov     byte [text_writer_state],TW_STATE_PRINT_CHAR
         mov     word [text_writer_idx],-1       ;HACK: data offset is -1, because we do a +1 at anim
         mov     byte [text_writer_delay],10     ;delay waits 10 refreshes
-        mov     byte [text_writer_enabled],0    ;disabled by default
-        mov     byte [text_writer_cursor_blink_delay],0 ;how many blinks to wait
+        mov     byte [text_writer_enabled],al   ;disabled by default
+        mov     byte [text_writer_cursor_blink_delay],al ;how many blinks to wait
+        mov     byte [text_writer_x_pos],al     ;at pos 0
+        mov     byte [text_writer_x_dst],al     ;dst pos 0
+        mov     word [text_writer_x_addr],TEXT_WRITER_OFFSET_Y  ;reset video address
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -942,6 +965,7 @@ text_writer_state_print_char_anim:
 
         call    text_writer_print_char          ;print the char
         inc     byte [text_writer_x_pos]        ;cursor pos += 1
+        add     word [text_writer_x_addr],4     ;video address +4 (each char takes 4 bytes)
         mov     al,160                          ;select reverse space
         call    text_writer_print_char          ; and print it
 
@@ -997,19 +1021,18 @@ text_writer_state_goto_anim:
         ret                                     ; then change state to read chars again
 
 .right:
-        mov     al,' '                          ;select space
-        call    text_writer_print_char          ; and print it
+        mov     ax,0x0077                       ;ah=black/black, al=gray/gray
+        call    text_writer_fill_two_chars
         inc     byte [text_writer_x_pos]        ;cursor += 1. destintation is to the right
-        mov     al,160                          ;select reverse space
-        jmp     text_writer_print_char          ; print it, and return
+        add     word [text_writer_x_addr],4     ;video addr += 4 (each char takes 4 bytes)
+        ret
 
 .left:
-        mov     al,' '                          ;select space
-        call    text_writer_print_char          ; and print it
+        mov     ax,0x7700                       ;ah=gray/gray, black/black
+        call    text_writer_fill_two_chars
         dec     byte [text_writer_x_pos]        ;cursor -= 1. destintation is to the left
-        mov     al,160                          ;select reverse space
-        jmp     text_writer_print_char          ; print it, and return
-
+        sub     word [text_writer_x_addr],4     ;video addr -= 4 (each char takes 4 bytes)
+        ret
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1520,11 +1543,7 @@ text_writer_print_char:
         shl     bx,1
         shl     bx,1                            ;bx*8 since each char takes 8 bytes
 
-        mov     di,TEXT_WRITER_OFFSET_Y         ;writer start point
-        mov     al,byte [text_writer_x_pos]     ;x pos, from 0 to 39
-        shl     ax,1
-        shl     ax,1                            ;times 4 (each char takes 4 bytes wide)
-        add     di,ax
+        mov     di,[text_writer_x_addr]         ;video destination address
 
         sub     ah,ah
 
@@ -1552,6 +1571,42 @@ text_writer_print_char:
         add     di,8192-4
         RENDER_NIBBLE
 
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; Since text_writer_print_char is somewhat slow, this function renders two
+; blocky chars (based) on the pattern passed. More efficient than calling
+; text_writer_print_char twice, once with an empty char, and one with a full
+; char
+;
+; IN:   ah=pattern (color) to be used for left char
+;       al=pattern (color) to be used for right char
+; ASSUMES:  es: pointer to video segment
+text_writer_fill_two_chars:
+
+        mov     bl,ah                           ;save for later
+        mov     bh,bl                           ;bx = second char pattern
+        mov     cl,al
+        mov     ch,cl                           ;cx = first char pattern
+
+        mov     di,[text_writer_x_addr]
+
+        RENDER_DOUBLE_PATTERN                   ;1st row
+        add     di,8192-8
+        RENDER_DOUBLE_PATTERN                   ;2nd row
+        add     di,8192-8
+        RENDER_DOUBLE_PATTERN                   ;3rd row
+        add     di,8192-8
+        RENDER_DOUBLE_PATTERN                   ;4th row
+
+        sub     di,24576-152                    ;160-8
+        RENDER_DOUBLE_PATTERN                   ;5th row
+        add     di,8192-8
+        RENDER_DOUBLE_PATTERN                   ;6th row
+        add     di,8192-8
+        RENDER_DOUBLE_PATTERN                   ;7th row
+        add     di,8192-8
+        RENDER_DOUBLE_PATTERN                   ;8th row
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1787,10 +1842,13 @@ states_callbacks:
         dw      state_skip_anim                 ;o
         dw      state_nothing_anim              ;p
 
+text_writer_x_addr:                             ;address where the char will be written
+        resw    1                               ; like x_pos, but has the video address as an
+                                                ; optimization
 text_writer_x_pos:                              ;position x for the cursor. 0-39
-        db      0
+        resb    1                               ; but supports in the range of -127,128
 text_writer_x_dst:                              ;dst position x for the cursor. 0-39
-        db      0
+        resb    1
 
 text_writer_enabled:
         db      0                               ;boolean: whether the text_writer anim is enabled
