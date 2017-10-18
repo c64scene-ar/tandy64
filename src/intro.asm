@@ -10,7 +10,7 @@ extern ZTimerOn, ZTimerOff, ZTimerReport
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; MACROS
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-%define DEBUG 0                                 ;0=diabled, 1=enabled
+%define DEBUG 1                                 ;0=diabled, 1=enabled
 
 TEXT_WRITER_OFFSET_Y    equ     19*2*160        ;start at line 19:160 bytes per line, lines are every 4 -> 8/4 =2
 BOTTOM_OFFSET   equ     21*2*160                ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
@@ -30,9 +30,11 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 ; IN:   ds:si   -> bit to render (pointer to cache)
 ;       es:di   -> where to render (ponter to video memory)
 ;       dx      -> pointer to pixel color table
-;       bx      -> row index
+;       bp      -> row index
 ; Args: %1: offset line.
 %macro RENDER_BIT 1
+
+        int 3
 
         mov     di,SCROLL_OFFSET+160*(%1+1)-1   ;es:di points to video memory
         mov     cx,4                            ;times to loop
@@ -42,20 +44,18 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
         and     al,1100_0000b
         rol     al,1
         rol     al,1
-        xchg    dx,bx                           ;save bx, load dx with pointer tbl
-
+        mov     bx,dx
         xlat                                    ;al = [scroll_pixel_color_tbl+ al]
         stosb
-
-        xchg    dx,bx                           ;restore bx
 
         add     di,8192-1                       ;draw in next bank. di was incremented by
                                                 ; one in stosb.
 
         shl     ah,1                            ;al << 2. bit 7,6 contains next bits to render
         shl     ah,1                            ;
+        mov     bx,bp                           ;index by bp
         mov     [cache_charset+bx],ah           ;update cache for next iteration
-        inc     bx
+        inc     bp                              ;inc row index
 
         loop    %%loop_print
 %endmacro
@@ -116,13 +116,13 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 
 %if %1
 ;        %%wait:
-;                in      al,dx                           ;inline wait horizontal retrace for performance reasons
-;                test    al,dh                           ;FIXME: using 0x3 instead of 0x1. Might break with light pen
+;                in      al,dx                  ;inline wait horizontal retrace for performance reasons
+;                test    al,dh                  ;FIXME: using 0x3 instead of 0x1. Might break with light pen
 ;                jnz     %%wait
         %%retrace:
                 in      al,dx
-                test    al,dh                           ;FIXME: using 0x3 instead of 0x1. might break with light pen
-                jz      %%retrace                       ;horizontal retrace after this
+                test    al,dh                   ;FIXME: using 0x3 instead of 0x1. might break with light pen
+                jz      %%retrace               ;horizontal retrace after this
 %endif
 
         mov     dl,bh                           ;dx=0x3de
@@ -323,15 +323,14 @@ fake_crash:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 intro_init:
-        mov     word [current_state],0
+        mov     byte [current_state],0
         call    [states_inits]                  ;init state 0
 
         call    music_init
         call    text_writer_init
         call    crtc_addr_init
         call    palette_colors_init
-        call    scroll_init
-        ret
+        jmp     scroll_init
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 main_loop:
@@ -362,8 +361,8 @@ new_i08:
 
         ;update bottom-screen palette
         mov     si,bottom_palette               ;points to colors used at the bottom
-        mov     cx,7                            ;only update 7 colors
-        mov     bl,0x11                         ; starting with color 1 (skip black)
+        mov     cx,8                            ;only update 7 colors
+        mov     bl,0x10                         ; starting with color 1 (skip black)
         REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
 
@@ -409,7 +408,8 @@ new_i08:
 
         ;after raster baster finishes
 
-        mov     bx,word [current_state]         ;fetch state
+        sub     bh,bh
+        mov     bl,byte [current_state]         ;fetch state
         shl     bx,1                            ; and convert it into offset (2 bytes per offset)
         call    [states_callbacks+bx]           ; and call correct state callback
 
@@ -443,8 +443,9 @@ sound_cleanup:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_next:
-        inc     word [current_state]
-        mov     bx,word [current_state]
+        inc     byte [current_state]
+        sub     bh,bh
+        mov     bl,byte [current_state]
         shl     bx,1
         call    [states_inits+bx]
         ret
@@ -686,7 +687,7 @@ state_outline_fade_to_final_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_init:
-        mov     byte [scroll_enabled],0         ;dsiabled by default
+        mov     byte [scroll_enabled],0         ;disabled by default
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -724,14 +725,14 @@ scroll_anim:
         mov     ds,ax
 
         cmp     byte [scroll_bit_idx],0         ;only update cache if scroll_bit_idx == 0
-        jnz     .RENDER_BITs                    ; and scroll_col_used == 0
+        jnz     .render_bits                    ; and scroll_col_used == 0
         cmp     byte [scroll_col_used],0
-        jnz     .RENDER_BITs
+        jnz     .render_bits
 
         ;update the cache with the next 32 bytes (2x2 chars)
         mov     bx,[scroll_char_idx]            ;scroll text offset
         mov     bl,byte [scroll_text+bx]        ;char to print
-        and     bl,0011_1111b                   ;only use lower 63 bits
+        and     bl,0011_1111b                   ;only use lower 63 numbers. only 64 chars in the charset
         sub     bh,bh
         shl     bx,1                            ;bx * 8 since each char takes 8
         shl     bx,1                            ; bytes in the charset
@@ -758,13 +759,13 @@ scroll_anim:
         rep movsw
 
 
-.RENDER_BITs:
+.render_bits:
         mov     ax,0xb800
         mov     es,ax
 
         mov     di,SCROLL_OFFSET+159            ;es:di points to video memory
         mov     si,cache_charset                ;ds:si points to cache_charset
-        sub     bx,bx                           ;used for the cache index in the macros
+        sub     bp,bp                           ;used for the cache index in the macros
         mov     dx,scroll_pixel_color_tbl       ;used in the macros
 
         RENDER_BIT 0
@@ -772,8 +773,7 @@ scroll_anim:
         RENDER_BIT 2
         RENDER_BIT 3
 
-        inc     byte [scroll_bit_idx]           ;two incs, since it prints 2 bits at the time
-        inc     byte [scroll_bit_idx]
+        add     byte [scroll_bit_idx],2         ;two incs, since it prints 2 bits at the time
 
         test    byte [scroll_bit_idx],8         ;should use 2nd chars?
         jz      .end                            ;if not, exit
@@ -799,7 +799,6 @@ scroll_anim:
         inc     word [scroll_char_idx]          ;scroll_char_idx++
         cmp     word [scroll_char_idx],SCROLL_TEXT_LEN  ;end of scroll?
         jnz     .end                            ; if so, reset index
-        int 3
         mov     word [scroll_char_idx],ax       ;reset to 0
 
 .end:
@@ -1750,7 +1749,7 @@ volume_0:
 
 
 current_state:                                  ;current state. index for the
-        dw      0                               ; function to call.
+        db      0                               ; function to call.
 
 states_inits:
         dw      state_gfx_fade_in_init          ;a
@@ -1971,7 +1970,7 @@ top_palette:                                    ;palette used for the upper part
         db      8,9,10,11,12,13,14,15
 
 bottom_palette:                                 ;palette used for the bottom part of the screen
-        db      0,1,2,3,4,5,6,7                 ;default palette
+        db      2,1,2,3,4,5,6,7                 ;default palette
         db      8,9,10,11,12,13,14,15
 
 palette_default:
