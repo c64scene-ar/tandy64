@@ -34,8 +34,6 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 ; Args: %1: offset line.
 %macro RENDER_BIT 1
 
-        int 3
-
         mov     di,SCROLL_OFFSET+160*(%1+1)-1   ;es:di points to video memory
         mov     cx,4                            ;times to loop
 %%loop_print:
@@ -102,7 +100,6 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 ;       bx      -> pattern for first char
 ;       cx      -> pattern for 2nd char
 %macro RENDER_DOUBLE_ROW 0
-
         mov     ax,bx
         stosw
         stosw
