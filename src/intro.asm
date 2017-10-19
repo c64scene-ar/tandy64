@@ -68,7 +68,7 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 ;       es:di   -> where to render (ponter to video memory)
 ;       bx      -> offset of nibble to render
 ;       ah      -> must be 0
-%macro RENDER_NIBBLE 0
+%macro RENDER_CHAR_ROW 0
 
         mov     al,byte [c64_charset+bx]        ;first byte to print from charset. represents 8 pixels
         mov     dl,al                           ;save al
@@ -101,7 +101,7 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 ;       es:di   -> where to render (ponter to video memory)
 ;       bx      -> pattern for first char
 ;       cx      -> pattern for 2nd char
-%macro RENDER_DOUBLE_PATTERN 0
+%macro RENDER_DOUBLE_ROW 0
 
         mov     ax,bx
         stosw
@@ -966,8 +966,8 @@ text_writer_state_print_char_anim:
         call    text_writer_print_char          ;print the char
         inc     byte [text_writer_x_pos]        ;cursor pos += 1
         add     word [text_writer_x_addr],4     ;video address +4 (each char takes 4 bytes)
-        mov     al,160                          ;select reverse space
-        call    text_writer_print_char          ; and print it
+        mov     al,0x77                         ;select "reverse" space (all gray char)
+        call    text_writer_fill_one_char       ; and print it
 
         mov     byte [text_writer_delay],1      ;cycles to wait
         mov     byte [text_writer_state],TW_STATE_IDLE  ;after writing a char, switch to
@@ -1028,11 +1028,10 @@ text_writer_state_goto_anim:
         ret
 
 .left:
-        mov     ax,0x7700                       ;ah=gray/gray, black/black
-        call    text_writer_fill_two_chars
         dec     byte [text_writer_x_pos]        ;cursor -= 1. destintation is to the left
         sub     word [text_writer_x_addr],4     ;video addr -= 4 (each char takes 4 bytes)
-        ret
+        mov     ax,0x7700                       ;ah=gray/gray, black/black
+        jmp     text_writer_fill_two_chars
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1074,12 +1073,12 @@ text_writer_state_cursor_blink_anim:
         cmp     byte [text_writer_cursor_blink_delay],0
         je      .end_blink_state
         mov     byte [text_writer_delay],30     ;init blink delay
-        mov     al,160                          ;select full char
-        jmp     text_writer_print_char          ; print it, and return
+        mov     al,0x77                         ;select all gray char
+        jmp     text_writer_fill_one_char       ; print it, and return
 
 .cursor_off:
-        mov     al,' '                          ;select space char (empty char)
-        jmp     text_writer_print_char          ; print it, and return
+        mov     al,0x00                         ;select all black char
+        jmp     text_writer_fill_one_char       ; print it, and return
 
 .end_blink_state:
         mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;print char is next state
@@ -1543,33 +1542,26 @@ text_writer_print_char:
         shl     bx,1
         shl     bx,1                            ;bx*8 since each char takes 8 bytes
 
+        mov     bp,8192-4                       ;faster to operate with registers
+
         mov     di,[text_writer_x_addr]         ;video destination address
-
-        sub     ah,ah
-
-        RENDER_NIBBLE
-
-        add     di,8192-4
-        RENDER_NIBBLE
-
-        add     di,8192-4
-        RENDER_NIBBLE
-
-        add     di,8192-4
-        RENDER_NIBBLE
+        RENDER_CHAR_ROW                         ;1st row
+        add     di,bp
+        RENDER_CHAR_ROW                         ;2nd row
+        add     di,bp
+        RENDER_CHAR_ROW                         ;3rd row
+        add     di,bp
+        RENDER_CHAR_ROW                         ;4th row
 
 
         sub     di,24576-156                    ;160-4
-        RENDER_NIBBLE
-
-        add     di,8192-4
-        RENDER_NIBBLE
-
-        add     di,8192-4
-        RENDER_NIBBLE
-
-        add     di,8192-4
-        RENDER_NIBBLE
+        RENDER_CHAR_ROW                         ;5th row
+        add     di,bp
+        RENDER_CHAR_ROW                         ;6th row
+        add     di,bp
+        RENDER_CHAR_ROW                         ;7th row
+        add     di,bp
+        RENDER_CHAR_ROW                         ;8th row
 
         ret
 
@@ -1589,24 +1581,63 @@ text_writer_fill_two_chars:
         mov     cl,al
         mov     ch,cl                           ;cx = first char pattern
 
-        mov     di,[text_writer_x_addr]
+        mov     bp,8192-8                       ;faster to do operations with registers
 
-        RENDER_DOUBLE_PATTERN                   ;1st row
-        add     di,8192-8
-        RENDER_DOUBLE_PATTERN                   ;2nd row
-        add     di,8192-8
-        RENDER_DOUBLE_PATTERN                   ;3rd row
-        add     di,8192-8
-        RENDER_DOUBLE_PATTERN                   ;4th row
+        mov     di,[text_writer_x_addr]
+        RENDER_DOUBLE_ROW                       ;1st row
+        add     di,bp
+        RENDER_DOUBLE_ROW                       ;2nd row
+        add     di,bp
+        RENDER_DOUBLE_ROW                       ;3rd row
+        add     di,bp
+        RENDER_DOUBLE_ROW                       ;4th row
 
         sub     di,24576-152                    ;160-8
-        RENDER_DOUBLE_PATTERN                   ;5th row
-        add     di,8192-8
-        RENDER_DOUBLE_PATTERN                   ;6th row
-        add     di,8192-8
-        RENDER_DOUBLE_PATTERN                   ;7th row
-        add     di,8192-8
-        RENDER_DOUBLE_PATTERN                   ;8th row
+        RENDER_DOUBLE_ROW                       ;5th row
+        add     di,bp
+        RENDER_DOUBLE_ROW                       ;6th row
+        add     di,bp
+        RENDER_DOUBLE_ROW                       ;7th row
+        add     di,bp
+        RENDER_DOUBLE_ROW                       ;8th row
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; Since text_writer_print_char is somewhat slow, this function renders one
+; blocky chars (based) on the pattern passed.
+;
+; IN:   al=pattern (color) to be used for the char
+; ASSUMES:  es: pointer to video segment
+text_writer_fill_one_char:
+
+        mov     ah,al                           ;ax has color info for 4 pixels
+        mov     cx,8192-4                       ;faster to add from reg, than immediate
+
+        mov     di,[text_writer_x_addr]
+        stosw                                   ;1st row
+        stosw
+        add     di,cx
+        stosw                                   ;2nd row
+        stosw
+        add     di,cx
+        stosw                                   ;3rd row
+        stosw
+        add     di,cx
+        stosw                                   ;4th row
+        stosw
+
+        sub     di,24576-156                    ;160-4
+        stosw                                   ;5th row
+        stosw
+        add     di,cx
+        stosw                                   ;6th row
+        stosw
+        add     di,cx
+        stosw                                   ;7th row
+        stosw
+        add     di,cx
+        stosw                                   ;8th row
+        stosw
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
