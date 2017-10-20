@@ -356,7 +356,10 @@ main_loop:
                                                 ; in practice, if not used, the interrupt could be triggered
                                                 ; in the middle of the BIOS call, some intructions are longer than others,
                                                 ; and it could generate some flicker in the raster bar routine
-        dec     byte [tick]
+
+        mov     byte [tick],0                   ;mov ,0, instead of dec. since two inc could happen together
+                                                ; if running on a slow machine. not a big issue, but ctrl+alt+del won't work
+                                                ; and a switch on/off will be required (arggh.)
 
         mov     ah,1
         int     0x16                            ;INT 16,AH=1, OUT:ZF=status
