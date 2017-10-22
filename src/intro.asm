@@ -1183,16 +1183,17 @@ plasma_tex_init_sine_table:
         mov     bp,255                          ;register is faster than memory
         sub     si,si
         sub     bx,bx
-        mov     dh,5                            ;register is faster than memory
-        mov     cx,8                            ;register is faster than memory
+        mov     dh,[plasma_tex_inc_x0]
+        sub     cx,cx
+        mov     cl,[plasma_tex_inc_x1]
 
         %assign XX 0
         %rep    PLASMA_TEX_WIDTH
-                mov     al,[sine_table+bx]      ;xbuf[idx] = sine[bx]+sine[si]
-                add     al,[sine_table+si]
+                mov     al,[fn_table_1+bx]      ;xbuf[idx] = sine[bx]+sine[si]
+                add     al,[fn_table_2+si]
                 mov     [plasma_tex_xbuf+XX],al
                 add     bl,dh                   ;dh=5. update offsets to sine tables
-                sub     si,cx                   ;cx=8
+                add     si,cx                   ;cx=8
                 and     si,bp                   ;only use LSB part of si
         %assign XX XX+1
         %endrep
@@ -1200,16 +1201,17 @@ plasma_tex_init_sine_table:
         ; y
         sub     si,si
         sub     bx,bx
-        mov     dh,3                            ;register is faster than memory
-        mov     cx,5                            ;register is faster than memory
+        mov     dh,[plasma_tex_inc_y0]
+        sub     cx,cx
+        mov     cl,[plasma_tex_inc_y1]
 
         %assign YY 0
         %rep    PLASMA_TEX_HEIGHT
-                mov     al,[sine_table+bx]      ;ybuff[YY] = sine[bx]+sine[si]
-                add     al,[sine_table+si]
+                mov     al,[fn_table_1+bx]      ;ybuff[YY] = sine[bx]+sine[si]
+                add     al,[fn_table_2+si]
                 mov     [plasma_tex_ybuf+YY],al ;update y buffer with sine+sine
                 add     bl,dh                   ;dh=3
-                sub     si,cx                   ;cx=5
+                add     si,cx                   ;cx=5
                 and     si,bp                   ;bp=255. update offets, and use only LSB part of si
         %assign YY YY+1
         %endrep
@@ -1225,6 +1227,10 @@ state_plasma_red_tex_init:
         mov     byte [plasma_tex_delay],al
         mov     word [plasma_tex_palette_addr],plasma_tex_red_palette
         mov     byte [plasma_tex_letter_color],2;letter P uses color 2
+        mov     byte [plasma_tex_inc_x0],250     ;texture generator parameters
+        mov     byte [plasma_tex_inc_x1],255
+        mov     byte [plasma_tex_inc_y0],127
+        mov     byte [plasma_tex_inc_y1],129
 
         mov     bx,es                           ;save es in bx for later
 
@@ -1248,6 +1254,10 @@ state_plasma_green_tex_init:
         mov     byte [plasma_tex_delay],al
         mov     word [plasma_tex_palette_addr],plasma_tex_green_palette
         mov     byte [plasma_tex_letter_color],0xa      ;letter V uses color 0xa
+        mov     byte [plasma_tex_inc_x0],4      ;texture generator parameters
+        mov     byte [plasma_tex_inc_x1],7
+        mov     byte [plasma_tex_inc_y0],129
+        mov     byte [plasma_tex_inc_y1],3
 
         mov     bx,es                           ;save es in bx for later
 
@@ -1271,6 +1281,10 @@ state_plasma_magenta_tex_init:
         mov     byte [plasma_tex_delay],al
         mov     word [plasma_tex_palette_addr],plasma_tex_magenta_palette
         mov     byte [plasma_tex_letter_color],0xd        ;letter M uses color 0xd
+        mov     byte [plasma_tex_inc_x0],255      ;texture generator parameters
+        mov     byte [plasma_tex_inc_x1],4
+        mov     byte [plasma_tex_inc_y0],127
+        mov     byte [plasma_tex_inc_y1],253
 
         mov     bx,es                           ;save es in bx for later
 
@@ -1454,7 +1468,7 @@ plasma_update_sine_table:
         ; x
         sub     bh,bh                           ;bx MSB = 0
         mov     ah,bh                           ;ax MSB = 0
-        mov     cx,word [sine_xbuf_1_idx]       ;fetches both xbuf_1 and xbuf_2
+        mov     cx,word [plasma_off_x0]       ;fetches both xbuf_1 and xbuf_2
         mov     bl,cl                           ;bx = xbuf_1
         mov     al,ch                           ;ax = xbuf_2
         mov     si,ax                           ;si = xbuf_2
@@ -1466,8 +1480,8 @@ plasma_update_sine_table:
 
         %assign XX 0
         %rep    PLASMA_WIDTH
-                mov     al,[sine_table+bx]      ;xbuf[idx] = sine[bx]+sine[si]
-                add     al,[sine_table+si]
+                mov     al,[fn_table_1+bx]      ;xbuf[idx] = sine[bx]+sine[si]
+                add     al,[fn_table_2+si]
                 mov     [plasma_xbuf+XX],al
                 add     bl,dh                   ;update offsets to sine tables
                 sub     si,cx
@@ -1478,12 +1492,12 @@ plasma_update_sine_table:
         pop cx                                  ;restore cx
         add     cl,9                            ;update buffer x1 and x2 offsets
         sub     ch,5                            ; for the next frame
-        mov     word [sine_xbuf_1_idx],cx       ;udpates both xbuf_1 and xbuf_2
+        mov     word [plasma_off_x0],cx       ;udpates both xbuf_1 and xbuf_2
 
         ; y
         sub     bh,bh                           ;bx MSB = 0
         mov     ah,bh                           ;ax MSB = 0
-        mov     cx,word [sine_ybuf_1_idx]       ;fetches both ybuf_1 and ybuf_2
+        mov     cx,word [plasma_off_y0]       ;fetches both ybuf_1 and ybuf_2
         mov     bl,cl                           ;bx = xbuf_1
         mov     al,ch                           ;ax = xbuf_2
         mov     si,ax                           ;si = xbuf_2
@@ -1494,8 +1508,8 @@ plasma_update_sine_table:
 
         %assign YY 0
         %rep    PLASMA_HEIGHT
-                mov     al,[sine_table+bx]      ;ybuff[YY] = sine[bx]+sine[si]
-                add     al,[sine_table+si]
+                mov     al,[fn_table_1+bx]      ;ybuff[YY] = sine[bx]+sine[si]
+                add     al,[fn_table_2+si]
                 mov     [plasma_ybuf+YY],al     ;update y buffer with sine+sine
                 add     bl,dh
                 sub     si,cx
@@ -1506,7 +1520,7 @@ plasma_update_sine_table:
         pop     cx                              ;restore cx
         add     cl,7                            ;update sine values for later
         sub     ch,3
-        mov     word [sine_ybuf_1_idx],cx       ;udpates both ybuf_1 and ybuf_2
+        mov     word [plasma_off_y0],cx       ;udpates both ybuf_1 and ybuf_2
 
         ret
 
@@ -2113,6 +2127,14 @@ plasma_tex_letter_color:                        ;color of the PVM letter to upda
         resb    1
 plasma_tex_x_offset:                            ;plama x offset. to make it scroll
         dw      0
+plasma_tex_inc_x0:                              ;plasma xbuf increment a
+        resb    1
+plasma_tex_inc_x1:                              ;plasma xbuf increment b
+        resb    1
+plasma_tex_inc_y0:                              ;plasma ybuf increment a
+        resb    1
+plasma_tex_inc_y1:                              ;plasma ybuf incrment b
+        resb    1
 
 cycle_palette_delay:                            ;delay for the palette cycle animation
         db      1
@@ -2123,13 +2145,13 @@ clear_bottom_state:                             ;used by state_clearn_bottom_ani
 crtc_start_addr:
         dw      0                               ;crtc start address
 
-sine_xbuf_1_idx:                                ;plasma: xbuf idx 1
+plasma_off_x0:                                  ;plasma: xbuf idx 1
         db      0
-sine_xbuf_2_idx:                                ;plasma: xbuf idx 2
+plasma_off_x1:                                  ;plasma: xbuf idx 2
         db      0
-sine_ybuf_1_idx:                                ;plasma: ybuf idx 1
+plasma_off_y0:                                  ;plasma: ybuf idx 1
         db      0
-sine_ybuf_2_idx:                                ;plasma: ybuf idx 2
+plasma_off_y1:                                  ;plasma: ybuf idx 2
         db      0
 plasma_tex_xbuf:                                ;plasma tex xbuffer
         resb   PLASMA_TEX_WIDTH
@@ -2141,7 +2163,42 @@ plasma_ybuf:                                    ;plasma ybuffer
         resb   PLASMA_HEIGHT
 plasma_counter:                                 ;ticks elapsed in plasma effect
         dw      0
-sine_table:
+fn_table_1:
+fn_table_2:
+; autogenerated table: easing_table_generator.py -s128 -m128 -aTrue -r bezier:0,0.02,0.98,1
+        db     0,  0,  0,  1,  1,  1,  1,  2
+        db     2,  3,  3,  4,  4,  5,  5,  6
+        db     7,  8,  8,  9, 10, 11, 12, 13
+        db    13, 14, 15, 16, 17, 19, 20, 21
+        db    22, 23, 24, 25, 27, 28, 29, 30
+        db    32, 33, 34, 36, 37, 38, 40, 41
+        db    42, 44, 45, 47, 48, 49, 51, 52
+        db    54, 55, 57, 58, 60, 61, 63, 64
+        db    65, 67, 68, 70, 71, 73, 74, 76
+        db    77, 79, 80, 81, 83, 84, 86, 87
+        db    88, 90, 91, 92, 94, 95, 96, 98
+        db    99,100,101,103,104,105,106,107
+        db   108,109,111,112,113,114,115,115
+        db   116,117,118,119,120,120,121,122
+        db   123,123,124,124,125,125,126,126
+        db   127,127,127,127,128,128,128,128
+; reversed
+        db   128,128,128,127,127,127,127,126
+        db   126,125,125,124,124,123,123,122
+        db   121,120,120,119,118,117,116,115
+        db   115,114,113,112,111,109,108,107
+        db   106,105,104,103,101,100, 99, 98
+        db    96, 95, 94, 92, 91, 90, 88, 87
+        db    86, 84, 83, 81, 80, 79, 77, 76
+        db    74, 73, 71, 70, 68, 67, 65, 64
+        db    63, 61, 60, 58, 57, 55, 54, 52
+        db    51, 49, 48, 47, 45, 44, 42, 41
+        db    40, 38, 37, 36, 34, 33, 32, 30
+        db    29, 28, 27, 25, 24, 23, 22, 21
+        db    20, 19, 17, 16, 15, 14, 13, 13
+        db    12, 11, 10,  9,  8,  8,  7,  6
+        db     5,  5,  4,  4,  3,  3,  2,  2
+        db     1,  1,  1,  1,  0,  0,  0,  0
 ; autogenerated table: easing_table_generator.py -s128 -m255 -aTrue -r bezier:0,0.02,0.98,1
         db        0,  0,  1,  1,  2,  2,  3,  4
         db        4,  5,  6,  7,  8, 10, 11, 12
@@ -2176,6 +2233,41 @@ sine_table:
         db       23, 21, 20, 18, 17, 15, 14, 12
         db       11, 10,  8,  7,  6,  5,  4,  4
         db        3,  2,  2,  1,  1,  0,  0,  0
+
+;fn_table_2:
+        ; autogenerated table: easing_table_generator.py -s256 -m128 -aTrue sin
+        db        2,  3,  5,  6,  8,  9, 11, 13
+        db       14, 16, 17, 19, 20, 22, 23, 25
+        db       27, 28, 30, 31, 33, 34, 36, 37
+        db       39, 40, 42, 43, 45, 46, 48, 49
+        db       50, 52, 53, 55, 56, 58, 59, 60
+        db       62, 63, 64, 66, 67, 68, 70, 71
+        db       72, 74, 75, 76, 78, 79, 80, 81
+        db       82, 84, 85, 86, 87, 88, 89, 91
+        db       92, 93, 94, 95, 96, 97, 98, 99
+        db      100,101,102,103,104,105,106,106
+        db      107,108,109,110,111,111,112,113
+        db      114,114,115,116,116,117,118,118
+        db      119,119,120,121,121,122,122,122
+        db      123,123,124,124,125,125,125,126
+        db      126,126,126,127,127,127,127,127
+        db      128,128,128,128,128,128,128,128
+        db      128,128,128,128,128,128,128,127
+        db      127,127,127,127,126,126,126,126
+        db      125,125,125,124,124,123,123,122
+        db      122,122,121,121,120,119,119,118
+        db      118,117,116,116,115,114,114,113
+        db      112,111,111,110,109,108,107,106
+        db      106,105,104,103,102,101,100, 99
+        db       98, 97, 96, 95, 94, 93, 92, 91
+        db       89, 88, 87, 86, 85, 84, 82, 81
+        db       80, 79, 78, 76, 75, 74, 72, 71
+        db       70, 68, 67, 66, 64, 63, 62, 60
+        db       59, 58, 56, 55, 53, 52, 50, 49
+        db       48, 46, 45, 43, 42, 40, 39, 37
+        db       36, 34, 33, 31, 30, 28, 27, 25
+        db       23, 22, 20, 19, 17, 16, 14, 13
+        db       11,  9,  8,  6,  5,  3,  2,  0
 
 luminances_8_color_lo:
         db      0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
