@@ -319,9 +319,9 @@ c64_screen:
         db 3                                            ;turn off user input
         db 1                                            ; pause / animate cursor
         db `SEARCHING FOR TANDY 64\n`
-        db `LOADING`,1,1,1,1,1,1,1,1,1
+        db `LOADING`,1,1,1,1,1,1,1
         db `               (10 minutes later)\n`
-        db 1,1
+        db 1,1,1,1
         db `READY.\n`
         db 0
         db 2                                            ;turn on user input

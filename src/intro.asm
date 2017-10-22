@@ -1855,12 +1855,13 @@ states_inits:
         dw      state_gfx_fade_in_init          ;a
         dw      state_fade_to_black_init        ;b
         dw      state_delay_2s_init             ;c
-        dw      state_outline_fade_init         ;d
-        dw      state_outline_fade_init         ;e
+;        dw      state_outline_fade_init         ;d
+;        dw      state_outline_fade_init         ;e
         dw      state_plasma_red_tex_init       ;f
         dw      state_plasma_green_tex_init     ;g
         dw      state_plasma_magenta_tex_init   ;h
         dw      state_enable_text_writer        ;i
+        dw      state_delay_2s_init             ;i'
         dw      state_pvm_logo_fade_in_init     ;j
         dw      state_outline_fade_init         ;k
         dw      state_clear_bottom_init         ;l
@@ -1873,12 +1874,13 @@ states_callbacks:
         dw      state_gfx_fade_in_anim          ;a
         dw      state_fade_to_black_anim        ;b
         dw      state_delay_anim                ;c
-        dw      state_outline_fade_in_anim      ;d
-        dw      state_outline_fade_out_anim     ;e
+;        dw      state_outline_fade_in_anim      ;d
+;        dw      state_outline_fade_out_anim     ;e
         dw      state_plasma_tex_anim           ;f
         dw      state_plasma_tex_anim           ;g
         dw      state_plasma_tex_anim           ;h
         dw      state_skip_anim                 ;i
+        dw      state_delay_anim                ;i'
         dw      state_pvm_logo_fade_in_anim     ;k
         dw      state_outline_fade_to_final_anim;k
         dw      state_clear_bottom_anim         ;l
