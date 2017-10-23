@@ -751,7 +751,9 @@ scroll_anim:
         ;update the cache with the next 32 bytes (2x2 chars)
         mov     bx,[scroll_char_idx]            ;scroll text offset
         mov     bl,byte [scroll_text+bx]        ;char to print
-        and     bl,0011_1111b                   ;only use lower 63 numbers. only 64 chars in the charset
+        test    bl,0b1000_0000                  ;control code?
+        je      .control_code
+        and     bl,0b0011_1111                  ;only use lower 63 numbers. only 64 chars in the charset
         sub     bh,bh
         shl     bx,1                            ;bx * 8 since each char takes 8
         shl     bx,1                            ; bytes in the charset
@@ -809,6 +811,9 @@ scroll_anim:
         rep movsw                               ;copy 16 bytes
         inc     byte [scroll_col_used]          ;2nd column to be used
         mov     byte [scroll_bit_idx],cl        ;0
+        jmp     .end
+
+.control_code:
         jmp     .end
 
 .next_char:
@@ -1148,7 +1153,7 @@ state_clear_bottom_anim:
         ;previously it was filled with the plasma pixels
         ;do it in two parts since there is not enough CPU power to do it in
         ;just one pass
-        mov     ax,0xffff                       ;white * 4
+        mov     ax,0x0000                       ;black * 4
 
         cmp     byte [clear_bottom_state],0
         jne     .second_half
@@ -1769,6 +1774,10 @@ cache_charset:
         ; % = closing double quotes
         ; $ = smiley
         ; ; = ~ (kind of separator)
+        ; < = heart
+        ; bit 7=on (128) - control code
+        ;       0 = start plasma
+        ;       1 = stop plasma
 scroll_text:
         db 'HI THERE. PUNGAS DE VILLA MARTELLI HERE, WITH OUR FIRST TANDY RELEASE. '
         db 'IT ALL BEGAN WHEN WE WENT TO PICK UP A COMMODORE 64 BUNDLE '
@@ -1782,21 +1791,24 @@ scroll_text:
         db '   ;    '
         db 'SENDING OUR REGARDS TO ALL THE TANDY 1000 SCENE, STARTING WITH: '
         db '                      '
+        db 128                                  ;start plasma
         db 'WHAT !? NO TANDY 1000 SCENE ??? HOW DARE YOU !!! '
         db `HOPEFULLY THIS WON'T BE OUR LAST TANDY RELEASE. `
         db 'PROBLEM IS THERE ARE ALMOST NO PARTIES ACCEPTING TANDY RELEASES. '
         db 'DO US A FAVOR: PING YOUR FAVORITE PARTY-ORGANIZER AND DEMAND HIM/HER '
         db 'TANDY SUPPORT. '
-        db 27,28,29,30,31,42,43                 ; Radio Shack (using Radio Shack font)
+        db 27,28,29,30,31,42,43                 ;Radio Shack (using Radio Shack font)
         db ' DESERVES IT ! '
         db '   ;   '
         db 'AS MUCH AS WE WOULD LIKE TO SAY THAT WE DID THIS RELEASE AS A TRIBUTE TO '
-        db 27,28,29,30,31,42,43                 ; Radio Shack (using Radio Shack font)
+        db 27,28,29,30,31,42,43                 ;Radio Shack (using Radio Shack font)
         db ', IT WAS JUST MERE CHANCE. HOWEVER, WE ARE FOND OF '
-        db 27,28,29,30,31,42,43                 ; Radio Shack (using Radio Shack font)
+        db 27,28,29,30,31,42,43                 ;Radio Shack (using Radio Shack font)
         db ` .HEY, WHO DOESN'T?`
         db '   ;   '
         db 'CODE:RIQ, MUSIC: UCTUMI, GRAPHICS: ALAKRAN'
+        db '   ;   '
+        db `<<< AMANDA MIGUEL, TE AMAMOS, TU TEMA "ASI NO TE AMARA JAMAS% ES LO MAS <<<`
         db '   ;   '
 SCROLL_TEXT_LEN equ $-scroll_text
 
@@ -1860,14 +1872,14 @@ states_inits:
         dw      state_plasma_red_tex_init       ;f
         dw      state_plasma_green_tex_init     ;g
         dw      state_plasma_magenta_tex_init   ;h
-        dw      state_enable_text_writer        ;i
-        dw      state_delay_2s_init             ;i'
         dw      state_pvm_logo_fade_in_init     ;j
         dw      state_outline_fade_init         ;k
-        dw      state_clear_bottom_init         ;l
-        dw      state_plasma_init               ;m
+;        dw      state_clear_bottom_init         ;l
+;        dw      state_plasma_init               ;m
         dw      state_clear_bottom_init         ;n
         dw      state_enable_scroll             ;o
+        dw      state_delay_2s_init             ;i'
+        dw      state_enable_text_writer        ;i
         dw      state_nothing_init              ;p
 
 states_callbacks:
@@ -1879,14 +1891,14 @@ states_callbacks:
         dw      state_plasma_tex_anim           ;f
         dw      state_plasma_tex_anim           ;g
         dw      state_plasma_tex_anim           ;h
-        dw      state_skip_anim                 ;i
-        dw      state_delay_anim                ;i'
-        dw      state_pvm_logo_fade_in_anim     ;k
+        dw      state_pvm_logo_fade_in_anim     ;j
         dw      state_outline_fade_to_final_anim;k
-        dw      state_clear_bottom_anim         ;l
-        dw      state_plasma_anim               ;m
+;        dw      state_clear_bottom_anim         ;l
+;        dw      state_plasma_anim               ;m
         dw      state_clear_bottom_anim         ;n
         dw      state_skip_anim                 ;o
+        dw      state_delay_anim                ;i'
+        dw      state_skip_anim                 ;i
         dw      state_nothing_anim              ;p
 
 text_writer_x_addr:                             ;address where the char will be written
