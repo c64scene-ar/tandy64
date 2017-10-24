@@ -31,7 +31,8 @@ res:
 	python3 tools/convert_gfx_to_bios_format.py res/PVM\ Logo\ PC.data -g 9 -o src/logo.raw
 	python3 tools/convert_vgm_to_pvm.py res/uc-adogi.vgm
 	cp res/uc-adogi.pvm src/uctumi-song.pvm
-	cp res/font_unknown_2x2-charset.bin src/font_unknown_2x2-charset.bin
+	cp res/font_unknown_2x2-charset.bin src/
+	cp res/c64_charset-charset.bin src/
 
 run: $(TARGET)
 	echo "Running game..."

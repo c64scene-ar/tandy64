@@ -706,16 +706,22 @@ state_outline_fade_to_final_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_init:
-        mov     byte [scroll_enabled],0         ;disabled by default
+        mov     byte [scroll_state],SCROLL_STATE_WAIT   ;nothing by default
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_anim:
-        cmp     byte [scroll_enabled],0         ;scroll enabled?
-        jne     .doit
+        mov     al,byte [scroll_state]
+        cmp     al,SCROLL_STATE_SCROLL       ;scroll enabled?
+        je      .do_scroll
+        cmp     al,SCROLL_STATE_PLASMA
+        je      .do_plasma
         ret
 
-.doit:
+.do_plasma:
+        jmp     plasma_anim
+
+.do_scroll:
         mov     ax,0xb800                       ;ds points to video memory
         mov     ds,ax                           ;es already points to it
 
@@ -752,7 +758,7 @@ scroll_anim:
         mov     bx,[scroll_char_idx]            ;scroll text offset
         mov     bl,byte [scroll_text+bx]        ;char to print
         test    bl,0b1000_0000                  ;control code?
-        je      .control_code
+        jnz     .control_code
         and     bl,0b0011_1111                  ;only use lower 63 numbers. only 64 chars in the charset
         sub     bh,bh
         shl     bx,1                            ;bx * 8 since each char takes 8
@@ -814,7 +820,8 @@ scroll_anim:
         jmp     .end
 
 .control_code:
-        jmp     .end
+        inc     word [scroll_char_idx]          ;offset += 1
+        jmp     plasma_init                     ;stop scroll. start plasma
 
 .next_char:
         sub     ax,ax
@@ -1128,7 +1135,7 @@ state_enable_noise_fade_init:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_enable_scroll:
-        mov     byte [scroll_enabled],1         ;enable scroll
+        mov     byte [scroll_state],SCROLL_STATE_SCROLL ;start the scroll
 
         mov     bx,es                           ;save es for later
         mov     ax,ds
@@ -1439,7 +1446,7 @@ plasma_tex_render_to_video:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_plasma_init:
+plasma_init:
         sub     ax,ax
 
         mov     [plasma_counter],ax             ;ticks at 0
@@ -1454,16 +1461,18 @@ state_plasma_init:
         mov     ax,0xb800
         mov     es,ax                           ;restore es
 
+        mov     byte [scroll_state],SCROLL_STATE_PLASMA
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_plasma_anim:
+plasma_anim:
         inc     word [plasma_counter]
-        cmp     word [plasma_counter],60*20     ;20 seconds
+        cmp     word [plasma_counter],5*20     ;20 seconds
         jne     .do_plasma
 
-        jmp     state_next                      ;reached end of effect. trigger
-                                                ; next state
+        mov     byte [scroll_state],SCROLL_STATE_SCROLL ;enable scroll again
+        ret
+
 .do_plasma:
         call    plasma_update_sine_table
         jmp     plasma_render_to_video
@@ -1792,7 +1801,7 @@ scroll_text:
         db 'SENDING OUR REGARDS TO ALL THE TANDY 1000 SCENE, STARTING WITH: '
         db '                      '
         db 128                                  ;start plasma
-        db 'WHAT !? NO TANDY 1000 SCENE ??? HOW DARE YOU !!! '
+        db 'NO TANDY 1000 SCENE ??? HOW DARE YOU !!! '
         db `HOPEFULLY THIS WON'T BE OUR LAST TANDY RELEASE. `
         db 'PROBLEM IS THERE ARE ALMOST NO PARTIES ACCEPTING TANDY RELEASES. '
         db 'DO US A FAVOR: PING YOUR FAVORITE PARTY-ORGANIZER AND DEMAND HIM/HER '
@@ -1823,7 +1832,11 @@ scroll_pixel_color_tbl:
         db      0x0f                            ;01 - black/white
         db      0xf0                            ;10 - white/black
         db      0xff                            ;11 - white/white
-scroll_enabled:                                 ;boolean. when 0, scroll is disabled
+
+SCROLL_STATE_WAIT       equ 0                   ;wait
+SCROLL_STATE_SCROLL     equ 1                   ;do the scroll
+SCROLL_STATE_PLASMA     equ 2                   ;do the plasma instead of the scroll
+scroll_state:                                   ;scroll state machine
         db      0
 
 palette_outline_fade_idx:                       ;index for table used in outline fade effect
