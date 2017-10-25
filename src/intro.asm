@@ -12,7 +12,7 @@ extern ZTimerOn, ZTimerOff, ZTimerReport
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 %define DEBUG 1                                 ;0=diabled, 1=enabled
 
-TEXT_WRITER_OFFSET_Y    equ     19*2*160        ;start at line 19:160 bytes per line, lines are every 4 -> 8/4 =2
+TEXT_WRITER_START_Y     equ 19                  ;start at line 19
 BOTTOM_OFFSET   equ     21*2*160                ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
 SCROLL_OFFSET   equ     22*2*160                ;start at line 22:160 bytes per line, lines are every 4 -> 8/4 =2
 PLASMA_TEX_OFFSET       equ 21*2*160+160        ;plasma texture: video offset
@@ -166,13 +166,6 @@ intro_start:
         cld
 
         call    intro_init
-
-;        mov     al,65
-;        call    text_writer_print_char
-;        inc     byte [text_writer_x_pos]
-;        mov     al,66
-;        call    text_writer_print_char
-
         call    irq_init
 
         call    main_loop
@@ -943,7 +936,9 @@ text_writer_init:
         mov     byte [text_writer_cursor_blink_delay],al ;how many blinks to wait
         mov     byte [text_writer_x_pos],al     ;at pos 0
         mov     byte [text_writer_x_dst],al     ;dst pos 0
-        mov     word [text_writer_x_addr],TEXT_WRITER_OFFSET_Y  ;reset video address
+        mov     byte [text_writer_y_pos],TEXT_WRITER_START_Y
+        mov     byte [text_writer_y_dst],TEXT_WRITER_START_Y
+        mov     word [text_writer_addr],TEXT_WRITER_START_Y*2*160
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -977,7 +972,7 @@ text_writer_state_print_char_anim:
 
         call    text_writer_print_char          ;print the char
         inc     byte [text_writer_x_pos]        ;cursor pos += 1
-        add     word [text_writer_x_addr],4     ;video address +4 (each char takes 4 bytes)
+        add     word [text_writer_addr],4       ;video address +4 (each char takes 4 bytes)
         mov     al,0x77                         ;select "reverse" space (all gray char)
         call    text_writer_fill_one_char       ; and print it
 
@@ -1014,7 +1009,7 @@ text_writer_state_idle_anim:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-text_writer_state_goto_init:
+text_writer_state_goto_x_init:
         inc     word [text_writer_idx]          ;data offset += 1
         mov     bx,word [text_writer_idx]       ;get data offset
         mov     al,byte [text_writer_data+bx]   ;pos to go back to
@@ -1023,7 +1018,7 @@ text_writer_state_goto_init:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-text_writer_state_goto_anim:
+text_writer_state_goto_x_anim:
         mov     al,byte [text_writer_x_dst]     ;fetch destination pos
         cmp     byte [text_writer_x_pos],al     ; and compare with current pos
         jb      .right
@@ -1036,12 +1031,44 @@ text_writer_state_goto_anim:
         mov     ax,0x0077                       ;ah=black/black, al=gray/gray
         call    text_writer_fill_two_chars
         inc     byte [text_writer_x_pos]        ;cursor += 1. destintation is to the right
-        add     word [text_writer_x_addr],4     ;video addr += 4 (each char takes 4 bytes)
+        add     word [text_writer_addr],4       ;video addr += 4 (each char takes 4 bytes)
         ret
 
 .left:
         dec     byte [text_writer_x_pos]        ;cursor -= 1. destintation is to the left
-        sub     word [text_writer_x_addr],4     ;video addr -= 4 (each char takes 4 bytes)
+        sub     word [text_writer_addr],4       ;video addr -= 4 (each char takes 4 bytes)
+        mov     ax,0x7700                       ;ah=gray/gray, black/black
+        jmp     text_writer_fill_two_chars
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_state_goto_y_init:
+        inc     word [text_writer_idx]          ;data offset += 1
+        mov     bx,word [text_writer_idx]       ;get data offset
+        mov     al,byte [text_writer_data+bx]   ;pos to go back to
+        mov     byte [text_writer_y_dst],al     ;update destination
+
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_state_goto_y_anim:
+        mov     al,byte [text_writer_y_dst]     ;fetch destination pos
+        cmp     byte [text_writer_y_pos],al     ; and compare with current pos
+        jb      .down
+        ja      .up
+
+        mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;if equal, means finished
+        ret                                     ; then change state to read chars again
+
+.down:
+        mov     ax,0x0077                       ;ah=black/black, al=gray/gray
+        call    text_writer_fill_two_chars
+        inc     byte [text_writer_y_pos]        ;cursor += 1. destintation is to the right
+        add     word [text_writer_addr],320     ;video addr += 320 (each char takes 4 bytes)
+        ret
+
+.up:
+        dec     byte [text_writer_y_pos]        ;cursor -= 1. destintation is to the left
+        sub     word [text_writer_addr],320     ;video addr -= 4 (each char takes 4 bytes)
         mov     ax,0x7700                       ;ah=gray/gray, black/black
         jmp     text_writer_fill_two_chars
 
@@ -1572,7 +1599,7 @@ text_writer_print_char:
 
         mov     bp,8192-4                       ;faster to operate with registers
 
-        mov     di,[text_writer_x_addr]         ;video destination address
+        mov     di,[text_writer_addr]           ;video destination address
         RENDER_CHAR_ROW                         ;1st row
         add     di,bp
         RENDER_CHAR_ROW                         ;2nd row
@@ -1611,7 +1638,7 @@ text_writer_fill_two_chars:
 
         mov     bp,8192-8                       ;faster to do operations with registers
 
-        mov     di,[text_writer_x_addr]
+        mov     di,[text_writer_addr]
         RENDER_DOUBLE_ROW                       ;1st row
         add     di,bp
         RENDER_DOUBLE_ROW                       ;2nd row
@@ -1641,7 +1668,7 @@ text_writer_fill_one_char:
         mov     ah,al                           ;ax has color info for 4 pixels
         mov     cx,8192-4                       ;faster to add from reg, than immediate
 
-        mov     di,[text_writer_x_addr]
+        mov     di,[text_writer_addr]
         stosw                                   ;1st row
         stosw
         add     di,cx
@@ -1914,12 +1941,15 @@ states_callbacks:
         dw      state_skip_anim                 ;i
         dw      state_nothing_anim              ;p
 
-text_writer_x_addr:                             ;address where the char will be written
-        resw    1                               ; like x_pos, but has the video address as an
-                                                ; optimization
+text_writer_addr:                               ;address where the char will be written
+        resw    1
 text_writer_x_pos:                              ;position x for the cursor. 0-39
         resb    1                               ; but supports in the range of -127,128
 text_writer_x_dst:                              ;dst position x for the cursor. 0-39
+        resb    1
+text_writer_y_pos:                              ;position y for the cursor. 0-24
+        resb    1                               ; but supports in the range of -127,128
+text_writer_y_dst:                              ;dst position 0 for the cursor. 0-24
         resb    1
 
 text_writer_enabled:
@@ -1947,29 +1977,31 @@ text_writer_bitmap_to_video_tbl:                ;converts charset (bitmap) to vi
 text_writer_idx:                                ;offset to the text_writer_data
         dw      0
 
-        ;text writer enums. must be syncced with callbacks order
-TW_STATE_PRINT_CHAR     equ 0
-TW_STATE_IDLE           equ 1
-TW_STATE_GOTO   equ 2
-TW_STATE_CALL_ACTION    equ 3
-TW_STATE_CURSOR_BLINK   equ 4
-TW_STATE_MAX            equ 5                   ;should be the last state
 text_writer_state:
         db      0
-
+        ;text writer enums. must be synced with callbacks order
+TW_STATE_PRINT_CHAR     equ 0
+TW_STATE_IDLE           equ 1
+TW_STATE_GOTO_X         equ 2
+TW_STATE_GOTO_Y         equ 3
+TW_STATE_CALL_ACTION    equ 4
+TW_STATE_CURSOR_BLINK   equ 5
+TW_STATE_MAX            equ 6                   ;should be the last state
 text_writer_callbacks_init:
         dw      0                                       ;no init for print_char
-        dw      text_writer_state_idle_init             ;
-        dw      text_writer_state_goto_init     ;
-        dw      text_writer_state_call_action_init      ;
-        dw      text_writer_state_cursor_blink_init     ;
+        dw      text_writer_state_idle_init
+        dw      text_writer_state_goto_x_init
+        dw      text_writer_state_goto_y_init
+        dw      text_writer_state_call_action_init
+        dw      text_writer_state_cursor_blink_init
 
 text_writer_callbacks_anim:
-        dw      text_writer_state_print_char_anim       ;
-        dw      text_writer_state_idle_anim             ;
-        dw      text_writer_state_goto_anim     ;
-        dw      text_writer_state_call_action_anim      ;
-        dw      text_writer_state_cursor_blink_anim     ;
+        dw      text_writer_state_print_char_anim
+        dw      text_writer_state_idle_anim
+        dw      text_writer_state_goto_x_anim
+        dw      text_writer_state_goto_y_anim
+        dw      text_writer_state_call_action_anim
+        dw      text_writer_state_cursor_blink_anim
 
         ;control codes: think of it as a printer
         ; 0 - idle
@@ -1980,95 +2012,95 @@ text_writer_callbacks_anim:
 text_writer_data:
                 ;0123456789012345678901234567890123456789
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,39                ;go to pos 38
+        db      TW_STATE_GOTO_X,39
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,0                 ;go to pos 0
+        db      TW_STATE_GOTO_X,0
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
         db      '                Hi there'
         db      TW_STATE_CURSOR_BLINK,5         ;wait blinks
-        db      TW_STATE_GOTO,0                 ;go to pos
+        db      TW_STATE_GOTO_X,0               ;go to pos
 
         db      'Never saw a plasma effect so small ?'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_CALL_ACTION,0          ;execute action 0: enable rhythm
-        db      TW_STATE_GOTO,9                 ;go to pos
+        db      TW_STATE_GOTO_X,9               ;go to pos
 
         db              'Ha ha, we neither'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,4                 ;go to pos
+        db      TW_STATE_GOTO_X,4               ;go to pos
 
         db         'At least it runs at 60 FPS'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,5                 ;go to pos
+        db      TW_STATE_GOTO_X,5               ;go to pos
 
         db         'And it has raster bars!'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,6                 ;go to pos
+        db      TW_STATE_GOTO_X,6               ;go to pos
 
         db         'And it can cycle colors'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,2                 ;go to pos
+        db      TW_STATE_GOTO_X,2               ;go to pos
 
         db        `And we run out of time`
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,2                 ;go to pos 5
+        db      TW_STATE_GOTO_X,2               ;go to pos 5
 
         db        'Tip: run this intro in real hardware'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,3                 ;go to pos 5
+        db      TW_STATE_GOTO_X,3               ;go to pos 5
 
         db         'in particular, in a Tandy 1000 HX'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,5                 ;go to pos 5
+        db      TW_STATE_GOTO_X,5               ;go to pos 5
 
         db      'Tested with 256K RAM and DOS v2.0'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,5                 ;go to pos 5
+        db      TW_STATE_GOTO_X,5               ;go to pos 5
 
         db      'Should work with 128K too'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,5                 ;go to pos 5
+        db      TW_STATE_GOTO_X,5               ;go to pos 5
 
         db      'Might not work correctly on emulators'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,0                 ;go to pos 5
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
         db      `Or if run on non-8088 Tandy's`
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,5                 ;go to pos 5
+        db      TW_STATE_GOTO_X,5               ;go to pos 5
 
         db      `Works both in RGB and composite modes`
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,0                 ;go to pos 5
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
         db      `But better on RGB mode (better colors)`
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,0                 ;go to pos 5
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
         db      `We tried our best to support DosBox-x`
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,0                 ;go to pos 5
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
         db      `But some glitches appear every now and then`
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,0                 ;go to pos 5
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
         db      `Do you have a IBM PC Jr. ?`
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,0                 ;go to pos 5
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
         db      `Do you mind testing it there ?`
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,0                 ;go to pos 5
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
         db      `We know it will run rather slow`
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,0                 ;go to pos 5
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
         db      `but we want to know how slow it runs`
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO,0                 ;go to pos 5
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
 TEXT_WRITER_DATA_LEN equ $-text_writer_data
 
 text_writer_cursor_blink_delay:                 ;how many cursor blinks to wait
