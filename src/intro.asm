@@ -738,7 +738,6 @@ scroll_anim:
         mov     di,SCROLL_OFFSET+24576          ;dest: last char of screen - 1
         rep movsw                               ;do the copy
 
-
         mov     ax,data                         ;restore ds. points to data
         mov     ds,ax
 
@@ -747,19 +746,20 @@ scroll_anim:
         cmp     byte [scroll_col_used],0
         jnz     .render_bits
 
+.read_and_process_char:
         ;update the cache with the next 32 bytes (2x2 chars)
         mov     bx,[scroll_char_idx]            ;scroll text offset
         mov     bl,byte [scroll_text+bx]        ;char to print
         test    bl,0b1000_0000                  ;control code?
         jnz     .control_code
-        and     bl,0b0011_1111                  ;only use lower 63 numbers. only 64 chars in the charset
+        and     bl,0b0011_1111                  ;only use lower 63 numbers
         sub     bh,bh
         shl     bx,1                            ;bx * 8 since each char takes 8
         shl     bx,1                            ; bytes in the charset
         shl     bx,1
         lea     si,[charset+bx]                 ;ds:si: charset
 
-
+        mov     ax,ds
         mov     es,ax                           ;es = ds
         mov     di,cache_charset                ;es:di: cache
 
@@ -778,6 +778,7 @@ scroll_anim:
         add     si,(128-1)*8                    ;point to next char. offset=192
         rep movsw
 
+        ;fall-through
 
 .render_bits:
         mov     ax,0xb800
@@ -813,8 +814,12 @@ scroll_anim:
         jmp     .end
 
 .control_code:
-        inc     word [scroll_char_idx]          ;offset += 1
-        jmp     plasma_init                     ;stop scroll. start plasma
+        inc     word [scroll_char_idx]          ;consume control code. offset += 1
+        and     bl,0b0111_1111                  ;turn off bit 7
+        shl     bl,1                            ;al * 2, since each address takes 2 bytes
+        sub     bh,bh
+        call    [scroll_control_code_tbl+bx]    ;FIXME: embarrasing. instead of call + ret + jmp
+        jmp     .read_and_process_char          ; two jmp's should be enough
 
 .next_char:
         sub     ax,ax
@@ -938,7 +943,7 @@ text_writer_init:
         mov     byte [text_writer_x_dst],al     ;dst pos 0
         mov     byte [text_writer_y_pos],TEXT_WRITER_START_Y
         mov     byte [text_writer_y_dst],TEXT_WRITER_START_Y
-        mov     word [text_writer_addr],TEXT_WRITER_START_Y*2*160
+        mov     word [text_writer_addr],TEXT_WRITER_START_Y*2*160+160   ;half line ahead
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1060,17 +1065,20 @@ text_writer_state_goto_y_anim:
         ret                                     ; then change state to read chars again
 
 .down:
-        mov     ax,0x0077                       ;ah=black/black, al=gray/gray
-        call    text_writer_fill_two_chars
-        inc     byte [text_writer_y_pos]        ;cursor += 1. destintation is to the right
-        add     word [text_writer_addr],320     ;video addr += 320 (each char takes 4 bytes)
-        ret
+        mov     al,0x00
+        call    text_writer_fill_one_char
+        inc     byte [text_writer_y_pos]        ;cursor.y += 1 (going down)
+        add     word [text_writer_addr],320     ;video addr += 320
+        mov     al,0x77
+        jmp     text_writer_fill_one_char
 
 .up:
-        dec     byte [text_writer_y_pos]        ;cursor -= 1. destintation is to the left
-        sub     word [text_writer_addr],320     ;video addr -= 4 (each char takes 4 bytes)
-        mov     ax,0x7700                       ;ah=gray/gray, black/black
-        jmp     text_writer_fill_two_chars
+        mov     al,0x00
+        call    text_writer_fill_one_char
+        dec     byte [text_writer_y_pos]        ;cursor.y -= 1. (going up)
+        sub     word [text_writer_addr],320     ;video addr -= 320
+        mov     al,0x77
+        jmp     text_writer_fill_one_char
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1473,7 +1481,23 @@ plasma_tex_render_to_video:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-plasma_init:
+scroll_control_code_color_white:
+        mov     al,[scroll_pixel_white_tbl+1]   ;skip first byte. it is black in all conf
+        mov     bx,[scroll_pixel_white_tbl+2]
+        mov     [scroll_pixel_color_tbl+1],al
+        mov     [scroll_pixel_color_tbl+2],bx
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+scroll_control_code_color_anim:
+        mov     al,[scroll_pixel_anim_tbl+1]   ;skip first byte. it is black in all conf
+        mov     bx,[scroll_pixel_anim_tbl+2]
+        mov     [scroll_pixel_color_tbl+1],al
+        mov     [scroll_pixel_color_tbl+2],bx
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+scroll_control_code_plasma_init:
         sub     ax,ax
 
         mov     [plasma_counter],ax             ;ticks at 0
@@ -1806,16 +1830,28 @@ cache_charset:
         resb    32                              ;the 32 bytes to print in the current frame
                                                 ; char aligned like: top-left, bottom-left,
                                                 ; top-right, bottom-right
+scroll_control_code_tbl:
+        dw      scroll_control_code_color_white
+        dw      scroll_control_code_color_anim
+        dw      scroll_control_code_plasma_init
         ; # = tm
         ; % = closing double quotes
         ; $ = smiley
         ; ; = ~ (kind of separator)
         ; < = heart
         ; bit 7=on (128) - control code
-        ;       0 = start plasma
-        ;       1 = stop plasma
+        ;       128 = color white
+        ;       129 = color anim
+        ;       130 = plasma init
 scroll_text:
-        db 'HI THERE. PUNGAS DE VILLA MARTELLI HERE, WITH OUR FIRST TANDY RELEASE. '
+        db 128                                  ;color white
+        db 'HI THERE. '
+        db 129,'P'
+        db 128,'UNGAS DE '
+        db 129,'V'
+        db 128,'ILLA '
+        db 129,'M'
+        db 128,'ARTELLI HERE, WITH OUR FIRST TANDY RELEASE. '
         db 'IT ALL BEGAN WHEN WE WENT TO PICK UP A COMMODORE 64 BUNDLE '
         db 'AND THE SELLER INCLUDED TWO TANDY 1000 HX IN IT. '
         db 'WTF IS A TANDY 1000 HX? WE GOOGLED IT, AND WE LIKED IT. '
@@ -1827,20 +1863,15 @@ scroll_text:
         db '   ;    '
         db 'SENDING OUR REGARDS TO ALL THE TANDY 1000 SCENE, STARTING WITH: '
         db '                      '
-        db 128                                  ;start plasma
+        db 130                                  ;start plasma
         db 'NO TANDY 1000 SCENE ??? HOW DARE YOU !!! '
-        db `HOPEFULLY THIS WON'T BE OUR LAST TANDY RELEASE. `
-        db 'PROBLEM IS THERE ARE ALMOST NO PARTIES ACCEPTING TANDY RELEASES. '
-        db 'DO US A FAVOR: PING YOUR FAVORITE PARTY-ORGANIZER AND DEMAND HIM/HER '
-        db 'TANDY SUPPORT. '
+        db 'THANKS DEMOSPLASH FOR GOING THE EXTRA MILE, AND ADDING TANDY 1000 SUPPORT !!! '
         db 27,28,29,30,31,42,43                 ;Radio Shack (using Radio Shack font)
         db ' DESERVES IT ! '
         db '   ;   '
         db 'AS MUCH AS WE WOULD LIKE TO SAY THAT WE DID THIS RELEASE AS A TRIBUTE TO '
         db 27,28,29,30,31,42,43                 ;Radio Shack (using Radio Shack font)
-        db ', IT WAS JUST MERE CHANCE. HOWEVER, WE ARE FOND OF '
-        db 27,28,29,30,31,42,43                 ;Radio Shack (using Radio Shack font)
-        db ` .HEY, WHO DOESN'T?`
+        db ', IT WAS JUST MERE CHANCE. '
         db '   ;   '
         db 'CODE:RIQ, MUSIC: UCTUMI, GRAPHICS: ALAKRAN'
         db '   ;   '
@@ -1854,7 +1885,16 @@ scroll_bit_idx:                                 ;pointer to the next bit in the 
         db 0
 scroll_col_used:
         db 0                                    ;chars are 2x2. col indicates which col is being used
-scroll_pixel_color_tbl:
+
+scroll_pixel_color_tbl:                         ;the colors for the scroll letters
+        resb    4                               ; it contains a copy of one of the tables
+                                                ; below
+scroll_pixel_white_tbl:
+        db      0x00                            ;00 - black/black
+        db      0x08                            ;01 - black/white
+        db      0x80                            ;10 - white/black
+        db      0x88                            ;11 - white/white
+scroll_pixel_anim_tbl:
         db      0x00                            ;00 - black/black
         db      0x0f                            ;01 - black/white
         db      0xf0                            ;10 - white/black
@@ -2015,6 +2055,11 @@ text_writer_data:
         db      TW_STATE_GOTO_X,39
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_GOTO_X,0
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+
+        db      TW_STATE_GOTO_Y,0
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO_Y,19
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
         db      '                Hi there'
