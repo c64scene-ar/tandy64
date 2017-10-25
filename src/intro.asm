@@ -10,7 +10,7 @@ extern ZTimerOn, ZTimerOff, ZTimerReport
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; MACROS
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-%define DEBUG 1                                 ;0=diabled, 1=enabled
+%define DEBUG 0                                 ;0=diabled, 1=enabled
 
 TEXT_WRITER_START_Y     equ 19                  ;start at line 19
 BOTTOM_OFFSET   equ     21*2*160                ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
