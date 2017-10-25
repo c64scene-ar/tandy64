@@ -1293,10 +1293,10 @@ state_plasma_magenta_tex_init:
         mov     byte [plasma_tex_delay],al
         mov     word [plasma_tex_palette_addr],plasma_tex_magenta_palette
         mov     byte [plasma_tex_letter_color],0xd        ;letter M uses color 0xd
-        mov     byte [plasma_tex_inc_x0],255      ;texture generator parameters
-        mov     byte [plasma_tex_inc_x1],4
+        mov     byte [plasma_tex_inc_x0],4      ;texture generator parameters
+        mov     byte [plasma_tex_inc_x1],3
         mov     byte [plasma_tex_inc_y0],127
-        mov     byte [plasma_tex_inc_y1],253
+        mov     byte [plasma_tex_inc_y1],132
 
         mov     bx,es                           ;save es in bx for later
 
