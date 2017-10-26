@@ -13,9 +13,9 @@ extern ZTimerOn, ZTimerOff, ZTimerReport
 %define DEBUG 0                                 ;0=diabled, 1=enabled
 
 TEXT_WRITER_START_Y     equ 19                  ;start at line 19
-BOTTOM_OFFSET   equ     21*2*160                ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
+BOTTOM_OFFSET   equ     21*2*160-160            ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
 SCROLL_OFFSET   equ     22*2*160                ;start at line 22:160 bytes per line, lines are every 4 -> 8/4 =2
-PLASMA_TEX_OFFSET       equ 21*2*160+160        ;plasma texture: video offset
+PLASMA_TEX_OFFSET       equ 21*2*160            ;plasma texture: video offset. +160 bc it starts from right to left
 PLASMA_TEX_WIDTH        equ 160                 ;plasma texture: pixels wide
 PLASMA_TEX_HEIGHT       equ 32                  ;plasma texture: pixels height
 PLASMA_OFFSET   equ 22*2*160+64                 ;plasma: video offset
@@ -115,37 +115,47 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 ;
 ; IN:
 ;       ds:si   -> table with the palette to update
-;       cx      -> number of colors to update. 16 to update all of them
+;       cx      -> number of colors to update times 2, since it does 2 colors per h-line
 ;       bl      -> starting color + 0x10. example: use 0x1f for white: 0x10 + 0xf
 ;
 ; Arg:  0       -> don't wait for horizontal retrace
 ;       1       -> wait fro horizontal retrace
 %macro REFRESH_PALETTE 1
         mov     bh,0xde                         ;register is faster than memory
-        mov     dx,0x03da                       ;select color register
-%%repeat:
-        mov     al,bl                           ;color to update
-        out     dx,al
+        mov     bp,0x3da
 
-        lodsb                                   ;load new color value
-        mov     ah,al
+%%repeat:
+        mov     dx,bp                           ;dx = 0x3da. select color register
 
 %if %1
-;        %%wait:
-;                in      al,dx                  ;inline wait horizontal retrace for performance reasons
-;                test    al,dh                  ;FIXME: using 0x3 instead of 0x1. Might break with light pen
-;                jnz     %%wait
+        %%wait:
+                in      al,dx                   ;inline wait horizontal retrace for performance reasons
+                test    al,dh                   ;FIXME: using 0x3 instead of 0x1. Might break with light pen
+                jnz     %%wait
         %%retrace:
                 in      al,dx
                 test    al,dh                   ;FIXME: using 0x3 instead of 0x1. might break with light pen
                 jz      %%retrace               ;horizontal retrace after this
 %endif
 
-        mov     dl,bh                           ;dx=0x3de
-        mov     al,ah
+        mov     al,bl                           ;starting color
         out     dx,al
 
-        mov     dl,0xda                         ;dx=0x3da
+        lodsw                                   ;load two colors values: al,ah
+
+        mov     dl,bh                           ;dx = 0x3de
+        out     dx,al                           ;update color
+
+        inc     bl
+
+        mov     dx,bp                           ;dx = 0x3da
+        mov     al,bl                           ;starting color
+        out     dx,al
+
+        mov     dl,bh                           ;dx = 0x3de
+        mov     al,ah                           ;2nd value
+        out     dx,al                           ;update color
+
         inc     bl
         loop    %%repeat
 %endmacro
@@ -188,7 +198,7 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 
         call    wait_vertical_retrace
 
-        mov     cx,160                          ;and wait for scanlines
+        mov     cx,161                          ;and wait for scanlines
 .repeat:
         call    wait_horiz_retrace
         loop    .repeat
@@ -373,7 +383,7 @@ new_i08:
 
         ;update bottom-screen palette
         mov     si,bottom_palette               ;points to colors used at the bottom
-        mov     cx,7                            ;only update 7 colors
+        mov     cx,4                            ;only update 8 colors (4 * 2)
         mov     bl,0x11                         ; starting with color 1 (skip black)
         REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
@@ -410,9 +420,9 @@ new_i08:
 
         ;update top-screen palette
         mov     si,top_palette                  ;points to colors used at the top of the screen
-        mov     cx,15                           ;update 15 colors. skip white. already white
+        mov     cx,5                            ;update 14 colors (7*2)
         mov     bl,0x10                         ; starting with color 0 (black)
-        REFRESH_PALETTE 0                       ;refresh the palette. don't wait for horizontal retrace
+        REFRESH_PALETTE 1                       ;refresh the palette. don't wait for horizontal retrace
 
 %if DEBUG
         call    inc_d020
@@ -1865,17 +1875,14 @@ scroll_text:
         db '                      '
         db 130                                  ;start plasma
         db 'NO TANDY 1000 SCENE ??? HOW DARE YOU !!! '
-        db 'THANKS DEMOSPLASH FOR GOING THE EXTRA MILE, AND ADDING TANDY 1000 SUPPORT !!! '
+        db '   ;   '
+        db 'BIG THANKS TO DEMOSPLASH FOR GOING THE EXTRA MILE, AND ADDING TANDY 1000 TO THE LIST OF SUPPORTED SYSTEMS!!! '
         db 27,28,29,30,31,42,43                 ;Radio Shack (using Radio Shack font)
         db ' DESERVES IT ! '
         db '   ;   '
-        db 'AS MUCH AS WE WOULD LIKE TO SAY THAT WE DID THIS RELEASE AS A TRIBUTE TO '
-        db 27,28,29,30,31,42,43                 ;Radio Shack (using Radio Shack font)
-        db ', IT WAS JUST MERE CHANCE. '
+        db `BESO GRANDE A LA MAS GRANDE DE TODAS: <<< LIA CRUCET <<< LA MEJOR CANTANTE DE TODOS LOS TIEMPOS`
         db '   ;   '
         db 'CODE:RIQ, MUSIC: UCTUMI, GRAPHICS: ALAKRAN'
-        db '   ;   '
-        db `<<< AMANDA MIGUEL, TE AMAMOS, TU TEMA "ASI NO TE AMARA JAMAS% ES LO MAS <<<`
         db '   ;   '
 SCROLL_TEXT_LEN equ $-scroll_text
 
@@ -2161,13 +2168,12 @@ old_i08:                                        ;segment + offset to old int 8
 old_pic_imr:                                    ;PIC IMR original value
         db      0
 
-raster_colors_tbl:                              ;16 colors in total
-        db      15,7,9,8,1,0
+raster_colors_tbl:                              ;used for the raster bars, at the
+        db      15,7,9,8,1,0                    ; bottom of the screen
         db      0,1,8,9,7,15
         db      15,7,9,8,1,0
         db      0,1,8,9,7,15
-        db      15,7,9,8,1,0
-        db      0
+        db      15,7,9,8,1
 raster_color_restore:                           ;must be after raster_colors_tbl
         db      15
 RASTER_COLORS_MAX equ $-raster_colors_tbl
@@ -2303,111 +2309,6 @@ fn_table_2:
         db    12, 11, 10,  9,  8,  8,  7,  6
         db     5,  5,  4,  4,  3,  3,  2,  2
         db     1,  1,  1,  1,  0,  0,  0,  0
-; autogenerated table: easing_table_generator.py -s128 -m255 -aTrue -r bezier:0,0.02,0.98,1
-        db        0,  0,  1,  1,  2,  2,  3,  4
-        db        4,  5,  6,  7,  8, 10, 11, 12
-        db       14, 15, 17, 18, 20, 21, 23, 25
-        db       27, 29, 31, 33, 35, 37, 39, 41
-        db       44, 46, 48, 51, 53, 55, 58, 60
-        db       63, 66, 68, 71, 73, 76, 79, 82
-        db       84, 87, 90, 93, 96, 98,101,104
-        db      107,110,113,116,119,122,125,128
-        db      130,133,136,139,142,145,148,151
-        db      154,157,159,162,165,168,171,173
-        db      176,179,182,184,187,189,192,195
-        db      197,200,202,204,207,209,211,214
-        db      216,218,220,222,224,226,228,230
-        db      232,234,235,237,238,240,241,243
-        db      244,245,247,248,249,250,251,251
-        db      252,253,253,254,254,255,255,255
-; reversed
-        db      255,255,254,254,253,253,252,251
-        db      251,250,249,248,247,245,244,243
-        db      241,240,238,237,235,234,232,230
-        db      228,226,224,222,220,218,216,214
-        db      211,209,207,204,202,200,197,195
-        db      192,189,187,184,182,179,176,173
-        db      171,168,165,162,159,157,154,151
-        db      148,145,142,139,136,133,130,128
-        db      125,122,119,116,113,110,107,104
-        db      101, 98, 96, 93, 90, 87, 84, 82
-        db       79, 76, 73, 71, 68, 66, 63, 60
-        db       58, 55, 53, 51, 48, 46, 44, 41
-        db       39, 37, 35, 33, 31, 29, 27, 25
-        db       23, 21, 20, 18, 17, 15, 14, 12
-        db       11, 10,  8,  7,  6,  5,  4,  4
-        db        3,  2,  2,  1,  1,  0,  0,  0
-
-;fn_table_2:
-        ; autogenerated table: easing_table_generator.py -s256 -m128 -aTrue sin
-        db        2,  3,  5,  6,  8,  9, 11, 13
-        db       14, 16, 17, 19, 20, 22, 23, 25
-        db       27, 28, 30, 31, 33, 34, 36, 37
-        db       39, 40, 42, 43, 45, 46, 48, 49
-        db       50, 52, 53, 55, 56, 58, 59, 60
-        db       62, 63, 64, 66, 67, 68, 70, 71
-        db       72, 74, 75, 76, 78, 79, 80, 81
-        db       82, 84, 85, 86, 87, 88, 89, 91
-        db       92, 93, 94, 95, 96, 97, 98, 99
-        db      100,101,102,103,104,105,106,106
-        db      107,108,109,110,111,111,112,113
-        db      114,114,115,116,116,117,118,118
-        db      119,119,120,121,121,122,122,122
-        db      123,123,124,124,125,125,125,126
-        db      126,126,126,127,127,127,127,127
-        db      128,128,128,128,128,128,128,128
-        db      128,128,128,128,128,128,128,127
-        db      127,127,127,127,126,126,126,126
-        db      125,125,125,124,124,123,123,122
-        db      122,122,121,121,120,119,119,118
-        db      118,117,116,116,115,114,114,113
-        db      112,111,111,110,109,108,107,106
-        db      106,105,104,103,102,101,100, 99
-        db       98, 97, 96, 95, 94, 93, 92, 91
-        db       89, 88, 87, 86, 85, 84, 82, 81
-        db       80, 79, 78, 76, 75, 74, 72, 71
-        db       70, 68, 67, 66, 64, 63, 62, 60
-        db       59, 58, 56, 55, 53, 52, 50, 49
-        db       48, 46, 45, 43, 42, 40, 39, 37
-        db       36, 34, 33, 31, 30, 28, 27, 25
-        db       23, 22, 20, 19, 17, 16, 14, 13
-        db       11,  9,  8,  6,  5,  3,  2,  0
-
-luminances_8_color_lo:
-        db      0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
-        db      0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
-        db      0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11
-        db      0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11
-        db      0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22
-        db      0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22,0x22
-        db      0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33
-        db      0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33,0x33
-        db      0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44
-        db      0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44
-        db      0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55
-        db      0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55,0x55
-        db      0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66
-        db      0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66
-        db      0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77
-        db      0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77,0x77
-
-luminances_8_color_hi:
-        db      0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88
-        db      0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88,0x88
-        db      0x99,0x99,0x99,0x99,0x99,0x99,0x99,0x99,0x99,0x99,0x99,0x99,0x99,0x99,0x99,0x99
-        db      0x99,0x99,0x99,0x99,0x99,0x99,0x99,0x99,0x99,0x99,0x99,0x99,0x99,0x99,0x99,0x99
-        db      0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa
-        db      0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa,0xaa
-        db      0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb
-        db      0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb,0xbb
-        db      0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc
-        db      0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc
-        db      0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd
-        db      0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd,0xdd
-        db      0xee,0xee,0xee,0xee,0xee,0xee,0xee,0xee,0xee,0xee,0xee,0xee,0xee,0xee,0xee,0xee
-        db      0xee,0xee,0xee,0xee,0xee,0xee,0xee,0xee,0xee,0xee,0xee,0xee,0xee,0xee,0xee,0xee
-        db      0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff
-        db      0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff
 
 luminances_6_colors:
         db      0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11         ;white (0xff)
