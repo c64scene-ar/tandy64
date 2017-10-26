@@ -117,12 +117,12 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 ;       ds:si   -> table with the palette to update
 ;       cx      -> number of colors to update times 2, since it does 2 colors per h-line
 ;       bl      -> starting color + 0x10. example: use 0x1f for white: 0x10 + 0xf
+;       bp      -> 0x3da
 ;
 ; Arg:  0       -> don't wait for horizontal retrace
 ;       1       -> wait fro horizontal retrace
 %macro REFRESH_PALETTE 1
         mov     bh,0xde                         ;register is faster than memory
-        mov     bp,0x3da
 
 %%repeat:
         mov     dx,bp                           ;dx = 0x3da. select color register
@@ -196,20 +196,20 @@ irq_init:
 PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
                                                 ; make it sync with vertical retrace
 
+        cli                                     ;disable interrupts
+                                                ; while setting the interrupt
         call    wait_vertical_retrace
 
-        mov     cx,161                          ;and wait for scanlines
+        mov     cx,194                          ;and wait for scanlines
 .repeat:
         call    wait_horiz_retrace
         loop    .repeat
 
-        cli                                     ;disable interrupts
-                                                ; while setting the interrupt
         push    es
         sub     ax,ax
         mov     es,ax
 
-        mov     ax,new_i08
+        mov     ax,new_i08_simple
         mov     dx,cs
         xchg    ax,[es:8*4]                     ;new/old IRQ 8: offset
         xchg    dx,[es:8*4+2]                   ;new/old IRQ 8: segment
@@ -219,7 +219,6 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
         pop     es
 
         mov     ax,PIT_DIVIDER                  ;Configure the PIT to
-
         call    setup_pit                       ;setup PIT
 
         in      al,0x21                         ;Read primary PIC Interrupt Mask Register
@@ -229,6 +228,62 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 
         sti
         ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_new_i08_multi_color_init
+        cli                                     ;disable interrupts
+                                                ; while setting the interrupt
+        call    wait_vertical_retrace
+
+        mov     cx,160                          ;and wait for scanlines
+.repeat:
+        call    wait_horiz_retrace
+        loop    .repeat
+
+        push    es
+        sub     ax,ax
+        mov     es,ax
+
+        mov     ax,new_i08_bottom_multi_color
+        mov     dx,cs
+        mov     [es:8*4],ax                     ;new/old IRQ 8: offset
+        mov     [es:8*4+2],dx                   ;new/old IRQ 8: segment
+
+        pop     es
+
+        mov     ax,PIT_DIVIDER                  ;Configure the PIT to
+        call    setup_pit                       ;setup PIT
+
+        sti
+        jmp     state_next
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_new_i08_single_color_init
+        cli                                     ;disable interrupts
+                                                ; while setting the interrupt
+        call    wait_vertical_retrace
+
+        mov     cx,170                          ;and wait for scanlines
+.repeat:
+        call    wait_horiz_retrace
+        loop    .repeat
+
+        push    es
+        sub     ax,ax
+        mov     es,ax
+
+        mov     ax,new_i08_bottom_single_color
+        mov     dx,cs
+        mov     [es:8*4],ax                     ;new/old IRQ 8: offset
+        mov     [es:8*4+2],dx                   ;new/old IRQ 8: segment
+
+        pop     es
+
+        mov     ax,PIT_DIVIDER                  ;Configure the PIT to
+        call    setup_pit                       ;setup PIT
+
+        sti
+        jmp     state_next
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 irq_cleanup:
@@ -372,9 +427,28 @@ main_loop:
         int     0x16
 
         ret
+
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; IRQ
-new_i08:
+new_i08_simple:
+        ;not saving any variable, since the code at main loop
+        ;happens after the tick
+
+        mov     ax,data
+        mov     ds,ax
+
+        ;update top-screen palette
+        mov     si,top_palette                  ;points to colors used at the top of the screen
+        mov     cx,8                            ;update 16 colors (7*2)
+        mov     bl,0x10                         ; starting with color 0 (black)
+        mov     bp,0x3da                        ;bp should be 0x3da
+        REFRESH_PALETTE 1                       ;refresh the palette. don't wait for horizontal retrace
+
+        jmp     new_i08_main
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; IRQ
+new_i08_bottom_multi_color:
         ;not saving any variable, since the code at main loop
         ;happens after the tick
 
@@ -382,11 +456,55 @@ new_i08:
         mov     ds,ax
 
         ;update bottom-screen palette
+        mov     bp,0x3da                        ;register address
         mov     si,bottom_palette               ;points to colors used at the bottom
         mov     cx,4                            ;only update 8 colors (4 * 2)
         mov     bl,0x11                         ; starting with color 1 (skip black)
         REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
+
+        ;wait a few raster lines
+        ;FIXME: could be used to place logic code.
+        mov     dx,bp
+        mov     cx,BOTTOM_TOP_LINES_TO_WAIT     ;total number of raster bars
+.l0:
+        lodsb                                   ;fetch color
+        mov     ah,al                           ; and save it for later
+.wait:
+        in      al,dx                           ;inline wait horizontal retrace for performance reasons
+        test    al,dh                           ;FIXME: using 0x3 instead of 0x1. Might break with light pen
+        jnz     .wait
+.retrace:
+        in      al,dx
+        test    al,dh                           ;FIXME: using 0x3 instead of 0x1. Might break with light pen
+        jz      .retrace                        ;horizontal retrace after this
+
+        loop    .l0                             ;and do it 17 times
+
+
+        ;update top-screen palette
+        mov     si,top_palette                  ;points to colors used at the top of the screen
+        mov     cx,7                            ;update 14 colors (7*2)
+        mov     bl,0x10                         ; starting with color 0 (black)
+        REFRESH_PALETTE 1                       ;refresh the palette. don't wait for horizontal retrace
+
+        jmp     new_i08_main
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; IRQ
+new_i08_bottom_single_color:
+        ;not saving any variable, since the code at main loop
+        ;happens after the tick
+
+        mov     ax,data
+        mov     ds,ax
+
+        ;update bottom-screen palette
+        mov     bp,0x3da                        ;register address
+        mov     si,bottom_palette               ;points to colors used at the bottom
+        mov     cx,4                            ;only update 8 colors (4 * 2)
+        mov     bl,0x11                         ; starting with color 1 (skip black)
+        REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
         mov     cx,RASTER_COLORS_MAX            ;total number of raster bars
         mov     si,raster_colors_tbl            ;where the colors are for each raster bar
@@ -420,9 +538,12 @@ new_i08:
 
         ;update top-screen palette
         mov     si,top_palette                  ;points to colors used at the top of the screen
-        mov     cx,5                            ;update 14 colors (7*2)
+        mov     cx,7                            ;update 14 colors (7*2)
         mov     bl,0x10                         ; starting with color 0 (black)
+        mov     bp,dx                           ;bp should be 0x3da
         REFRESH_PALETTE 1                       ;refresh the palette. don't wait for horizontal retrace
+
+new_i08_main:
 
 %if DEBUG
         call    inc_d020
@@ -1854,14 +1975,15 @@ scroll_control_code_tbl:
         ;       129 = color anim
         ;       130 = plasma init
 scroll_text:
-        db 128                                  ;color white
-        db 'HI THERE. '
-        db 129,'P'
-        db 128,'UNGAS DE '
-        db 129,'V'
-        db 128,'ILLA '
-        db 129,'M'
-        db 128,'ARTELLI HERE, WITH OUR FIRST TANDY RELEASE. '
+;        db 128                                  ;color white
+;        db 'HI THERE. '
+;        db 129,'P'
+;        db 128,'UNGAS DE '
+;        db 129,'V'
+;        db 128,'ILLA '
+;        db 129,'M'
+;        db 128,'ARTELLI HERE, WITH OUR FIRST TANDY RELEASE. '
+        db 129
         db 'IT ALL BEGAN WHEN WE WENT TO PICK UP A COMMODORE 64 BUNDLE '
         db 'AND THE SELLER INCLUDED TWO TANDY 1000 HX IN IT. '
         db 'WTF IS A TANDY 1000 HX? WE GOOGLED IT, AND WE LIKED IT. '
@@ -1954,15 +2076,17 @@ states_inits:
         dw      state_gfx_fade_in_init          ;a
         dw      state_fade_to_black_init        ;b
         dw      state_delay_2s_init             ;c
-;        dw      state_outline_fade_init         ;d
-;        dw      state_outline_fade_init         ;e
+        dw      state_new_i08_multi_color_init  ;i
+;        dw      state_outline_fade_init        ;d
+;        dw      state_outline_fade_init        ;e
         dw      state_plasma_red_tex_init       ;f
         dw      state_plasma_green_tex_init     ;g
         dw      state_plasma_magenta_tex_init   ;h
+        dw      state_clear_bottom_init         ;l
+        dw      state_new_i08_single_color_init ;i
         dw      state_pvm_logo_fade_in_init     ;j
         dw      state_outline_fade_init         ;k
-;        dw      state_clear_bottom_init         ;l
-;        dw      state_plasma_init               ;m
+;        dw      state_plasma_init              ;m
         dw      state_clear_bottom_init         ;n
         dw      state_enable_scroll             ;o
         dw      state_delay_2s_init             ;i'
@@ -1973,15 +2097,17 @@ states_callbacks:
         dw      state_gfx_fade_in_anim          ;a
         dw      state_fade_to_black_anim        ;b
         dw      state_delay_anim                ;c
-;        dw      state_outline_fade_in_anim      ;d
-;        dw      state_outline_fade_out_anim     ;e
+        dw      state_skip_anim                 ;i
+;        dw      state_outline_fade_in_anim     ;d
+;        dw      state_outline_fade_out_anim    ;e
         dw      state_plasma_tex_anim           ;f
         dw      state_plasma_tex_anim           ;g
         dw      state_plasma_tex_anim           ;h
+        dw      state_clear_bottom_anim         ;l
+        dw      state_skip_anim                 ;i
         dw      state_pvm_logo_fade_in_anim     ;j
         dw      state_outline_fade_to_final_anim;k
-;        dw      state_clear_bottom_anim         ;l
-;        dw      state_plasma_anim               ;m
+;        dw      state_plasma_anim              ;m
         dw      state_clear_bottom_anim         ;n
         dw      state_skip_anim                 ;o
         dw      state_delay_anim                ;i'
@@ -2064,9 +2190,10 @@ text_writer_data:
         db      TW_STATE_GOTO_X,0
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
-        db      TW_STATE_GOTO_Y,0
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO_Y,15
+        db      TW_STATE_GOTO_X,1
         db      TW_STATE_GOTO_Y,19
+        db      TW_STATE_GOTO_X,0
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
         db      '                Hi there'
@@ -2076,43 +2203,43 @@ text_writer_data:
         db      'Never saw a plasma effect so small ?'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_CALL_ACTION,0          ;execute action 0: enable rhythm
-        db      TW_STATE_GOTO_X,9               ;go to pos
+        db      TW_STATE_GOTO_X,0               ;go to pos
 
-        db              'Ha ha, we neither'
+        db      'Ha ha, we neither'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,4               ;go to pos
+        db      TW_STATE_GOTO_X,0               ;go to pos
 
-        db         'At least it runs at 60 FPS'
+        db      'At least it runs at 60 FPS'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,5               ;go to pos
+        db      TW_STATE_GOTO_X,0               ;go to pos
 
-        db         'And it has raster bars!'
+        db      'And it has raster bars!'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,6               ;go to pos
+        db      TW_STATE_GOTO_X,0               ;go to pos
 
-        db         'And it can cycle colors'
+        db      'And it can cycle colors'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,2               ;go to pos
+        db      TW_STATE_GOTO_X,0               ;go to pos
 
-        db        `And we run out of time`
+        db      `And we run out of time`
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,2               ;go to pos 5
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
-        db        'Tip: run this intro in real hardware'
+        db      'Tip: run this intro in real hardware'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,3               ;go to pos 5
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
-        db         'in particular, in a Tandy 1000 HX'
+        db      'in particular, in a Tandy 1000 HX'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,5               ;go to pos 5
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
         db      'Tested with 256K RAM and DOS v2.0'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,5               ;go to pos 5
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
         db      'Should work with 128K too'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,5               ;go to pos 5
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
         db      'Might not work correctly on emulators'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
@@ -2120,7 +2247,7 @@ text_writer_data:
 
         db      `Or if run on non-8088 Tandy's`
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,5               ;go to pos 5
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
         db      `Works both in RGB and composite modes`
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
@@ -2171,12 +2298,11 @@ old_pic_imr:                                    ;PIC IMR original value
 raster_colors_tbl:                              ;used for the raster bars, at the
         db      15,7,9,8,1,0                    ; bottom of the screen
         db      0,1,8,9,7,15
-        db      15,7,9,8,1,0
-        db      0,1,8,9,7,15
-        db      15,7,9,8,1
+        db      15,7,9,8
 raster_color_restore:                           ;must be after raster_colors_tbl
         db      15
 RASTER_COLORS_MAX equ $-raster_colors_tbl
+BOTTOM_TOP_LINES_TO_WAIT equ 32
 
 top_palette:                                    ;palette used for the upper part of the screen
         db      0,1,2,3,4,5,6,7                 ;default palette
