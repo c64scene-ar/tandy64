@@ -110,7 +110,7 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 %endmacro
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; refreshes the palette. used as a macro (and not function) since it is being
+; refreshes the palette. used as a macro, and not function, since it is being
 ; called from time-critical sections
 ;
 ; IN:
@@ -127,6 +127,9 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 %%repeat:
         mov     dx,bp                           ;dx = 0x3da. select color register
 
+        lodsb                                   ;load one color value in al
+        mov     ah,al                           ;move it ah
+
 %if %1
         %%wait:
                 in      al,dx                   ;inline wait horizontal retrace for performance reasons
@@ -141,22 +144,12 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
         mov     al,bl                           ;starting color
         out     dx,al
 
-        lodsw                                   ;load two colors values: al,ah
-
         mov     dl,bh                           ;dx = 0x3de
+        mov     al,ah
         out     dx,al                           ;update color
 
         inc     bl
 
-        mov     dx,bp                           ;dx = 0x3da
-        mov     al,bl                           ;starting color
-        out     dx,al
-
-        mov     dl,bh                           ;dx = 0x3de
-        mov     al,ah                           ;2nd value
-        out     dx,al                           ;update color
-
-        inc     bl
         loop    %%repeat
 %endmacro
 
@@ -230,12 +223,12 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_new_i08_multi_color_init
+state_new_i08_multi_color_init:
         cli                                     ;disable interrupts
                                                 ; while setting the interrupt
         call    wait_vertical_retrace
 
-        mov     cx,160                          ;and wait for scanlines
+        mov     cx,158                          ;and wait for scanlines
 .repeat:
         call    wait_horiz_retrace
         loop    .repeat
@@ -258,12 +251,12 @@ state_new_i08_multi_color_init
         jmp     state_next
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_new_i08_single_color_init
+state_new_i08_single_color_init:
         cli                                     ;disable interrupts
                                                 ; while setting the interrupt
         call    wait_vertical_retrace
 
-        mov     cx,170                          ;and wait for scanlines
+        mov     cx,164                          ;and wait for scanlines
 .repeat:
         call    wait_horiz_retrace
         loop    .repeat
@@ -439,7 +432,7 @@ new_i08_simple:
 
         ;update top-screen palette
         mov     si,top_palette                  ;points to colors used at the top of the screen
-        mov     cx,8                            ;update 16 colors (7*2)
+        mov     cx,16                           ;update 16 colors
         mov     bl,0x10                         ; starting with color 0 (black)
         mov     bp,0x3da                        ;bp should be 0x3da
         REFRESH_PALETTE 1                       ;refresh the palette. don't wait for horizontal retrace
@@ -458,7 +451,7 @@ new_i08_bottom_multi_color:
         ;update bottom-screen palette
         mov     bp,0x3da                        ;register address
         mov     si,bottom_palette               ;points to colors used at the bottom
-        mov     cx,4                            ;only update 8 colors (4 * 2)
+        mov     cx,6                            ;only update a few colors
         mov     bl,0x11                         ; starting with color 1 (skip black)
         REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
@@ -484,7 +477,7 @@ new_i08_bottom_multi_color:
 
         ;update top-screen palette
         mov     si,top_palette                  ;points to colors used at the top of the screen
-        mov     cx,7                            ;update 14 colors (7*2)
+        mov     cx,14                           ;update 14 colors
         mov     bl,0x10                         ; starting with color 0 (black)
         REFRESH_PALETTE 1                       ;refresh the palette. don't wait for horizontal retrace
 
@@ -502,7 +495,7 @@ new_i08_bottom_single_color:
         ;update bottom-screen palette
         mov     bp,0x3da                        ;register address
         mov     si,bottom_palette               ;points to colors used at the bottom
-        mov     cx,4                            ;only update 8 colors (4 * 2)
+        mov     cx,6                            ;only update 8 colors
         mov     bl,0x11                         ; starting with color 1 (skip black)
         REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
@@ -538,7 +531,7 @@ new_i08_bottom_single_color:
 
         ;update top-screen palette
         mov     si,top_palette                  ;points to colors used at the top of the screen
-        mov     cx,7                            ;update 14 colors (7*2)
+        mov     cx,8                            ;update 14 colors
         mov     bl,0x10                         ; starting with color 0 (black)
         mov     bp,dx                           ;bp should be 0x3da
         REFRESH_PALETTE 1                       ;refresh the palette. don't wait for horizontal retrace
