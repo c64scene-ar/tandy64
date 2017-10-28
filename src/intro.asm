@@ -127,6 +127,9 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 %%repeat:
         mov     dx,bp                           ;dx = 0x3da. select color register
 
+        mov     al,bl                           ;color to update
+        out     dx,al                           ;dx=0x3da
+
         lodsb                                   ;load one color value in al
         mov     ah,al                           ;move it ah
 
@@ -140,9 +143,6 @@ PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
                 test    al,dh                   ;FIXME: using 0x3 instead of 0x1. might break with light pen
                 jz      %%retrace               ;horizontal retrace after this
 %endif
-
-        mov     al,bl                           ;starting color
-        out     dx,al
 
         mov     dl,bh                           ;dx = 0x3de
         mov     al,ah
