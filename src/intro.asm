@@ -435,7 +435,7 @@ new_i08_simple:
         mov     cx,16                           ;update 16 colors
         mov     bl,0x10                         ; starting with color 0 (black)
         mov     bp,0x3da                        ;bp should be 0x3da
-        REFRESH_PALETTE 1                       ;refresh the palette. don't wait for horizontal retrace
+        REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
         jmp     new_i08_main
 
@@ -450,7 +450,7 @@ new_i08_bottom_multi_color:
 
         ;update bottom-screen palette
         mov     bp,0x3da                        ;register address
-        mov     si,bottom_palette               ;points to colors used at the bottom
+        mov     si,bottom_palette+1             ;points to colors used at the bottom. skips black
         mov     cx,6                            ;only update a few colors
         mov     bl,0x11                         ; starting with color 1 (skip black)
         REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
@@ -476,10 +476,10 @@ new_i08_bottom_multi_color:
 
 
         ;update top-screen palette
-        mov     si,top_palette                  ;points to colors used at the top of the screen
-        mov     cx,14                           ;update 14 colors
-        mov     bl,0x10                         ; starting with color 0 (black)
-        REFRESH_PALETTE 1                       ;refresh the palette. don't wait for horizontal retrace
+        mov     si,top_palette+1                ;points to colors used at the top of the screen. skips black
+        mov     cx,13                           ;update a few colors
+        mov     bl,0x11                         ; starting with color 1 (skips black)
+        REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
         jmp     new_i08_main
 
@@ -494,7 +494,7 @@ new_i08_bottom_single_color:
 
         ;update bottom-screen palette
         mov     bp,0x3da                        ;register address
-        mov     si,bottom_palette               ;points to colors used at the bottom
+        mov     si,bottom_palette+1             ;points to colors used at the bottom. skips black
         mov     cx,6                            ;only update 8 colors
         mov     bl,0x11                         ; starting with color 1 (skip black)
         REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
@@ -530,9 +530,9 @@ new_i08_bottom_single_color:
 
 
         ;update top-screen palette
-        mov     si,top_palette                  ;points to colors used at the top of the screen
-        mov     cx,8                            ;update 14 colors
-        mov     bl,0x10                         ; starting with color 0 (black)
+        mov     si,top_palette+1                ;points to colors used at the top of the screen. skips black
+        mov     cx,6                            ;update a few colors
+        mov     bl,0x11                         ;starting with color 1. skips black
         mov     bp,dx                           ;bp should be 0x3da
         REFRESH_PALETTE 1                       ;refresh the palette. don't wait for horizontal retrace
 
