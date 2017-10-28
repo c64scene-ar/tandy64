@@ -199,7 +199,7 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
                                                 ; while setting the interrupt
         call    wait_vertical_retrace
 
-        mov     cx,194                          ;and wait for scanlines
+        mov     cx,196                          ;and wait for scanlines
 .repeat:
         call    wait_horiz_retrace
         loop    .repeat
@@ -436,12 +436,20 @@ new_i08_simple:
         mov     ax,data
         mov     ds,ax
 
+        mov     dx,bp                           ;dx=0x3da
+        mov     al,2                            ;select border color register
+        out     dx,al
+        mov     dl,0xde                         ;dx=0x03de
+        mov     al,[border_color]
+        out     dx,al                           ;update border color
+
         ;update top-screen palette
         mov     si,top_palette                  ;points to colors used at the top of the screen
-        mov     cx,7                            ;update 7 colors
+        mov     cx,6                            ;update 6 colors
         mov     bl,0x10                         ; starting with color 0 (black)
         mov     bp,0x3da                        ;bp should be 0x3da
         REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
+
 
         jmp     new_i08_main
 
@@ -626,12 +634,7 @@ state_fade_to_black_anim:
 
         mov     [bottom_palette+0],al           ;update black for bottom part as well
 
-        mov     dx,0x3da
-        mov     al,2                            ;select border color register
-        out     dx,al
-        mov     dl,0xde                         ;dx=0x03de
-        mov     al,[palette_black_tbl+bx]
-        out     dx,al                           ;update color
+        mov     [border_color],al
 
         inc     word [palette_black_idx]
         cmp     word [palette_black_idx], PALETTE_BLACK_MAX
@@ -779,7 +782,7 @@ state_outline_fade_in_anim:
         cmp     bx,PALETTE_OUTLINE_FADE_IN_MAX
         je      .end
 
-        mov     dx,0x03da                       ;select border color register
+        mov     dx,0x03da                       ;select color register
         mov     al,0x10+LETTER_BORDER_COLOR_IDX ;PVM border color
         out     dx,al                           ;select palette register
 
@@ -798,7 +801,7 @@ state_outline_fade_out_anim:
         cmp     bx,PALETTE_OUTLINE_FADE_OUT_MAX
         je      .end
 
-        mov     dx,0x03da                       ;select border color register
+        mov     dx,0x03da                       ;select color register
         mov     al,0x10+LETTER_BORDER_COLOR_IDX ;PVM border color
         out     dx,al                           ;select palette register
 
@@ -817,7 +820,7 @@ state_outline_fade_to_final_anim:
         cmp     bx,PALETTE_OUTLINE_FADE_TO_FINAL_MAX
         je      .end
 
-        mov     dx,0x03da                       ;select border color register
+        mov     dx,0x03da                       ;select color register
         mov     al,0x10+LETTER_BORDER_COLOR_IDX ;PVM border color
         out     dx,al                           ;select palette register
 
@@ -2321,6 +2324,9 @@ palette_default:
         db      11,12
         db      1                               ;color 13 should be 1 (blue)
         db      14,15
+
+border_color:                                   ;border color
+        db      9
 
 ; red, green and blue palettes, ALL MUST HAVE
 ; the same size
