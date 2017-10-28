@@ -199,7 +199,7 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
                                                 ; while setting the interrupt
         call    wait_vertical_retrace
 
-        mov     cx,196                          ;and wait for scanlines
+        mov     cx,194                          ;and wait for scanlines
 .repeat:
         call    wait_horiz_retrace
         loop    .repeat
@@ -436,13 +436,6 @@ new_i08_simple:
         mov     ax,data
         mov     ds,ax
 
-        mov     dx,bp                           ;dx=0x3da
-        mov     al,2                            ;select border color register
-        out     dx,al
-        mov     dl,0xde                         ;dx=0x03de
-        mov     al,[border_color]
-        out     dx,al                           ;update border color
-
         ;update top-screen palette
         mov     si,top_palette                  ;points to colors used at the top of the screen
         mov     cx,6                            ;update 6 colors
@@ -450,6 +443,12 @@ new_i08_simple:
         mov     bp,0x3da                        ;bp should be 0x3da
         REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
+        mov     dx,bp                           ;dx=0x3da
+        mov     al,2                            ;select border color register
+        out     dx,al
+        mov     dl,0xde                         ;dx=0x03de
+        mov     al,[border_color]
+        out     dx,al                           ;update border color
 
         jmp     new_i08_main
 
