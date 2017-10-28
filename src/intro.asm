@@ -228,7 +228,7 @@ state_new_i08_multi_color_init:
                                                 ; while setting the interrupt
         call    wait_vertical_retrace
 
-        mov     cx,158                          ;and wait for scanlines
+        mov     cx,156                          ;and wait for scanlines
 .repeat:
         call    wait_horiz_retrace
         loop    .repeat
@@ -620,8 +620,9 @@ state_fade_to_black_anim:
         mov     [top_palette+di],al             ;update color in color table
         loop    .loop                           ; and loop
 
-        mov     [bottom_palette+0],al       ;update black for bottom part as well
+        mov     [bottom_palette+0],al           ;update black for bottom part as well
 
+        mov     dx,0x3da
         mov     al,2                            ;select border color register
         out     dx,al
         mov     dl,0xde                         ;dx=0x03de
