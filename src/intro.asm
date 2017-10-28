@@ -22,6 +22,12 @@ PLASMA_OFFSET   equ 22*2*160+64                 ;plasma: video offset
 PLASMA_WIDTH    equ 24                          ;plasma: pixels wide
 PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 
+LETTER_P_COLOR_IDX      equ 1                   ;color index for the letters
+LETTER_V_COLOR_IDX      equ 2
+LETTER_M_COLOR_IDX      equ 3
+LETTER_BKG_COLOR_IDX    equ 4
+LETTER_BORDER_COLOR_IDX equ 5
+
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; render vertically 4 bits needed for the scroll. grabs the firts for bytes from the cache,
@@ -432,7 +438,7 @@ new_i08_simple:
 
         ;update top-screen palette
         mov     si,top_palette                  ;points to colors used at the top of the screen
-        mov     cx,16                           ;update 16 colors
+        mov     cx,7                            ;update 7 colors
         mov     bl,0x10                         ; starting with color 0 (black)
         mov     bp,0x3da                        ;bp should be 0x3da
         REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
@@ -477,7 +483,7 @@ new_i08_bottom_multi_color:
 
         ;update top-screen palette
         mov     si,top_palette+1                ;points to colors used at the top of the screen. skips black
-        mov     cx,13                           ;update a few colors
+        mov     cx,6                            ;update a few colors
         mov     bl,0x11                         ; starting with color 1 (skips black)
         REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
@@ -532,7 +538,7 @@ new_i08_bottom_single_color:
         ;update top-screen palette
         mov     si,top_palette+1                ;points to colors used at the top of the screen. skips black
         mov     cx,6                            ;update a few colors
-        mov     bl,0x11                         ;starting with color 1. skips black
+        mov     bl,0x11                         ; starting with color 1. skips black
         mov     bp,dx                           ;bp should be 0x3da
         REFRESH_PALETTE 1                       ;refresh the palette. don't wait for horizontal retrace
 
@@ -610,14 +616,12 @@ state_fade_to_black_anim:
         mov     bx,word [palette_black_idx]     ;fetch idx to table
         sub     ah,ah                           ;MSB for the index. used later
 
-        mov     cx,PALETTE_COLORS_TO_BLACK_MAX
-        mov     si,palette_colors_to_black      ;pointer to colors to update
+        mov     cx,6                            ;first six colors: 0-5
+        sub     di,di                           ;di=index to colors (reverse of cx)
 .loop:
-        lodsb                                   ;fetch color to update
-        mov     di,ax                           ;save it in di
         mov     al,[palette_black_tbl+bx]       ;new color for the color
-
         mov     [top_palette+di],al             ;update color in color table
+        inc     di
         loop    .loop                           ; and loop
 
         mov     [bottom_palette+0],al           ;update black for bottom part as well
@@ -666,16 +670,20 @@ state_delay_anim:
 state_gfx_fade_in_init:
         mov     word [clemente_lfsr_current_state],LFSR_START_STATE
 
-        ;logo should be turned off by default
-        mov     cx,PALETTE_COLORS_TO_BLACK_MAX
-        sub     bh,bh                           ;MSB for bx. used later
-        mov     si,palette_colors_to_black
-        mov     dl,1                            ;color blue
-.loop:
-        lodsb                                   ;color to fade
-        mov     bl,al                           ;convert it to index value
-        mov     byte [top_palette+bx],dl        ;update color index with blue
+        ; set default for colors 8-16
+        mov     cx,10                           ;update colors 10 colors
+        mov     bl,0x10+6                       ; starting with color 6
+        mov     si,palette_default+6            ;points to colors used at the top of the screen
+        mov     bp,0x3da                        ;bp should be 0x3da
+        REFRESH_PALETTE 0                       ;refresh the palette, don't wait for horizontal retrace
 
+        ;logo should be turned off by default
+        mov     cx,6                            ;first six colors should be blue at firt
+        mov     al,1                            ;blue color
+        sub     bx,bx
+.loop:
+        mov     byte [top_palette+bx],al        ;update color index with blue
+        inc     bx
         loop    .loop
 
         ret
@@ -731,18 +739,18 @@ state_pvm_logo_fade_in_anim:
 
         ;letter P
         mov     al,[palette_pvm_logo_fade_tbl+bx]       ;fetch color value
-        mov     [top_palette+2],al              ;update color index 2
+        mov     [top_palette+LETTER_P_COLOR_IDX],al     ;update color index for P
 
 
         ;letter V
         sub     bx,8                            ;offset -8
         mov     al,[palette_pvm_logo_fade_tbl+bx]       ;fetch color value
-        mov     [top_palette+0xa],al            ;update color index 0xa
+        mov     [top_palette+LETTER_V_COLOR_IDX],al     ;update color index for V
 
         ;letter M
         sub     bx,8                            ;offset -8
         mov     al,[palette_pvm_logo_fade_tbl+bx]       ;fetch color value
-        mov     [top_palette+0xd],al            ;update color index 0xd
+        mov     [top_palette+LETTER_M_COLOR_IDX],al     ;update color index for M
 
         inc     word [palette_idx]              ;update palette offset
         ret
@@ -772,7 +780,7 @@ state_outline_fade_in_anim:
         je      .end
 
         mov     dx,0x03da                       ;select border color register
-        mov     al,0x15                         ;logo outline color: 5
+        mov     al,0x10+LETTER_BORDER_COLOR_IDX ;PVM border color
         out     dx,al                           ;select palette register
 
         mov     dl,0xde                         ;dx=0x03de
@@ -791,7 +799,7 @@ state_outline_fade_out_anim:
         je      .end
 
         mov     dx,0x03da                       ;select border color register
-        mov     al,0x15                         ;logo outline color: 5
+        mov     al,0x10+LETTER_BORDER_COLOR_IDX ;PVM border color
         out     dx,al                           ;select palette register
 
         mov     dl,0xde                         ;dx=0x03de
@@ -810,7 +818,7 @@ state_outline_fade_to_final_anim:
         je      .end
 
         mov     dx,0x03da                       ;select border color register
-        mov     al,0x15                         ;logo outline color: 5
+        mov     al,0x10+LETTER_BORDER_COLOR_IDX ;PVM border color
         out     dx,al                           ;select palette register
 
         mov     dl,0xde                         ;dx=0x03de
@@ -1301,6 +1309,7 @@ state_enable_scroll:
         mov     ax,ds
         mov     es,ax
 
+        ;FIXME: probably this is not needed
         mov     cx,8                            ;16 colors (16 bytes == 8 words)
         mov     di,bottom_palette               ;destination: bottom palette
         mov     si,palette_default              ;source: default palette
@@ -1398,7 +1407,7 @@ state_plasma_red_tex_init:
         mov     byte [plasma_tex_colors_updated],al
         mov     byte [plasma_tex_delay],al
         mov     word [plasma_tex_palette_addr],plasma_tex_red_palette
-        mov     byte [plasma_tex_letter_color],2;letter P uses color 2
+        mov     byte [plasma_tex_letter_color],LETTER_P_COLOR_IDX       ;letter P color idx
         mov     byte [plasma_tex_inc_x0],250     ;texture generator parameters
         mov     byte [plasma_tex_inc_x1],255
         mov     byte [plasma_tex_inc_y0],127
@@ -1425,7 +1434,7 @@ state_plasma_green_tex_init:
         mov     byte [plasma_tex_colors_updated],al
         mov     byte [plasma_tex_delay],al
         mov     word [plasma_tex_palette_addr],plasma_tex_green_palette
-        mov     byte [plasma_tex_letter_color],0xa      ;letter V uses color 0xa
+        mov     byte [plasma_tex_letter_color],LETTER_V_COLOR_IDX       ;letter V color idx
         mov     byte [plasma_tex_inc_x0],4      ;texture generator parameters
         mov     byte [plasma_tex_inc_x1],7
         mov     byte [plasma_tex_inc_y0],129
@@ -1452,7 +1461,7 @@ state_plasma_magenta_tex_init:
         mov     byte [plasma_tex_colors_updated],al
         mov     byte [plasma_tex_delay],al
         mov     word [plasma_tex_palette_addr],plasma_tex_magenta_palette
-        mov     byte [plasma_tex_letter_color],0xd        ;letter M uses color 0xd
+        mov     byte [plasma_tex_letter_color],LETTER_M_COLOR_IDX       ;letter M color idx
         mov     byte [plasma_tex_inc_x0],4      ;texture generator parameters
         mov     byte [plasma_tex_inc_x1],3
         mov     byte [plasma_tex_inc_y0],127
@@ -1937,10 +1946,6 @@ palette_black_tbl:                              ;fade to white/fade to black col
         db      9,11,3,7,8,0
 PALETTE_BLACK_MAX equ $-palette_black_tbl
 
-palette_colors_to_black:                        ;colors that should turn black
-        db      0x00,0x05,0x02,0x0a,0x0d,0x03   ;black, outline, P, V, M, inner
-PALETTE_COLORS_TO_BLACK_MAX equ $-palette_colors_to_black
-
 delay_frames:
         dw      0                               ;frames to wait before doing something
 
@@ -2299,16 +2304,23 @@ RASTER_COLORS_MAX equ $-raster_colors_tbl
 BOTTOM_TOP_LINES_TO_WAIT equ 32
 
 top_palette:                                    ;palette used for the upper part of the screen
-        db      0,1,2,3,4,5,6,7                 ;default palette
-        db      8,9,10,11,12,13,14,15
+        db      0,1,2,3,4,5,6,7,8,9
+        db      4                               ;color 10 should be 4 (red)
+        db      11,12
+        db      1                               ;color 13 should be 1 (blue)
+        db      14,15
 
 bottom_palette:                                 ;palette used for the bottom part of the screen
-        db      2,1,2,3,4,5,6,7                 ;default palette
-        db      8,9,10,11,12,13,14,15
+        db      0
+        db      1,2,3,4,5,6                     ;only colors 1-6 are modified
+        db      7,8,9,4,11,12,1,14,15           ;these colors are ignored
 
 palette_default:
-        db      0,1,2,3,4,5,6,7                 ;default palette
-        db      8,9,10,11,12,13,14,15
+        db      0,1,2,3,4,5,6,7,8,9             ;default palette
+        db      4                               ;color 10 should be 4 (red)
+        db      11,12
+        db      1                               ;color 13 should be 1 (blue)
+        db      14,15
 
 ; red, green and blue palettes, ALL MUST HAVE
 ; the same size
