@@ -208,6 +208,16 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
         sub     ax,ax
         mov     es,ax
 
+
+        ;Keyboard
+        mov     ax,new_i09
+        mov     dx,cs
+        xchg    ax,[es:9*4]                     ;new/old IRQ 9: offset
+        xchg    dx,[es:9*4+2]                   ;new/old IRQ 9: segment
+        mov     [old_i09],ax
+        mov     [old_i09+2],dx
+
+        ;PIC
         mov     ax,new_i08_simple
         mov     dx,cs
         xchg    ax,[es:8*4]                     ;new/old IRQ 8: offset
@@ -257,7 +267,7 @@ state_new_i08_multi_color_init:
         jmp     state_next
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_new_i08_single_color_init:
+state_new_i08_full_color_init:
         cli                                     ;disable interrupts
                                                 ; while setting the interrupt
         call    wait_vertical_retrace
@@ -271,7 +281,7 @@ state_new_i08_single_color_init:
         sub     ax,ax
         mov     es,ax
 
-        mov     ax,new_i08_bottom_single_color
+        mov     ax,new_i08_bottom_full_color
         mov     dx,cs
         mov     [es:8*4],ax                     ;new/old IRQ 8: offset
         mov     [es:8*4+2],dx                   ;new/old IRQ 8: segment
@@ -295,14 +305,23 @@ irq_cleanup:
         call    setup_pit                       ; actually means 0x10000
 
         push    es
-        les     si,[old_i08]
 
+        les     si,[old_i08]
         push    ds
         xor     ax,ax
         mov     ds,ax
         mov     [8*4],si
-        mov     [8*4+2],es                      ;Restore the old INT 08 vector
+        mov     [8*4+2],es                      ;Restore the old INT 08 vector (timer)
         pop     ds
+
+        les     si,[old_i09]
+        push    ds
+        xor     ax,ax
+        mov     ds,ax
+        mov     [9*4],si
+        mov     [9*4+2],es                      ;Restore the old INT 09 vector (keyboard)
+        pop     ds
+
         pop     es
 
         sti
@@ -418,14 +437,32 @@ main_loop:
                                                 ; if running on a slow machine. not a big issue, but ctrl+alt+del won't work
                                                 ; and a switch on/off will be required (arggh.)
 
-        mov     ah,1
-        int     0x16                            ;INT 16,AH=1, OUT:ZF=status
+        cmp     byte [key_pressed],0            ;faster way to check keyboard than calling int 0x16
         jz      .loop
 
-        mov     ah,0
-        int     0x16
-
         ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; IRQ
+new_i09:
+        ;own keyboard handler to make it faster to ready keys
+        mov     dx,0x60
+        in      al,dx
+
+        in      al,0x61
+        or      al,0x80
+        out     0x61,al
+        and     al,0x7f
+        out     0x61,al
+
+        mov     al,0x20                         ;Send the EOI signal
+        out     0x20,al                         ; to the IRQ controller
+
+        mov     ax,data
+        mov     ds,ax
+
+        mov     byte [key_pressed],1
+        iret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; IRQ
@@ -498,7 +535,7 @@ new_i08_bottom_multi_color:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; IRQ
-new_i08_bottom_single_color:
+new_i08_bottom_full_color:
         ;not saving any variable, since the code at main loop
         ;happens after the tick
 
@@ -2084,7 +2121,7 @@ states_inits:
         dw      state_plasma_green_tex_init     ;g
         dw      state_plasma_magenta_tex_init   ;h
         dw      state_clear_bottom_init         ;l
-        dw      state_new_i08_single_color_init ;i
+        dw      state_new_i08_full_color_init   ;i
         dw      state_pvm_logo_fade_in_init     ;j
         dw      state_outline_fade_init         ;k
 ;        dw      state_plasma_init              ;m
@@ -2288,9 +2325,12 @@ text_writer_cursor_blink_delay:                 ;how many cursor blinks to wait
 text_writer_delay:
         db      0                               ;used by 'delay state' to know who many
                                                 ;vert retrace to wait
-
+key_pressed:                                    ;boolean. non-zero when a key was pressed
+        db      0
 tick:                                           ;to trigger once the irq was called
         db      0
+old_i09:                                        ;segment + offset to old int 9
+        dd      0
 old_i08:                                        ;segment + offset to old int 8
         dd      0
 old_pic_imr:                                    ;PIC IMR original value
