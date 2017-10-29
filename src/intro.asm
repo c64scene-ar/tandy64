@@ -159,6 +159,38 @@ LETTER_BORDER_COLOR_IDX equ 5
         loop    %%repeat
 %endmacro
 
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; inline vertical retrace
+; IN:
+;       dx      -> 0x3da
+%macro WAIT_VERTICAL_RETRACE 0
+%%wait:
+        in      al,dx                           ;wait for vertical retrace
+        test    al,8                            ; to finish
+        jnz     %%wait
+
+%%retrace:
+        in      al,dx                           ;wait for vertical retrace
+        test    al,8                            ; to start
+        jz      %%retrace
+%endmacro
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; inline horizontal retrace
+; IN:
+;       dx      -> 0x3da
+%macro WAIT_HORIZONTAL_RETRACE 0
+%%wait:
+        in      al,dx                           ;wait for vertical retrace
+        test    al,1                            ; to finish
+        jnz     %%wait
+
+%%retrace:
+        in      al,dx                           ;wait for vertical retrace
+        test    al,1                            ; to start
+        jz      %%retrace
+%endmacro
+
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; CODE
@@ -196,13 +228,14 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
                                                 ; make it sync with vertical retrace
 
         cli                                     ;disable interrupts
-                                                ; while setting the interrupt
-        call    wait_vertical_retrace
+
+        mov     dx,0x3da
+        WAIT_VERTICAL_RETRACE
 
         mov     cx,194                          ;and wait for scanlines
 .repeat:
-        call    wait_horiz_retrace
-        loop    .repeat
+        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
+        loop    .repeat                         ; is closer to emulators
 
         push    es
         sub     ax,ax
@@ -242,12 +275,13 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 state_new_i08_multi_color_init:
         cli                                     ;disable interrupts
                                                 ; while setting the interrupt
-        call    wait_vertical_retrace
+        mov     dx,0x3da
+        WAIT_VERTICAL_RETRACE
 
         mov     cx,156                          ;and wait for scanlines
 .repeat:
-        call    wait_horiz_retrace
-        loop    .repeat
+        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
+        loop    .repeat                         ; is closer to emulators
 
         push    es
         sub     ax,ax
@@ -270,12 +304,13 @@ state_new_i08_multi_color_init:
 state_new_i08_full_color_init:
         cli                                     ;disable interrupts
                                                 ; while setting the interrupt
-        call    wait_vertical_retrace
+        mov     dx,0x3da
+        WAIT_VERTICAL_RETRACE
 
         mov     cx,164                          ;and wait for scanlines
 .repeat:
-        call    wait_horiz_retrace
-        loop    .repeat
+        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
+        loop    .repeat                         ; is closer to emulators
 
         push    es
         sub     ax,ax
@@ -2013,15 +2048,14 @@ scroll_control_code_tbl:
         ;       129 = color anim
         ;       130 = plasma init
 scroll_text:
-;        db 128                                  ;color white
-;        db 'HI THERE. '
-;        db 129,'P'
-;        db 128,'UNGAS DE '
-;        db 129,'V'
-;        db 128,'ILLA '
-;        db 129,'M'
-;        db 128,'ARTELLI HERE, WITH OUR FIRST TANDY RELEASE. '
-        db 129
+        db 128                                  ;color white
+        db 'HI THERE. '
+        db 129,'P'
+        db 128,'UNGAS DE '
+        db 129,'V'
+        db 128,'ILLA '
+        db 129,'M'
+        db 128,'ARTELLI HERE, WITH OUR FIRST TANDY RELEASE. '
         db 'IT ALL BEGAN WHEN WE WENT TO PICK UP A COMMODORE 64 BUNDLE '
         db 'AND THE SELLER INCLUDED TWO TANDY 1000 HX IN IT. '
         db 'WTF IS A TANDY 1000 HX? WE GOOGLED IT, AND WE LIKED IT. '
