@@ -298,7 +298,7 @@ state_new_i08_multi_color_init:
         call    setup_pit                       ;setup PIT
 
         sti
-        jmp     state_next
+        jmp     main_state_next
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_new_i08_full_color_init:
@@ -327,7 +327,7 @@ state_new_i08_full_color_init:
         call    setup_pit                       ;setup PIT
 
         sti
-        jmp     state_next
+        jmp     main_state_next
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 irq_cleanup:
@@ -450,8 +450,10 @@ fake_crash:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 intro_init:
-        mov     byte [current_state],0
-        call    [states_inits]                  ;init state 0
+        sub     al,al
+        mov     byte [letter_state],al
+        mov     byte [main_state],al
+        call    [main_state_inits+0]            ;init state 0
 
         call    music_init
         call    text_writer_init
@@ -630,9 +632,14 @@ new_i08_main:
         ;after raster baster finishes
 
         sub     bh,bh
-        mov     bl,byte [current_state]         ;fetch state
+        mov     bl,byte [main_state]         ;fetch main state machine value
         shl     bx,1                            ; and convert it into offset (2 bytes per offset)
-        call    [states_callbacks+bx]           ; and call correct state callback
+        call    [main_state_callbacks+bx]           ; and call correct state callback
+
+;        sub     bh,bh
+;        mov     bl,byte [letter_state]          ;fetch pvm-letters state machine value
+;        shl     bx,1                            ; and convert it into offset (2 bytes per offset)
+;        call    [letter_state_callbacks+bx]     ; and call correct state callback
 
         call    crtc_addr_anim                  ;change CRTC start address
         call    music_anim                      ;play music
@@ -663,12 +670,12 @@ sound_cleanup:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_next:
-        inc     byte [current_state]
+main_state_next:
+        inc     byte [main_state]
         sub     bh,bh
-        mov     bl,byte [current_state]
+        mov     bl,byte [main_state]
         shl     bx,1
-        jmp     [states_inits+bx]
+        jmp     [main_state_inits+bx]
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 palette_colors_init:
@@ -710,8 +717,8 @@ state_fade_to_black_anim:
         cmp     word [palette_black_idx], PALETTE_BLACK_MAX
         je      .next_state
         ret
-.next_state
-        jmp     state_next
+.next_state:
+        jmp     main_state_next
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_delay_500ms_init:
@@ -736,7 +743,7 @@ state_delay_anim:
         dec     word [delay_frames]
         ret
 .next:
-        jmp     state_next                      ;set next state and return
+        jmp     main_state_next                 ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_gfx_fade_in_init:
@@ -796,7 +803,7 @@ state_gfx_fade_in_anim:
 
 .end:
         pop     ds
-        jmp     state_next                      ;set next state and return
+        jmp     main_state_next                 ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_pvm_logo_fade_in_init:
@@ -827,7 +834,7 @@ state_pvm_logo_fade_in_anim:
         inc     word [palette_idx]              ;update palette offset
         ret
 .end:
-        jmp     state_next                      ;set next state and return
+        jmp     main_state_next                 ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_nothing_init:
@@ -838,7 +845,7 @@ state_nothing_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_skip_anim:
-        jmp     state_next                      ;set next state and return
+        jmp     main_state_next                 ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_outline_fade_init:
@@ -862,7 +869,7 @@ state_outline_fade_in_anim:
         inc     word [palette_outline_fade_idx]
         ret
 .end:
-        jmp     state_next                      ;set next state and return
+        jmp     main_state_next                 ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_outline_fade_out_anim:
@@ -881,7 +888,7 @@ state_outline_fade_out_anim:
         inc     word [palette_outline_fade_idx]
         ret
 .end:
-        jmp     state_next                      ;set next state and return
+        jmp     main_state_next                 ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_outline_fade_to_final_anim:
@@ -900,7 +907,20 @@ state_outline_fade_to_final_anim:
         inc     word [palette_outline_fade_idx]
         ret
 .end:
-        jmp     state_next                      ;set next state and return
+        jmp     main_state_next                 ;set next state and return
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_delay_init:
+        ret
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_delay_anim:
+        ret
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_fade_in_1_at_time_init:
+        ret
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_fade_in_1_at_time_anim:
+        ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_init:
@@ -1427,7 +1447,7 @@ state_clear_bottom_anim:
         mov     di,BOTTOM_OFFSET+8192*3         ;destination
         rep stosw                               ;do the 'clean screen'
 
-        jmp     state_next                      ;finish and set next state
+        jmp     main_state_next                 ;finish and set next state
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1604,7 +1624,7 @@ state_plasma_tex_anim:
         ret
 
 .next_state:
-        jmp     state_next
+        jmp     main_state_next
 
 
 .palette_fade_in:
@@ -1739,7 +1759,7 @@ plasma_update_sine_table:
         ; x
         sub     bh,bh                           ;bx MSB = 0
         mov     ah,bh                           ;ax MSB = 0
-        mov     cx,word [plasma_off_x0]       ;fetches both xbuf_1 and xbuf_2
+        mov     cx,word [plasma_off_x0]         ;fetches both xbuf_1 and xbuf_2
         mov     bl,cl                           ;bx = xbuf_1
         mov     al,ch                           ;ax = xbuf_2
         mov     si,ax                           ;si = xbuf_2
@@ -1763,12 +1783,12 @@ plasma_update_sine_table:
         pop cx                                  ;restore cx
         add     cl,9                            ;update buffer x1 and x2 offsets
         sub     ch,5                            ; for the next frame
-        mov     word [plasma_off_x0],cx       ;udpates both xbuf_1 and xbuf_2
+        mov     word [plasma_off_x0],cx         ;udpates both xbuf_1 and xbuf_2
 
         ; y
         sub     bh,bh                           ;bx MSB = 0
         mov     ah,bh                           ;ax MSB = 0
-        mov     cx,word [plasma_off_y0]       ;fetches both ybuf_1 and ybuf_2
+        mov     cx,word [plasma_off_y0]         ;fetches both ybuf_1 and ybuf_2
         mov     bl,cl                           ;bx = xbuf_1
         mov     al,ch                           ;ax = xbuf_2
         mov     si,ax                           ;si = xbuf_2
@@ -1791,7 +1811,7 @@ plasma_update_sine_table:
         pop     cx                              ;restore cx
         add     cl,7                            ;update sine values for later
         sub     ch,3
-        mov     word [plasma_off_y0],cx       ;udpates both ybuf_1 and ybuf_2
+        mov     word [plasma_off_y0],cx         ;udpates both ybuf_1 and ybuf_2
 
         ret
 
@@ -1938,15 +1958,10 @@ noise_fade_anim:
         je      .exit
 
         sub     bh,bh
-        mov     bl,[noise_fade_idx]             ;bx with idex to table
+        mov     bl,[noise_fade_idx]             ;bx with index to table
 
-        mov     dx,0x03da
-        mov     al,0x15                         ;color 5 is outline color
-        out     dx,al
-
-        mov     dl,0xde                         ;dx=0x03de
         mov     al,[noise_fade_tbl+bx]          ;fetch color
-        out     dx,al
+        mov     [top_palette + LETTER_BORDER_COLOR_IDX],al
 
         inc     byte [noise_fade_idx]
 .exit:
@@ -2139,10 +2154,10 @@ volume_0:
         db      0b1111_1111                     ;vol 0 channel 3
 
 
-current_state:                                  ;current state. index for the
+main_state:                                     ;main state. index for the
         db      0                               ; function to call.
 
-states_inits:
+main_state_inits:
         dw      state_gfx_fade_in_init          ;a
         dw      state_fade_to_black_init        ;b
         dw      state_delay_2s_init             ;c
@@ -2163,7 +2178,7 @@ states_inits:
         dw      state_enable_text_writer        ;i
         dw      state_nothing_init              ;p
 
-states_callbacks:
+main_state_callbacks:
         dw      state_gfx_fade_in_anim          ;a
         dw      state_fade_to_black_anim        ;b
         dw      state_delay_anim                ;c
@@ -2183,6 +2198,19 @@ states_callbacks:
         dw      state_delay_anim                ;i'
         dw      state_skip_anim                 ;i
         dw      state_nothing_anim              ;p
+
+
+letter_state:                                   ;PVM letters animation state machine
+        db      0
+letter_state_inits:
+        dw      letter_state_delay_init         ;a
+        dw      letter_state_fade_in_1_at_time_init     ;b
+        dw      letter_state_delay_anim         ;c
+
+letter_state_callbacks:
+        dw      letter_state_delay_anim         ;a
+        dw      letter_state_fade_in_1_at_time_anim     ;b
+        dw      letter_state_delay_anim         ;c
 
 text_writer_addr:                               ;address where the char will be written
         resw    1
