@@ -944,13 +944,13 @@ letter_state_fade_to_green_letter_anim:
         jmp     letter_state_next
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-letter_state_fade_to_red_letter_anim:
+letter_state_fade_to_cyan_letter_anim:
         mov     bl,[palette_letter_color_idx]
-        cmp     bl,PALETTE_BLACK_TO_RED_MAX
+        cmp     bl,PALETTE_BLACK_TO_CYAN_MAX
         je      .next
 
         sub     bh,bh
-        mov     al,[palette_black_to_red_tbl+bx]        ;get color to be used
+        mov     al,[palette_black_to_cyan_tbl+bx]        ;get color to be used
 
         mov     bl,[letter_state_color_to_fade] ;color index to fade
         mov     [top_palette+bx],al             ;update letter color
@@ -2255,9 +2255,9 @@ palette_black_to_pink_tbl:
         db      0,1,9,5,13
 PALETTE_BLACK_TO_PINK_MAX equ $-palette_black_to_pink_tbl
 
-palette_black_to_red_tbl:
-        db      0,1,2,3,4
-PALETTE_BLACK_TO_RED_MAX equ $-palette_black_to_red_tbl
+palette_black_to_cyan_tbl:
+        db      0,2,10,3,11
+PALETTE_BLACK_TO_CYAN_MAX equ $-palette_black_to_cyan_tbl
 
 palette_black_to_green_tbl:
         db      0,6,14,2,10
@@ -2343,7 +2343,7 @@ letter_state_inits:
         dw      letter_state_wait_sem_init      ;a
         dw      letter_state_fade_in_1_at_time_init     ;b
         dw      letter_state_outline_fade_init  ;c
-        dw      letter_state_delay_2s_init      ;d
+        dw      letter_state_delay_5s_init      ;d
         dw      letter_state_outline_fade_init  ;e'
 
         dw      letter_state_fade_out_p_init    ;e
@@ -2370,7 +2370,7 @@ letter_state_callbacks:
         dw      letter_state_outline_fade_out_anim      ;e'
 
         dw      letter_state_fade_out_letter_anim       ;e
-        dw      letter_state_fade_to_pink_letter_anim   ;e'
+        dw      letter_state_fade_to_cyan_letter_anim   ;e'
         dw      letter_state_delay_anim         ;d
 
         dw      letter_state_fade_out_letter_anim       ;f
@@ -2378,7 +2378,7 @@ letter_state_callbacks:
         dw      letter_state_delay_anim         ;d
 
         dw      letter_state_fade_out_letter_anim       ;g
-        dw      letter_state_fade_to_red_letter_anim    ;g'
+        dw      letter_state_fade_to_pink_letter_anim   ;g'
         dw      letter_state_delay_anim         ;d'
 
         dw      letter_state_outline_noise_anim ;h
