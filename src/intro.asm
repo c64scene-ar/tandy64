@@ -330,6 +330,11 @@ state_new_i08_full_color_init:
         jmp     main_state_next
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_signal_letter_state_sem_init:
+        mov     byte [letter_state_semaphore],1
+        jmp     letter_state_next
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 irq_cleanup:
         cli
 
@@ -453,7 +458,8 @@ intro_init:
         sub     al,al
         mov     byte [letter_state],al
         mov     byte [main_state],al
-        call    [main_state_inits+0]            ;init state 0
+        call    [main_state_inits+0]            ;init main state 0
+        call    [letter_state_inits+0]          ;init letter state 0
 
         call    music_init
         call    text_writer_init
@@ -636,14 +642,13 @@ new_i08_main:
         shl     bx,1                            ; and convert it into offset (2 bytes per offset)
         call    [main_state_callbacks+bx]           ; and call correct state callback
 
-;        sub     bh,bh
-;        mov     bl,byte [letter_state]          ;fetch pvm-letters state machine value
-;        shl     bx,1                            ; and convert it into offset (2 bytes per offset)
-;        call    [letter_state_callbacks+bx]     ; and call correct state callback
+        sub     bh,bh
+        mov     bl,byte [letter_state]          ;fetch pvm-letters state machine value
+        shl     bx,1                            ; and convert it into offset (2 bytes per offset)
+        call    [letter_state_callbacks+bx]     ; and call correct state callback
 
         call    crtc_addr_anim                  ;change CRTC start address
         call    music_anim                      ;play music
-        call    noise_fade_anim                 ;outline fade anim
         call    text_writer_anim                ;text writer
         call    scroll_anim                     ;anim scroll
 
@@ -676,6 +681,14 @@ main_state_next:
         mov     bl,byte [main_state]
         shl     bx,1
         jmp     [main_state_inits+bx]
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_next:
+        inc     byte [letter_state]
+        sub     bh,bh
+        mov     bl,byte [letter_state]
+        shl     bx,1
+        jmp     [letter_state_inits+bx]
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 palette_colors_init:
@@ -722,25 +735,25 @@ state_fade_to_black_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_delay_500ms_init:
-        mov     word [delay_frames],30          ;wait 30 cycles. half second
+        mov     word [main_state_delay_frames],30          ;wait 30 cycles. half second
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_delay_2s_init:
-        mov     word [delay_frames],60*2        ;wait 2 seconds before showing logo
+        mov     word [main_state_delay_frames],60*2        ;wait 2 seconds before showing logo
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_delay_5s_init:
-        mov     word [delay_frames],60*5        ;wait 5 seconds before showing logo
+        mov     word [main_state_delay_frames],60*5        ;wait 5 seconds before showing logo
         ret
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_delay_anim:
-        cmp     word [delay_frames],0
+        cmp     word [main_state_delay_frames],0
         je      .next
-        dec     word [delay_frames]
+        dec     word [main_state_delay_frames]
         ret
 .next:
         jmp     main_state_next                 ;set next state and return
@@ -806,16 +819,83 @@ state_gfx_fade_in_anim:
         jmp     main_state_next                 ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_pvm_logo_fade_in_init:
-        mov     word [palette_idx],0
+state_nothing_init:
+        ret
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_nothing_anim:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_pvm_logo_fade_in_anim:
-        mov     bx,word [palette_idx]
-        cmp     bx,PALETTE_PVM_LOGO_FADE_MAX
+state_skip_anim:
+        jmp     main_state_next                 ;set next state and return
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_delay_2s_init:
+        mov     word [letter_state_delay_frames],60*2   ;wait 2 seconds
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_delay_200ms_init:
+        mov     word [letter_state_delay_frames],60/5   ;wait 200ms
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_delay_anim:
+        cmp     word [letter_state_delay_frames],0
+        je      .next
+        dec     word [letter_state_delay_frames]
+        ret
+.next:
+        jmp     letter_state_next               ;set next state and return
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_fade_out_p_init:
+        mov     byte [letter_state_color_to_fade],LETTER_P_COLOR_IDX
+        mov     byte [palette_outline_fade_idx],0
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_fade_out_v_init:
+        mov     byte [letter_state_color_to_fade],LETTER_V_COLOR_IDX
+        mov     byte [palette_outline_fade_idx],0
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_fade_out_m_init:
+        mov     byte [letter_state_color_to_fade],LETTER_M_COLOR_IDX
+        mov     byte [palette_outline_fade_idx],0
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_fade_out_letter_anim:
+        mov     bl,[palette_outline_fade_idx]
+        cmp     bl,PALETTE_OUTLINE_FADE_OUT_MAX
+        je      .next
+
+        sub     bh,bh
+        mov     al,[palette_outline_fade_out_tbl+bx]    ;get color to be used
+
+        mov     bl,[letter_state_color_to_fade] ;color index to fade
+        mov     [top_palette+bx],al             ;update letter color
+
+        inc     byte [palette_outline_fade_idx] ;next color to be used
+        ret
+
+.next:
+        jmp     letter_state_next
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_fade_in_1_at_time_init:
+        mov     byte [palette_idx],0
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_fade_in_1_at_time_anim:
+        mov     bl,byte [palette_idx]
+        cmp     bl,PALETTE_PVM_LOGO_FADE_MAX
         je      .end
 
+        sub     bh,bh
         ;letter P
         mov     al,[palette_pvm_logo_fade_tbl+bx]       ;fetch color value
         mov     [top_palette+LETTER_P_COLOR_IDX],al     ;update color index for P
@@ -831,96 +911,98 @@ state_pvm_logo_fade_in_anim:
         mov     al,[palette_pvm_logo_fade_tbl+bx]       ;fetch color value
         mov     [top_palette+LETTER_M_COLOR_IDX],al     ;update color index for M
 
-        inc     word [palette_idx]              ;update palette offset
+        inc     byte [palette_idx]              ;update palette offset
         ret
 .end:
-        jmp     main_state_next                 ;set next state and return
+        jmp     letter_state_next               ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_nothing_init:
-        ret
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_nothing_anim:
+letter_state_outline_fade_init:
+        mov     byte [palette_outline_fade_idx],0
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_skip_anim:
-        jmp     main_state_next                 ;set next state and return
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_outline_fade_init:
-        mov     word [palette_outline_fade_idx],0
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_outline_fade_in_anim:
-        mov     bx,word [palette_outline_fade_idx]
-        cmp     bx,PALETTE_OUTLINE_FADE_IN_MAX
+letter_state_outline_fade_in_anim:
+        mov     bl,byte [palette_outline_fade_idx]
+        cmp     bl,PALETTE_OUTLINE_FADE_IN_MAX
         je      .end
 
-        mov     dx,0x03da                       ;select color register
-        mov     al,0x10+LETTER_BORDER_COLOR_IDX ;PVM border color
-        out     dx,al                           ;select palette register
+        sub     bh,bh
+        mov     al,[palette_outline_fade_in_tbl+bx]     ;fetch color value
+        mov     [top_palette+LETTER_BORDER_COLOR_IDX],al
 
-        mov     dl,0xde                         ;dx=0x03de
-        mov     al,[palette_outline_fade_in_tbl+bx]
-        out     dx,al
-
-        inc     word [palette_outline_fade_idx]
+        inc     byte [palette_outline_fade_idx]
         ret
 .end:
-        jmp     main_state_next                 ;set next state and return
+        jmp     letter_state_next               ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_outline_fade_out_anim:
-        mov     bx,word [palette_outline_fade_idx]
-        cmp     bx,PALETTE_OUTLINE_FADE_OUT_MAX
+letter_state_outline_fade_out_anim:
+        mov     bl,byte [palette_outline_fade_idx]
+        cmp     bl,PALETTE_OUTLINE_FADE_OUT_MAX
         je      .end
 
-        mov     dx,0x03da                       ;select color register
-        mov     al,0x10+LETTER_BORDER_COLOR_IDX ;PVM border color
-        out     dx,al                           ;select palette register
+        sub     bh,bh
+        mov     al,[palette_outline_fade_out_tbl+bx]    ;fetch color value
+        mov     [top_palette+LETTER_BORDER_COLOR_IDX],al
 
-        mov     dl,0xde                         ;dx=0x03de
-        mov     al,[palette_outline_fade_out_tbl + bx]
-        out     dx,al
-
-        inc     word [palette_outline_fade_idx]
+        inc     byte [palette_outline_fade_idx]
         ret
 .end:
-        jmp     main_state_next                 ;set next state and return
+        jmp     letter_state_next               ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_outline_fade_to_final_anim:
-        mov     bx,word [palette_outline_fade_idx]
-        cmp     bx,PALETTE_OUTLINE_FADE_TO_FINAL_MAX
+letter_state_outline_fade_to_final_anim:
+        mov     bl,byte [palette_outline_fade_idx]
+        cmp     bl,PALETTE_OUTLINE_FADE_TO_FINAL_MAX
         je      .end
 
-        mov     dx,0x03da                       ;select color register
-        mov     al,0x10+LETTER_BORDER_COLOR_IDX ;PVM border color
-        out     dx,al                           ;select palette register
+        sub     bh,bh
+        mov     al,[palette_outline_fade_to_final_tbl+bx]       ;fetch color value
+        mov     [top_palette+LETTER_BORDER_COLOR_IDX],al
 
-        mov     dl,0xde                         ;dx=0x03de
-        mov     al,[palette_outline_fade_to_final_tbl+bx]
-        out     dx,al
-
-        inc     word [palette_outline_fade_idx]
+        inc     byte [palette_outline_fade_idx]
         ret
 .end:
-        jmp     main_state_next                 ;set next state and return
+        jmp     letter_state_next               ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-letter_state_delay_init:
+letter_state_wait_sem_init:
+        mov     byte [letter_state_semaphore],0
         ret
+
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-letter_state_delay_anim:
+letter_state_wait_sem_anim:
+        cmp     byte [letter_state_semaphore],0
+        jnz     .next_state
         ret
+.next_state:
+        jmp     letter_state_next
+
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-letter_state_fade_in_1_at_time_init:
+letter_state_outline_noise_init:
+        mov     byte [noise_fade_color_idx],0
         ret
+
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-letter_state_fade_in_1_at_time_anim:
+letter_state_outline_noise_anim:
+        cmp     byte [noise_triggered],0
+        je      .skip
+        mov     byte [noise_fade_color_idx],0           ;if triggered, reset anim
+.skip:
+        cmp     byte [noise_fade_color_idx],NOISE_FADE_COLORS_MAX       ;end of anim?
+        je      .exit
+
+        sub     bh,bh
+        mov     bl,[noise_fade_color_idx]               ;bx with index to table
+
+        mov     al,[noise_fade_colors_tbl+bx]           ;fetch color
+        mov     [top_palette+LETTER_BORDER_COLOR_IDX],al
+
+        inc     byte [noise_fade_color_idx]
+.exit:
         ret
+
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_init:
@@ -930,7 +1012,7 @@ scroll_init:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_anim:
         mov     al,byte [scroll_state]
-        cmp     al,SCROLL_STATE_SCROLL       ;scroll enabled?
+        cmp     al,SCROLL_STATE_SCROLL          ;scroll enabled?
         je      .do_scroll
         cmp     al,SCROLL_STATE_PLASMA
         je      .do_plasma
@@ -1066,8 +1148,6 @@ music_init:
         sub     al,al
         mov     byte [pvm_wait],al              ;don't wait at start
         mov     byte [noise_triggered],al       ;noise not playing
-        mov     byte [noise_fade_idx],al
-        mov     byte [noise_fade_enabled],al
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1317,7 +1397,7 @@ text_writer_state_call_action_anim:
         inc     word [text_writer_idx]          ;offset + 1
         mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;print char is next state
         mov     bx,word [text_writer_idx]       ;FIXME: do something with bx
-        jmp     state_enable_noise_fade_init
+        ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_state_cursor_blink_init:
@@ -1386,11 +1466,6 @@ crtc_addr_anim:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_enable_text_writer:
         mov     byte [text_writer_enabled],1
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_enable_noise_fade_init:
-        inc     byte [noise_fade_enabled]
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1946,28 +2021,6 @@ text_writer_fill_one_char:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-noise_fade_anim:
-        cmp     byte [noise_fade_enabled],0
-        je      .exit
-
-        cmp     byte [noise_triggered],0
-        je      .skip
-        mov     byte [noise_fade_idx],0         ;if triggered, reset anim
-.skip:
-        cmp     byte [noise_fade_idx],NOISE_FADE_MAX    ;end of anim?
-        je      .exit
-
-        sub     bh,bh
-        mov     bl,[noise_fade_idx]             ;bx with index to table
-
-        mov     al,[noise_fade_tbl+bx]          ;fetch color
-        mov     [top_palette + LETTER_BORDER_COLOR_IDX],al
-
-        inc     byte [noise_fade_idx]
-.exit:
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 inc_d020:
         mov     dx,0x03da                       ;show how many raster barts it consumes
         mov     al,2                            ;select border color
@@ -2009,15 +2062,13 @@ pvm_wait:                                       ;cycles to read diviced 0x2df
 pvm_offset:                                     ;pointer to next byte to read
         dw 0
 
-noise_fade_enabled:                             ;effect is enabled?
-        db 0
 noise_triggered:
         db 0                                    ;boolen. whether noise is playing
-noise_fade_idx:                                 ;index to table
+noise_fade_color_idx:                           ;offset in color table
         db 0
-noise_fade_tbl:
-        db      8,7,11,8,1
-NOISE_FADE_MAX equ $-noise_fade_tbl
+noise_fade_colors_tbl:
+        db      8,7,11,8,1,0
+NOISE_FADE_COLORS_MAX equ $-noise_fade_colors_tbl
 
 
 LFSR_START_STATE equ 1973                       ;lfsr start state
@@ -2033,9 +2084,6 @@ palette_black_tbl:                              ;fade to white/fade to black col
         db      9,11,3,7,8,0
 PALETTE_BLACK_MAX equ $-palette_black_tbl
 
-delay_frames:
-        dw      0                               ;frames to wait before doing something
-
 global c64_charset
 c64_charset:
         incbin 'src/c64_charset-charset.bin'
@@ -2043,10 +2091,6 @@ c64_charset:
 charset:
         incbin 'src/font_unknown_2x2-charset.bin'
 
-cache_charset:
-        resb    32                              ;the 32 bytes to print in the current frame
-                                                ; char aligned like: top-left, bottom-left,
-                                                ; top-right, bottom-right
 scroll_control_code_tbl:
         dw      scroll_control_code_color_white
         dw      scroll_control_code_color_anim
@@ -2101,7 +2145,7 @@ scroll_col_used:
         db 0                                    ;chars are 2x2. col indicates which col is being used
 
 scroll_pixel_color_tbl:                         ;the colors for the scroll letters
-        resb    4                               ; it contains a copy of one of the tables
+        db      0,0,0,0                         ; it contains a copy of one of the tables
                                                 ; below
 scroll_pixel_white_tbl:
         db      0x00                            ;00 - black/black
@@ -2121,7 +2165,7 @@ scroll_state:                                   ;scroll state machine
         db      0
 
 palette_outline_fade_idx:                       ;index for table used in outline fade effect
-        dw      0
+        db      0
 palette_outline_fade_in_tbl:                   ;fade_out
         db      8,8,7,7,15,15,15,15
 PALETTE_OUTLINE_FADE_IN_MAX equ $-palette_outline_fade_in_tbl
@@ -2135,7 +2179,7 @@ palette_outline_fade_to_final_tbl:              ;fade in until gets final color
 PALETTE_OUTLINE_FADE_TO_FINAL_MAX equ $-palette_outline_fade_to_final_tbl
 
 palette_idx:
-        dw      0
+        db      0
 
         db      0,0,0,0,0,0,0,0                 ;buffer for letter M
         db      0,0,0,0,0,0,0,0                 ;buffer for letter P
@@ -2154,6 +2198,9 @@ volume_0:
         db      0b1111_1111                     ;vol 0 channel 3
 
 
+main_state_delay_frames:
+        dw      0                               ;frames to wait before doing something
+
 main_state:                                     ;main state. index for the
         db      0                               ; function to call.
 
@@ -2161,68 +2208,97 @@ main_state_inits:
         dw      state_gfx_fade_in_init          ;a
         dw      state_fade_to_black_init        ;b
         dw      state_delay_2s_init             ;c
-        dw      state_new_i08_multi_color_init  ;i
-;        dw      state_outline_fade_init        ;d
-;        dw      state_outline_fade_init        ;e
-        dw      state_plasma_red_tex_init       ;f
-        dw      state_plasma_green_tex_init     ;g
-        dw      state_plasma_magenta_tex_init   ;h
-        dw      state_clear_bottom_init         ;l
+
+        dw      state_new_i08_multi_color_init  ;d
+        dw      state_plasma_red_tex_init       ;e
+        dw      state_plasma_green_tex_init     ;f
+        dw      state_plasma_magenta_tex_init   ;g
+        dw      state_clear_bottom_init         ;h
+
         dw      state_new_i08_full_color_init   ;i
-        dw      state_pvm_logo_fade_in_init     ;j
-        dw      state_outline_fade_init         ;k
-;        dw      state_plasma_init              ;m
-        dw      state_clear_bottom_init         ;n
-        dw      state_enable_scroll             ;o
-        dw      state_delay_2s_init             ;i'
-        dw      state_enable_text_writer        ;i
+        dw      state_signal_letter_state_sem_init
+;        dw      state_plasma_init              ;-
+        dw      state_clear_bottom_init         ;l
+        dw      state_enable_scroll             ;m
+        dw      state_delay_2s_init             ;n
+        dw      state_enable_text_writer        ;o
         dw      state_nothing_init              ;p
 
 main_state_callbacks:
         dw      state_gfx_fade_in_anim          ;a
         dw      state_fade_to_black_anim        ;b
         dw      state_delay_anim                ;c
-        dw      state_skip_anim                 ;i
-;        dw      state_outline_fade_in_anim     ;d
-;        dw      state_outline_fade_out_anim    ;e
+
+        dw      state_skip_anim                 ;d
+        dw      state_plasma_tex_anim           ;e
         dw      state_plasma_tex_anim           ;f
         dw      state_plasma_tex_anim           ;g
-        dw      state_plasma_tex_anim           ;h
+        dw      state_clear_bottom_anim         ;h
+
+        dw      state_skip_anim                 ;i
+        dw      state_skip_anim                 ;i
+;        dw      state_plasma_anim              ;-
         dw      state_clear_bottom_anim         ;l
-        dw      state_skip_anim                 ;i
-        dw      state_pvm_logo_fade_in_anim     ;j
-        dw      state_outline_fade_to_final_anim;k
-;        dw      state_plasma_anim              ;m
-        dw      state_clear_bottom_anim         ;n
+        dw      state_skip_anim                 ;m
+        dw      state_delay_anim                ;n
         dw      state_skip_anim                 ;o
-        dw      state_delay_anim                ;i'
-        dw      state_skip_anim                 ;i
         dw      state_nothing_anim              ;p
 
 
+letter_state_delay_frames:
+        dw      0                               ;frames to wait before doing something
+
 letter_state:                                   ;PVM letters animation state machine
         db      0
+
 letter_state_inits:
-        dw      letter_state_delay_init         ;a
+;        dw      letter_state_outline_fade_init        ;-
+        dw      letter_state_wait_sem_init      ;a
         dw      letter_state_fade_in_1_at_time_init     ;b
-        dw      letter_state_delay_anim         ;c
+        dw      letter_state_outline_fade_init  ;c
+        dw      letter_state_delay_2s_init      ;d
+        dw      letter_state_outline_fade_init  ;e'
+        dw      letter_state_fade_out_p_init    ;e
+        dw      letter_state_delay_200ms_init   ;d
+        dw      letter_state_fade_out_v_init    ;f
+        dw      letter_state_delay_200ms_init   ;d
+        dw      letter_state_fade_out_m_init    ;g
+        dw      letter_state_delay_2s_init      ;d'
+        dw      letter_state_outline_noise_init ;h
+        dw      letter_state_wait_sem_init      ;i
 
 letter_state_callbacks:
-        dw      letter_state_delay_anim         ;a
+;        dw      letter_state_outline_fade_in_anim     ;-
+        dw      letter_state_wait_sem_anim      ;a
         dw      letter_state_fade_in_1_at_time_anim     ;b
-        dw      letter_state_delay_anim         ;c
+        dw      letter_state_outline_fade_to_final_anim ;c
+        dw      letter_state_delay_anim         ;d
+        dw      letter_state_outline_fade_out_anim      ;e'
+        dw      letter_state_fade_out_letter_anim       ;e
+        dw      letter_state_delay_anim         ;d
+        dw      letter_state_fade_out_letter_anim       ;f
+        dw      letter_state_delay_anim         ;d
+        dw      letter_state_fade_out_letter_anim       ;g
+        dw      letter_state_delay_anim         ;d'
+        dw      letter_state_outline_noise_anim ;h
+        dw      letter_state_wait_sem_anim      ;i
+
+letter_state_semaphore:                         ;semaphore used in letter state machine
+        db      0
+
+letter_state_color_to_fade:                     ;which color idx to fade
+        db      0
 
 text_writer_addr:                               ;address where the char will be written
-        resw    1
+        dw      0
 text_writer_x_pos:                              ;position x for the cursor. 0-39
-        resb    1                               ; but supports in the range of -127,128
+        db      0                               ; but supports in the range of -127,128
 text_writer_x_dst:                              ;dst position x for the cursor. 0-39
-        resb    1
+        db      0
 text_writer_y_pos:                              ;position y for the cursor. 0-24
-        resb    1                               ; but supports in the range of -127,128
+        db      0                               ; but supports in the range of -127,128
 text_writer_y_dst:                              ;dst position 0 for the cursor. 0-24
-        resb    1
-
+        db      0
 text_writer_enabled:
         db      0                               ;boolean: whether the text_writer anim is enabled
 
@@ -2469,19 +2545,19 @@ plasma_tex_colors_updated:                      ;number of palette colors that w
 plasma_tex_delay:                               ;refreshes to wait for the palette update
         db      0
 plasma_tex_palette_addr:                        ;palette address to use
-        resw    1
+        dw      0
 plasma_tex_letter_color:                        ;color of the PVM letter to update
-        resb    1
+        db      0
 plasma_tex_x_offset:                            ;plama x offset. to make it scroll
         dw      0
 plasma_tex_inc_x0:                              ;plasma xbuf increment a
-        resb    1
+        db      0
 plasma_tex_inc_x1:                              ;plasma xbuf increment b
-        resb    1
+        db      0
 plasma_tex_inc_y0:                              ;plasma ybuf increment a
-        resb    1
+        db      0
 plasma_tex_inc_y1:                              ;plasma ybuf incrment b
-        resb    1
+        db      0
 
 cycle_palette_delay:                            ;delay for the palette cycle animation
         db      1
@@ -2500,14 +2576,6 @@ plasma_off_y0:                                  ;plasma: ybuf idx 1
         db      0
 plasma_off_y1:                                  ;plasma: ybuf idx 2
         db      0
-plasma_tex_xbuf:                                ;plasma tex xbuffer
-        resb   PLASMA_TEX_WIDTH
-plasma_tex_ybuf:                                ;plasma tex ybuffer
-        resb   PLASMA_TEX_HEIGHT
-plasma_xbuf:                                    ;plasma xbuffer
-        resb   PLASMA_WIDTH
-plasma_ybuf:                                    ;plasma ybuffer
-        resb   PLASMA_HEIGHT
 plasma_counter:                                 ;ticks elapsed in plasma effect
         dw      0
 fn_table_1:
@@ -2564,3 +2632,19 @@ luminances_6_colors:
         db      0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66         ;should be 0x00
         db      0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66
         db      0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; resb/resw
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+cache_charset:
+        resb    32                              ;the 32 bytes to print in the current frame
+                                                ; char aligned like: top-left, bottom-left,
+                                                ; top-right, bottom-right
+plasma_tex_xbuf:                                ;plasma tex xbuffer
+        resb   PLASMA_TEX_WIDTH
+plasma_tex_ybuf:                                ;plasma tex ybuffer
+        resb   PLASMA_TEX_HEIGHT
+plasma_xbuf:                                    ;plasma xbuffer
+        resb   PLASMA_WIDTH
+plasma_ybuf:                                    ;plasma ybuffer
+        resb   PLASMA_HEIGHT
