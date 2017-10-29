@@ -835,6 +835,11 @@ letter_state_delay_2s_init:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_delay_5s_init:
+        mov     word [letter_state_delay_frames],60*5   ;wait 5 seconds
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 letter_state_delay_200ms_init:
         mov     word [letter_state_delay_frames],60/5   ;wait 200ms
         ret
@@ -851,34 +856,106 @@ letter_state_delay_anim:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 letter_state_fade_out_p_init:
         mov     byte [letter_state_color_to_fade],LETTER_P_COLOR_IDX
-        mov     byte [palette_outline_fade_idx],0
+        mov     byte [palette_letter_color_idx],0
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 letter_state_fade_out_v_init:
         mov     byte [letter_state_color_to_fade],LETTER_V_COLOR_IDX
-        mov     byte [palette_outline_fade_idx],0
+        mov     byte [palette_letter_color_idx],0
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 letter_state_fade_out_m_init:
         mov     byte [letter_state_color_to_fade],LETTER_M_COLOR_IDX
-        mov     byte [palette_outline_fade_idx],0
+        mov     byte [palette_letter_color_idx],0
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 letter_state_fade_out_letter_anim:
-        mov     bl,[palette_outline_fade_idx]
-        cmp     bl,PALETTE_OUTLINE_FADE_OUT_MAX
+        mov     bl,[palette_letter_color_idx]
+        cmp     bl,PALETTE_GRAYSCALE_OUT_MAX
         je      .next
 
         sub     bh,bh
-        mov     al,[palette_outline_fade_out_tbl+bx]    ;get color to be used
+        mov     al,[palette_grascale_out_tbl+bx]    ;get color to be used
 
         mov     bl,[letter_state_color_to_fade] ;color index to fade
         mov     [top_palette+bx],al             ;update letter color
 
-        inc     byte [palette_outline_fade_idx] ;next color to be used
+        inc     byte [palette_letter_color_idx] ;next color to be used
+        ret
+
+.next:
+        jmp     letter_state_next
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_fade_in_p_init:
+        mov     byte [letter_state_color_to_fade],LETTER_P_COLOR_IDX
+        mov     byte [palette_letter_color_idx],0
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_fade_in_v_init:
+        mov     byte [letter_state_color_to_fade],LETTER_V_COLOR_IDX
+        mov     byte [palette_letter_color_idx],0
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_fade_in_m_init:
+        mov     byte [letter_state_color_to_fade],LETTER_M_COLOR_IDX
+        mov     byte [palette_letter_color_idx],0
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_fade_to_pink_letter_anim:
+        mov     bl,[palette_letter_color_idx]
+        cmp     bl,PALETTE_BLACK_TO_PINK_MAX
+        je      .next
+
+        sub     bh,bh
+        mov     al,[palette_black_to_pink_tbl+bx]      ;get color to be used
+
+        mov     bl,[letter_state_color_to_fade] ;color index to fade
+        mov     [top_palette+bx],al             ;update letter color
+
+        inc     byte [palette_letter_color_idx] ;next color to be used
+        ret
+
+.next:
+        jmp     letter_state_next
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_fade_to_green_letter_anim:
+        mov     bl,[palette_letter_color_idx]
+        cmp     bl,PALETTE_BLACK_TO_GREEN_MAX
+        je      .next
+
+        sub     bh,bh
+        mov     al,[palette_black_to_green_tbl+bx]        ;get color to be used
+
+        mov     bl,[letter_state_color_to_fade] ;color index to fade
+        mov     [top_palette+bx],al             ;update letter color
+
+        inc     byte [palette_letter_color_idx] ;next color to be used
+        ret
+
+.next:
+        jmp     letter_state_next
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_fade_to_red_letter_anim:
+        mov     bl,[palette_letter_color_idx]
+        cmp     bl,PALETTE_BLACK_TO_RED_MAX
+        je      .next
+
+        sub     bh,bh
+        mov     al,[palette_black_to_red_tbl+bx]        ;get color to be used
+
+        mov     bl,[letter_state_color_to_fade] ;color index to fade
+        mov     [top_palette+bx],al             ;update letter color
+
+        inc     byte [palette_letter_color_idx] ;next color to be used
         ret
 
 .next:
@@ -918,42 +995,42 @@ letter_state_fade_in_1_at_time_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 letter_state_outline_fade_init:
-        mov     byte [palette_outline_fade_idx],0
+        mov     byte [palette_letter_color_idx],0
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 letter_state_outline_fade_in_anim:
-        mov     bl,byte [palette_outline_fade_idx]
-        cmp     bl,PALETTE_OUTLINE_FADE_IN_MAX
+        mov     bl,byte [palette_letter_color_idx]
+        cmp     bl,PALETTE_GRAYSCALE_IN_MAX
         je      .end
 
         sub     bh,bh
-        mov     al,[palette_outline_fade_in_tbl+bx]     ;fetch color value
+        mov     al,[palette_grayscale_in_tbl+bx]     ;fetch color value
         mov     [top_palette+LETTER_BORDER_COLOR_IDX],al
 
-        inc     byte [palette_outline_fade_idx]
+        inc     byte [palette_letter_color_idx]
         ret
 .end:
         jmp     letter_state_next               ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 letter_state_outline_fade_out_anim:
-        mov     bl,byte [palette_outline_fade_idx]
-        cmp     bl,PALETTE_OUTLINE_FADE_OUT_MAX
+        mov     bl,byte [palette_letter_color_idx]
+        cmp     bl,PALETTE_GRAYSCALE_OUT_MAX
         je      .end
 
         sub     bh,bh
-        mov     al,[palette_outline_fade_out_tbl+bx]    ;fetch color value
+        mov     al,[palette_grascale_out_tbl+bx]    ;fetch color value
         mov     [top_palette+LETTER_BORDER_COLOR_IDX],al
 
-        inc     byte [palette_outline_fade_idx]
+        inc     byte [palette_letter_color_idx]
         ret
 .end:
         jmp     letter_state_next               ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 letter_state_outline_fade_to_final_anim:
-        mov     bl,byte [palette_outline_fade_idx]
+        mov     bl,byte [palette_letter_color_idx]
         cmp     bl,PALETTE_OUTLINE_FADE_TO_FINAL_MAX
         je      .end
 
@@ -961,7 +1038,7 @@ letter_state_outline_fade_to_final_anim:
         mov     al,[palette_outline_fade_to_final_tbl+bx]       ;fetch color value
         mov     [top_palette+LETTER_BORDER_COLOR_IDX],al
 
-        inc     byte [palette_outline_fade_idx]
+        inc     byte [palette_letter_color_idx]
         ret
 .end:
         jmp     letter_state_next               ;set next state and return
@@ -2164,15 +2241,27 @@ SCROLL_STATE_PLASMA     equ 2                   ;do the plasma instead of the sc
 scroll_state:                                   ;scroll state machine
         db      0
 
-palette_outline_fade_idx:                       ;index for table used in outline fade effect
+palette_letter_color_idx:                       ;index for table used in fade in/out effects
         db      0
-palette_outline_fade_in_tbl:                   ;fade_out
+palette_grayscale_in_tbl:                       ;fade in in grayscale
         db      8,8,7,7,15,15,15,15
-PALETTE_OUTLINE_FADE_IN_MAX equ $-palette_outline_fade_in_tbl
+PALETTE_GRAYSCALE_IN_MAX equ $-palette_grayscale_in_tbl
 
-palette_outline_fade_out_tbl:                   ;fade_out
+palette_grascale_out_tbl:                       ;fade out in grayscale
         db      7,7,8,8,0
-PALETTE_OUTLINE_FADE_OUT_MAX equ $-palette_outline_fade_out_tbl
+PALETTE_GRAYSCALE_OUT_MAX equ $-palette_grascale_out_tbl
+
+palette_black_to_pink_tbl:
+        db      0,1,9,5,13
+PALETTE_BLACK_TO_PINK_MAX equ $-palette_black_to_pink_tbl
+
+palette_black_to_red_tbl:
+        db      0,1,2,3,4
+PALETTE_BLACK_TO_RED_MAX equ $-palette_black_to_red_tbl
+
+palette_black_to_green_tbl:
+        db      0,6,14,2,10
+PALETTE_BLACK_TO_GREEN_MAX equ $-palette_black_to_green_tbl
 
 palette_outline_fade_to_final_tbl:              ;fade in until gets final color
         db      8,8,7,7,11,11,11,11,7,7,8,8,1
@@ -2216,8 +2305,7 @@ main_state_inits:
         dw      state_clear_bottom_init         ;h
 
         dw      state_new_i08_full_color_init   ;i
-        dw      state_signal_letter_state_sem_init
-;        dw      state_plasma_init              ;-
+        dw      state_signal_letter_state_sem_init      ;j
         dw      state_clear_bottom_init         ;l
         dw      state_enable_scroll             ;m
         dw      state_delay_2s_init             ;n
@@ -2236,8 +2324,7 @@ main_state_callbacks:
         dw      state_clear_bottom_anim         ;h
 
         dw      state_skip_anim                 ;i
-        dw      state_skip_anim                 ;i
-;        dw      state_plasma_anim              ;-
+        dw      state_skip_anim                 ;j
         dw      state_clear_bottom_anim         ;l
         dw      state_skip_anim                 ;m
         dw      state_delay_anim                ;n
@@ -2258,12 +2345,19 @@ letter_state_inits:
         dw      letter_state_outline_fade_init  ;c
         dw      letter_state_delay_2s_init      ;d
         dw      letter_state_outline_fade_init  ;e'
+
         dw      letter_state_fade_out_p_init    ;e
+        dw      letter_state_fade_in_p_init     ;e'
         dw      letter_state_delay_200ms_init   ;d
+
         dw      letter_state_fade_out_v_init    ;f
+        dw      letter_state_fade_in_v_init     ;f'
         dw      letter_state_delay_200ms_init   ;d
+
         dw      letter_state_fade_out_m_init    ;g
-        dw      letter_state_delay_2s_init      ;d'
+        dw      letter_state_fade_in_m_init     ;g'
+        dw      letter_state_delay_5s_init      ;d'
+
         dw      letter_state_outline_noise_init ;h
         dw      letter_state_wait_sem_init      ;i
 
@@ -2274,12 +2368,19 @@ letter_state_callbacks:
         dw      letter_state_outline_fade_to_final_anim ;c
         dw      letter_state_delay_anim         ;d
         dw      letter_state_outline_fade_out_anim      ;e'
+
         dw      letter_state_fade_out_letter_anim       ;e
+        dw      letter_state_fade_to_pink_letter_anim   ;e'
         dw      letter_state_delay_anim         ;d
+
         dw      letter_state_fade_out_letter_anim       ;f
+        dw      letter_state_fade_to_green_letter_anim  ;f'
         dw      letter_state_delay_anim         ;d
+
         dw      letter_state_fade_out_letter_anim       ;g
+        dw      letter_state_fade_to_red_letter_anim    ;g'
         dw      letter_state_delay_anim         ;d'
+
         dw      letter_state_outline_noise_anim ;h
         dw      letter_state_wait_sem_anim      ;i
 
