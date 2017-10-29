@@ -668,8 +668,7 @@ state_next:
         sub     bh,bh
         mov     bl,byte [current_state]
         shl     bx,1
-        call    [states_inits+bx]
-        ret
+        jmp     [states_inits+bx]
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 palette_colors_init:
@@ -709,11 +708,10 @@ state_fade_to_black_anim:
 
         inc     word [palette_black_idx]
         cmp     word [palette_black_idx], PALETTE_BLACK_MAX
-        jnz     .end
-
-        call    state_next
-.end:
+        je      .next_state
         ret
+.next_state
+        jmp     state_next
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_delay_500ms_init:
