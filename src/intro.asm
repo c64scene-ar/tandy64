@@ -307,7 +307,7 @@ state_new_i08_full_color_init:
         mov     dx,0x3da
         WAIT_VERTICAL_RETRACE
 
-        mov     cx,168                          ;and wait for scanlines
+        mov     cx,166                          ;and wait for scanlines
 .repeat:
         WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
         loop    .repeat                         ; is closer to emulators
@@ -600,7 +600,7 @@ new_i08_bottom_full_color:
         mov     cl,RASTER_COLORS_MAX            ;total number of raster bars
         mov     si,raster_colors_tbl            ;where the colors are for each raster bar
 
-        WAIT_HORIZONTAL_RETRACE
+        WAIT_HORIZONTAL_RETRACE                 ;prevents flicker on real machine
 
         ;BEGIN raster bar code
         ;should be done as fast as possible
