@@ -588,19 +588,20 @@ new_i08_bottom_full_color:
         ;update bottom-screen palette
         mov     bp,0x3da                        ;register address
         mov     si,bottom_palette+1             ;points to colors used at the bottom. skips black
-        mov     cx,6                            ;only update 8 colors
+        mov     cx,6                            ;only update a few colors
         mov     bl,0x11                         ; starting with color 1 (skip black)
         REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
-        mov     cx,RASTER_COLORS_MAX            ;total number of raster bars
-        mov     si,raster_colors_tbl            ;where the colors are for each raster bar
-        mov     dx,0x03da
+        mov     bx,0xdade                       ;used for 3da / 3de. registers faster than immediate
+        mov     dl,bh                           ;dx = 0x3da
         mov     al,0x1f                         ;select palette color 15 (white)
         out     dx,al
 
+        mov     cl,RASTER_COLORS_MAX            ;total number of raster bars
+        mov     si,raster_colors_tbl            ;where the colors are for each raster bar
+
         ;BEGIN raster bar code
         ;should be done as fast as possible
-        mov     bx,0xdade                       ;used for 3da / 3de. faster than add / sub 4
 .l0:
         lodsb                                   ;fetch color
         mov     ah,al                           ; and save it for later
