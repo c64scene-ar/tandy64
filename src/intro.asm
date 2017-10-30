@@ -735,17 +735,22 @@ state_fade_to_black_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_delay_500ms_init:
-        mov     word [main_state_delay_frames],30          ;wait 30 cycles. half second
+        mov     word [main_state_delay_frames],30       ;wait 30 cycles. half second
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_delay_2s_init:
-        mov     word [main_state_delay_frames],60*2        ;wait 2 seconds before showing logo
+        mov     word [main_state_delay_frames],60*2     ;wait 2 seconds before showing logo
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_delay_5s_init:
-        mov     word [main_state_delay_frames],60*5        ;wait 5 seconds before showing logo
+        mov     word [main_state_delay_frames],60*5     ;wait 5 seconds before showing logo
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_delay_10s_init:
+        mov     word [main_state_delay_frames],60*10    ;wait 5 seconds before showing logo
         ret
 
 
@@ -2183,13 +2188,11 @@ scroll_control_code_tbl:
         ;       130 = plasma init
 scroll_text:
         db 128                                  ;color white
-        db 'HI THERE. '
-        db 129,'P'
-        db 128,'UNGAS DE '
-        db 129,'V'
-        db 128,'ILLA '
-        db 129,'M'
-        db 128,'ARTELLI HERE, WITH OUR FIRST TANDY RELEASE. '
+;        db 'HI THERE. '
+;        db 129,'PUNGAS DE '
+;        db 129,'VILLA '
+;        db 129,'M' db 128,'ARTELLI HERE, WITH OUR FIRST TANDY RELEASE. '
+        db 129
         db 'IT ALL BEGAN WHEN WE WENT TO PICK UP A COMMODORE 64 BUNDLE '
         db 'AND THE SELLER INCLUDED TWO TANDY 1000 HX IN IT. '
         db 'WTF IS A TANDY 1000 HX? WE GOOGLED IT, AND WE LIKED IT. '
@@ -2296,7 +2299,7 @@ main_state:                                     ;main state. index for the
 main_state_inits:
         dw      state_gfx_fade_in_init          ;a
         dw      state_fade_to_black_init        ;b
-        dw      state_delay_2s_init             ;c
+        dw      state_delay_500ms_init          ;c
 
         dw      state_new_i08_multi_color_init  ;d
         dw      state_plasma_red_tex_init       ;e
@@ -2308,7 +2311,7 @@ main_state_inits:
         dw      state_signal_letter_state_sem_init      ;j
         dw      state_clear_bottom_init         ;l
         dw      state_enable_scroll             ;m
-        dw      state_delay_2s_init             ;n
+        dw      state_delay_10s_init            ;n
         dw      state_enable_text_writer        ;o
         dw      state_nothing_init              ;p
 
@@ -2574,12 +2577,13 @@ old_pic_imr:                                    ;PIC IMR original value
         db      0
 
 raster_colors_tbl:                              ;used for the raster bars, at the
-        db      15,7,9,8,1,0                    ; bottom of the screen
-        db      0,1,8,9,7,15
-        db      15,7,9,8
+        db      14,14,14,14,14                  ; bottom of the screen
+        db      13,13,13,13,13
+        db      11,11,11,11,11,11
 raster_color_restore:                           ;must be after raster_colors_tbl
         db      15
 RASTER_COLORS_MAX equ $-raster_colors_tbl
+
 BOTTOM_TOP_LINES_TO_WAIT equ 32
 
 top_palette:                                    ;palette used for the upper part of the screen
