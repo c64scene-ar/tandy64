@@ -2236,7 +2236,7 @@ scroll_text:
         db 'SENDING OUR REGARDS TO ALL THE TANDY 1000 SCENE, STARTING WITH: '
         db '                      '
         db 130                                  ;start plasma
-        db 'NO TANDY 1000 SCENE ??? HOW DARE YOU !!! '
+        db ' NO TANDY 1000 SCENE ??? HOW DARE YOU !!! '
         db '   ;   '
         db 'BIG THANKS TO DEMOSPLASH FOR GOING THE EXTRA MILE, AND ADDING TANDY 1000 TO THE LIST OF SUPPORTED SYSTEMS!!! '
         db 27,28,29,30,31,42,43                 ;Radio Shack (using Radio Shack font)
@@ -2509,86 +2509,34 @@ text_writer_data:
 
         db      '                Hi there'
         db      TW_STATE_CURSOR_BLINK,5         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos
+        db      TW_STATE_GOTO_X,3               ;go to pos
 
-        db      'Never saw a plasma effect so small ?'
+        db      'Pungas de Villa Martelli here'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_CALL_ACTION,0          ;execute action 0: enable rhythm
-        db      TW_STATE_GOTO_X,0               ;go to pos
+        db      TW_STATE_GOTO_X,3               ;go to pos
 
-        db      'Ha ha, we neither'
+        db      '   --- Tandy 64 - BETA VERSION ---'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO_X,5               ;go to pos
+
+        db      '--- Do not distribute ---'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO_X,1               ;go to pos
+
+        db      '- To be presented at Demospalsh 2017 -'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_GOTO_X,0               ;go to pos
 
-        db      'At least it runs at 60 FPS'
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos
-
-        db      'And it has raster bars!'
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos
-
-        db      'And it can cycle colors'
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos
-
-        db      `And we run out of time`
+        db      'Use real hardware to try it'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_GOTO_X,0               ;go to pos 5
 
-        db      'Tip: run this intro in real hardware'
+        db      'Tested on a:'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_GOTO_X,0               ;go to pos 5
 
-        db      'in particular, in a Tandy 1000 HX'
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
-
-        db      'Tested with 256K RAM and DOS v2.0'
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
-
-        db      'Should work with 128K too'
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
-
-        db      'Might not work correctly on emulators'
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
-
-        db      `Or if run on non-8088 Tandy's`
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
-
-        db      `Works both in RGB and composite modes`
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
-
-        db      `But better on RGB mode (better colors)`
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
-
-        db      `We tried our best to support DosBox-x`
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
-
-        db      `But some glitches appear every now and then`
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
-
-        db      `Do you have a IBM PC Jr. ?`
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
-
-        db      `Do you mind testing it there ?`
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
-
-        db      `We know it will run rather slow`
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
-
-        db      `but we want to know how slow it runs`
+        db      'Tandy 1000 HX - 256k RAM - RGB output'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_GOTO_X,0               ;go to pos 5
 TEXT_WRITER_DATA_LEN equ $-text_writer_data
