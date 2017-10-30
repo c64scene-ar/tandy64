@@ -229,18 +229,9 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 
         cli                                     ;disable interrupts
 
-        mov     dx,0x3da
-        WAIT_VERTICAL_RETRACE
-
-        mov     cx,194                          ;and wait for scanlines
-.repeat:
-        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
-        loop    .repeat                         ; is closer to emulators
-
-        push    es
+        mov     bp,es                           ;save es
         sub     ax,ax
         mov     es,ax
-
 
         ;Keyboard
         mov     ax,new_i09
@@ -258,7 +249,15 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
         mov     [old_i08],ax
         mov     [old_i08+2],dx
 
-        pop     es
+        mov     es,bp                           ;restore es
+
+        mov     dx,0x3da
+        WAIT_VERTICAL_RETRACE
+
+        mov     cx,194                          ;and wait for scanlines
+.repeat:
+        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
+        loop    .repeat                         ; is closer to emulators
 
         mov     ax,PIT_DIVIDER                  ;Configure the PIT to
         call    setup_pit                       ;setup PIT
@@ -275,15 +274,7 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 state_new_i08_multi_color_init:
         cli                                     ;disable interrupts
                                                 ; while setting the interrupt
-        mov     dx,0x3da
-        WAIT_VERTICAL_RETRACE
-
-        mov     cx,156                          ;and wait for scanlines
-.repeat:
-        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
-        loop    .repeat                         ; is closer to emulators
-
-        push    es
+        mov     bp,es                           ;save es
         sub     ax,ax
         mov     es,ax
 
@@ -292,7 +283,15 @@ state_new_i08_multi_color_init:
         mov     [es:8*4],ax                     ;new/old IRQ 8: offset
         mov     [es:8*4+2],dx                   ;new/old IRQ 8: segment
 
-        pop     es
+        mov     es,bp                           ;restore es
+
+        mov     dx,0x3da
+        WAIT_VERTICAL_RETRACE
+
+        mov     cx,156                          ;and wait for scanlines
+.repeat:
+        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
+        loop    .repeat                         ; is closer to emulators
 
         mov     ax,PIT_DIVIDER                  ;Configure the PIT to
         call    setup_pit                       ;setup PIT
@@ -304,15 +303,8 @@ state_new_i08_multi_color_init:
 state_new_i08_full_color_init:
         cli                                     ;disable interrupts
                                                 ; while setting the interrupt
-        mov     dx,0x3da
-        WAIT_VERTICAL_RETRACE
+        mov     bp,es                           ;save es
 
-        mov     cx,166                          ;and wait for scanlines
-.repeat:
-        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
-        loop    .repeat                         ; is closer to emulators
-
-        push    es
         sub     ax,ax
         mov     es,ax
 
@@ -321,7 +313,15 @@ state_new_i08_full_color_init:
         mov     [es:8*4],ax                     ;new/old IRQ 8: offset
         mov     [es:8*4+2],dx                   ;new/old IRQ 8: segment
 
-        pop     es
+        mov     es,bp                           ;restore es
+
+        mov     dx,0x3da
+        WAIT_VERTICAL_RETRACE
+
+        mov     cx,168                          ;and wait for scanlines
+.repeat:
+        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
+        loop    .repeat                         ; is closer to emulators
 
         mov     ax,PIT_DIVIDER                  ;Configure the PIT to
         call    setup_pit                       ;setup PIT
@@ -513,8 +513,8 @@ new_i08_simple:
         ;not saving any variable, since the code at main loop
         ;happens after the tick
 
-        mov     ax,data
-        mov     ds,ax
+;        mov     ax,data
+;        mov     ds,ax
 
         ;update top-screen palette
         mov     si,top_palette                  ;points to colors used at the top of the screen
@@ -538,8 +538,8 @@ new_i08_bottom_multi_color:
         ;not saving any variable, since the code at main loop
         ;happens after the tick
 
-        mov     ax,data
-        mov     ds,ax
+;        mov     ax,data
+;        mov     ds,ax
 
         ;update bottom-screen palette
         mov     bp,0x3da                        ;register address
@@ -582,8 +582,8 @@ new_i08_bottom_full_color:
         ;not saving any variable, since the code at main loop
         ;happens after the tick
 
-        mov     ax,data
-        mov     ds,ax
+;        mov     ax,data
+;        mov     ds,ax
 
         ;update bottom-screen palette
         mov     bp,0x3da                        ;register address
@@ -600,11 +600,12 @@ new_i08_bottom_full_color:
         mov     cl,RASTER_COLORS_MAX            ;total number of raster bars
         mov     si,raster_colors_tbl            ;where the colors are for each raster bar
 
-        WAIT_HORIZONTAL_RETRACE                 ;prevents flicker on real machine
+        WAIT_HORIZONTAL_RETRACE                 ;prevents flicker on real machine (???)
 
         ;BEGIN raster bar code
         ;should be done as fast as possible
 .l0:
+        mov     dl,bh                           ;dx = 0x3da
         lodsb                                   ;fetch color
         mov     ah,al                           ; and save it for later
 .wait:
@@ -620,16 +621,13 @@ new_i08_bottom_full_color:
         mov     al,ah
         out     dx,al                           ;set new color
 
-        mov     dl,bh                           ;dx = 0x3da
         loop    .l0                             ;and do it 17 times
         ;END raster bar code
 
-
         ;update top-screen palette
         mov     si,top_palette+1                ;points to colors used at the top of the screen. skips black
-        mov     cx,6                            ;update a few colors
+        mov     cl,6                            ;update a few colors
         mov     bl,0x11                         ; starting with color 1. skips black
-        mov     bp,dx                           ;bp should be 0x3da
         REFRESH_PALETTE 1                       ;refresh the palette. don't wait for horizontal retrace
 
 new_i08_main:
@@ -928,8 +926,8 @@ letter_state_fade_to_pink_letter_anim:
         mov     [top_palette+bx],al             ;update letter color
 
         inc     byte [palette_letter_color_idx] ;next color to be used
-        ret
 
+        ret
 .next:
         jmp     letter_state_next
 
@@ -946,8 +944,8 @@ letter_state_fade_to_green_letter_anim:
         mov     [top_palette+bx],al             ;update letter color
 
         inc     byte [palette_letter_color_idx] ;next color to be used
-        ret
 
+        ret
 .next:
         jmp     letter_state_next
 
@@ -964,8 +962,8 @@ letter_state_fade_to_cyan_letter_anim:
         mov     [top_palette+bx],al             ;update letter color
 
         inc     byte [palette_letter_color_idx] ;next color to be used
-        ret
 
+        ret
 .next:
         jmp     letter_state_next
 
@@ -1195,15 +1193,17 @@ scroll_anim:
         jnz     .next_char                      ; col 2? If so, next char
 
         ;update cache with remaing 16-bytes (the 2nd col)
-        push    ds                              ;copy 2nd-col chars to cache
-        pop     es                              ;es = data
+        mov     bp,es                           ;save es
+        mov     ax,ds                           ;copy 2nd-col chars to cache
+        mov     es,ax                           ;es = data
         mov     si,cache_charset+16             ;pointer to 2nd-col chars
         mov     di,cache_charset                ;pointer to 1st-col chars
         mov     cx,8
         rep movsw                               ;copy 16 bytes
+        mov     es,bp                           ;restore es
         inc     byte [scroll_col_used]          ;2nd column to be used
         mov     byte [scroll_bit_idx],cl        ;0
-        jmp     .end
+        ret
 
 .control_code:
         inc     word [scroll_char_idx]          ;consume control code. offset += 1
@@ -1223,8 +1223,6 @@ scroll_anim:
         mov     word [scroll_char_idx],ax       ;reset to 0
 
 .end:
-        mov     ax,0xb800                       ;restore es to video memory
-        mov     es,ax
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1571,6 +1569,36 @@ state_enable_scroll:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_scroll_sine_init:
+        mov     byte [raster_colors_sine_idx],0
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_scroll_sine_anim:
+        mov     bp,es                           ;save for later
+        sub     bh,bh
+
+        mov     ax,ds
+        mov     es,ax                           ;ds:di -> dst
+        mov     di,raster_colors_tbl
+
+        ; table_offset = sine_tbl[sine_idx]
+        mov     bl,[raster_colors_sine_idx]     ;pointer to sine table
+        mov     bl,[raster_colors_sine_tbl+bx]  ;sine index for source colors
+        mov     si,raster_colors_anim_tbl
+        add     si,bx
+
+        mov     cx,(RASTER_COLORS_MAX-1)/2      ;don't overwrite last color. must be 15
+        ;assert (cx == 8)
+        rep movsw
+
+        mov     es,bp                           ;restore es
+
+        inc     byte [raster_colors_sine_idx]
+
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_clear_bottom_init:
         mov     byte [clear_bottom_state],0
         ret
@@ -1904,7 +1932,7 @@ scroll_control_code_plasma_init:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 plasma_anim:
         inc     word [plasma_counter]
-        cmp     word [plasma_counter],5*20     ;20 seconds
+        cmp     word [plasma_counter],5*60     ;5 seconds
         jne     .do_plasma
 
         mov     byte [scroll_state],SCROLL_STATE_SCROLL ;enable scroll again
@@ -2316,7 +2344,8 @@ main_state_inits:
         dw      state_enable_scroll             ;m
         dw      state_delay_10s_init            ;n
         dw      state_enable_text_writer        ;o
-        dw      state_nothing_init              ;p
+        dw      state_scroll_sine_init          ;p
+        dw      state_nothing_init              ;q
 
 main_state_callbacks:
         dw      state_gfx_fade_in_anim          ;a
@@ -2335,7 +2364,8 @@ main_state_callbacks:
         dw      state_skip_anim                 ;m
         dw      state_delay_anim                ;n
         dw      state_skip_anim                 ;o
-        dw      state_nothing_anim              ;p
+        dw      state_scroll_sine_anim          ;p
+        dw      state_nothing_anim              ;q
 
 
 letter_state_delay_frames:
@@ -2580,12 +2610,58 @@ old_pic_imr:                                    ;PIC IMR original value
         db      0
 
 raster_colors_tbl:                              ;used for the raster bars, at the
-        db      14,14,14,14,14                  ; bottom of the screen
-        db      13,13,13,13,13
-        db      11,11,11,11,11,11
+        db      15,15,15,15,15                  ; bottom of the screen
+        db      15,15,15,15,15                  ;these are the default colors. used when the anim
+        db      15,15,15,15,15,15               ; is not started yet
 raster_color_restore:                           ;must be after raster_colors_tbl
-        db      15
+        db      15                              ; it restores white color to its default palette
 RASTER_COLORS_MAX equ $-raster_colors_tbl
+
+raster_colors_anim_tbl:                         ;colors than will be copied to raster_colors_tbl
+        db      15,15,15,15,15
+        db      15,15,15,15,15
+        db      15,15,15,15,15,15
+        db      7,9,8,1,8,9,7
+        db      15,15,15,15,15
+        db      15,15,15,15,15
+        db      15,15,15,15,15,15
+
+raster_colors_sine_idx:                         ;index to be used with the sine table
+        db      0
+raster_colors_sine_tbl:                         ;table that manipulates the raster_colors_anim_idx
+; autogenerated table: easing_table_generator.py -s256 -m22 -aTrue sin
+        db   0,  1,  1,  1,  1,  2,  2,  2
+        db   2,  3,  3,  3,  3,  4,  4,  4
+        db   5,  5,  5,  5,  6,  6,  6,  6
+        db   7,  7,  7,  7,  8,  8,  8,  8
+        db   9,  9,  9,  9, 10, 10, 10, 10
+        db  11, 11, 11, 11, 12, 12, 12, 12
+        db  12, 13, 13, 13, 13, 14, 14, 14
+        db  14, 14, 15, 15, 15, 15, 15, 16
+        db  16, 16, 16, 16, 16, 17, 17, 17
+        db  17, 17, 18, 18, 18, 18, 18, 18
+        db  18, 19, 19, 19, 19, 19, 19, 19
+        db  20, 20, 20, 20, 20, 20, 20, 20
+        db  20, 21, 21, 21, 21, 21, 21, 21
+        db  21, 21, 21, 21, 21, 21, 22, 22
+        db  22, 22, 22, 22, 22, 22, 22, 22
+        db  22, 22, 22, 22, 22, 22, 22, 22
+        db  22, 22, 22, 22, 22, 22, 22, 22
+        db  22, 22, 22, 22, 22, 22, 22, 22
+        db  22, 21, 21, 21, 21, 21, 21, 21
+        db  21, 21, 21, 21, 21, 21, 20, 20
+        db  20, 20, 20, 20, 20, 20, 20, 19
+        db  19, 19, 19, 19, 19, 19, 18, 18
+        db  18, 18, 18, 18, 18, 17, 17, 17
+        db  17, 17, 16, 16, 16, 16, 16, 16
+        db  15, 15, 15, 15, 15, 14, 14, 14
+        db  14, 14, 13, 13, 13, 13, 12, 12
+        db  12, 12, 12, 11, 11, 11, 11, 10
+        db  10, 10, 10,  9,  9,  9,  9,  8
+        db   8,  8,  8,  7,  7,  7,  7,  6
+        db   6,  6,  6,  5,  5,  5,  5,  4
+        db   4,  4,  3,  3,  3,  3,  2,  2
+        db   2,  2,  1,  1,  1,  1,  0,  0
 
 BOTTOM_TOP_LINES_TO_WAIT equ 32
 
