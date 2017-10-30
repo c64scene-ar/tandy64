@@ -307,7 +307,7 @@ state_new_i08_full_color_init:
         mov     dx,0x3da
         WAIT_VERTICAL_RETRACE
 
-        mov     cx,164                          ;and wait for scanlines
+        mov     cx,168                          ;and wait for scanlines
 .repeat:
         WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
         loop    .repeat                         ; is closer to emulators
