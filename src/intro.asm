@@ -600,6 +600,8 @@ new_i08_bottom_full_color:
         mov     cl,RASTER_COLORS_MAX            ;total number of raster bars
         mov     si,raster_colors_tbl            ;where the colors are for each raster bar
 
+        WAIT_HORIZONTAL_RETRACE
+
         ;BEGIN raster bar code
         ;should be done as fast as possible
 .l0:
