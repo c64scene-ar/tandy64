@@ -754,6 +754,11 @@ state_delay_10s_init:
         mov     word [main_state_delay_frames],60*10    ;wait 5 seconds before showing logo
         ret
 
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_delay_6s_init:
+        mov     word [main_state_delay_frames],60*6     ;wait 6 seconds before showing logo
+        ret
+
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_delay_anim:
@@ -1453,21 +1458,45 @@ text_writer_state_goto_y_anim:
         ret                                     ; then change state to read chars again
 
 .down:
-        mov     al,0x00
+        mov     al,0x00                         ;char to write: empty
         call    text_writer_fill_one_char
         inc     byte [text_writer_y_pos]        ;cursor.y += 1 (going down)
         add     word [text_writer_addr],320     ;video addr += 320
-        mov     al,0x77
+        mov     al,0x77                         ;char to write: full
         jmp     text_writer_fill_one_char
 
 .up:
-        mov     al,0x00
+        mov     al,0x00                         ;char to write: empty
         call    text_writer_fill_one_char
         dec     byte [text_writer_y_pos]        ;cursor.y -= 1. (going up)
         sub     word [text_writer_addr],320     ;video addr -= 320
-        mov     al,0x77
+        mov     al,0x77                         ;char to write: full
         jmp     text_writer_fill_one_char
 
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_state_dance_boy_init:
+        mov     byte [text_writer_dance_boy_delay],0
+        mov     word [text_writer_addr],TEXT_WRITER_START_Y*2*160+160+18*4   ;hardcode writing position
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+text_writer_state_dance_boy_anim:
+        cmp     byte [text_writer_dance_boy_delay],0
+        je      .exit
+        dec     byte [text_writer_dance_boy_delay]
+        jnz     .exit2
+        mov     al,31                            ;foot down frame
+        jmp     text_writer_print_char
+
+.exit:
+        cmp     byte [noise_triggered],0
+        je      .exit2
+        mov     byte [text_writer_dance_boy_delay],5         ;frames to wait with the foot up
+        mov     al,30                            ;foot up frame
+        jmp     text_writer_print_char
+.exit2:
+        ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_state_call_action_init:
@@ -1478,9 +1507,13 @@ text_writer_state_call_action_init:
 ; index to the action_call table, and call that action function
 text_writer_state_call_action_anim:
         inc     word [text_writer_idx]          ;offset + 1
-        mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;print char is next state
-        mov     bx,word [text_writer_idx]       ;FIXME: do something with bx
-        ret
+        mov     bx,word [text_writer_idx]       ;fetch next char
+        mov     al,[text_writer_data+bx]        ; which is the action to perform
+
+        ;assuming al==0
+        mov     byte [text_writer_state],TW_STATE_DANCE_BOY     ;next state dance boy
+        jmp     text_writer_state_dance_boy_init        ;FIXME: state_init is only called from
+                                                ; print_char state. forcing the init here.
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_state_cursor_blink_init:
@@ -2342,7 +2375,7 @@ main_state_inits:
         dw      state_signal_letter_state_sem_init      ;j
         dw      state_clear_bottom_init         ;l
         dw      state_enable_scroll             ;m
-        dw      state_delay_10s_init            ;n
+        dw      state_delay_6s_init             ;n
         dw      state_enable_text_writer        ;o
         dw      state_scroll_sine_init          ;p
         dw      state_nothing_init              ;q
@@ -2375,50 +2408,64 @@ letter_state:                                   ;PVM letters animation state mac
         db      0
 
 letter_state_inits:
-;        dw      letter_state_outline_fade_init        ;-
-        dw      letter_state_wait_sem_init      ;a
-        dw      letter_state_fade_in_1_at_time_init     ;b
-        dw      letter_state_outline_fade_init  ;c
-        dw      letter_state_delay_5s_init      ;d
-        dw      letter_state_outline_fade_init  ;e'
+;        dw      letter_state_outline_fade_init        ;a
+        dw      letter_state_wait_sem_init      ;b
+        dw      letter_state_fade_in_1_at_time_init     ;c
+        dw      letter_state_outline_fade_init  ;d
+        dw      letter_state_delay_5s_init      ;e
+        dw      letter_state_outline_fade_init  ;f
 
-        dw      letter_state_fade_out_p_init    ;e
-        dw      letter_state_fade_in_p_init     ;e'
-        dw      letter_state_delay_200ms_init   ;d
+        dw      letter_state_fade_out_p_init    ;g
+        dw      letter_state_fade_in_p_init     ;h
+        dw      letter_state_delay_200ms_init   ;i
 
-        dw      letter_state_fade_out_v_init    ;f
-        dw      letter_state_fade_in_v_init     ;f'
-        dw      letter_state_delay_200ms_init   ;d
+        dw      letter_state_fade_out_v_init    ;j
+        dw      letter_state_fade_in_v_init     ;k
+        dw      letter_state_delay_200ms_init   ;l
 
-        dw      letter_state_fade_out_m_init    ;g
-        dw      letter_state_fade_in_m_init     ;g'
-        dw      letter_state_delay_5s_init      ;d'
+        dw      letter_state_fade_out_m_init    ;m
+        dw      letter_state_fade_in_m_init     ;n
+        dw      letter_state_delay_5s_init      ;o
 
-        dw      letter_state_outline_noise_init ;h
-        dw      letter_state_wait_sem_init      ;i
+        dw      letter_state_fade_out_p_init    ;q
+        dw      letter_state_delay_200ms_init   ;q
+        dw      letter_state_fade_out_v_init    ;r
+        dw      letter_state_delay_200ms_init   ;r'
+        dw      letter_state_fade_out_m_init    ;s
+        dw      letter_state_delay_5s_init      ;s'
+
+        dw      letter_state_outline_noise_init ;t
+        dw      letter_state_wait_sem_init      ;u
 
 letter_state_callbacks:
-;        dw      letter_state_outline_fade_in_anim     ;-
-        dw      letter_state_wait_sem_anim      ;a
-        dw      letter_state_fade_in_1_at_time_anim     ;b
-        dw      letter_state_outline_fade_to_final_anim ;c
-        dw      letter_state_delay_anim         ;d
-        dw      letter_state_outline_fade_out_anim      ;e'
-
-        dw      letter_state_fade_out_letter_anim       ;e
-        dw      letter_state_fade_to_cyan_letter_anim   ;e'
-        dw      letter_state_delay_anim         ;d
-
-        dw      letter_state_fade_out_letter_anim       ;f
-        dw      letter_state_fade_to_green_letter_anim  ;f'
-        dw      letter_state_delay_anim         ;d
+;        dw      letter_state_outline_fade_in_anim     ;a
+        dw      letter_state_wait_sem_anim      ;b
+        dw      letter_state_fade_in_1_at_time_anim     ;c
+        dw      letter_state_outline_fade_to_final_anim ;d
+        dw      letter_state_delay_anim         ;e
+        dw      letter_state_outline_fade_out_anim      ;f
 
         dw      letter_state_fade_out_letter_anim       ;g
-        dw      letter_state_fade_to_pink_letter_anim   ;g'
-        dw      letter_state_delay_anim         ;d'
+        dw      letter_state_fade_to_cyan_letter_anim   ;h
+        dw      letter_state_delay_anim         ;i
 
-        dw      letter_state_outline_noise_anim ;h
-        dw      letter_state_wait_sem_anim      ;i
+        dw      letter_state_fade_out_letter_anim       ;j
+        dw      letter_state_fade_to_green_letter_anim  ;k
+        dw      letter_state_delay_anim         ;l
+
+        dw      letter_state_fade_out_letter_anim       ;m
+        dw      letter_state_fade_to_pink_letter_anim   ;n
+        dw      letter_state_delay_anim         ;o
+
+        dw      letter_state_fade_out_letter_anim       ;q
+        dw      letter_state_delay_anim         ;q'
+        dw      letter_state_fade_out_letter_anim       ;r
+        dw      letter_state_delay_anim         ;r'
+        dw      letter_state_fade_out_letter_anim       ;s
+        dw      letter_state_delay_anim         ;s'
+
+        dw      letter_state_outline_noise_anim ;t
+        dw      letter_state_wait_sem_anim      ;u
 
 letter_state_semaphore:                         ;semaphore used in letter state machine
         db      0
@@ -2470,7 +2517,8 @@ TW_STATE_GOTO_X         equ 2
 TW_STATE_GOTO_Y         equ 3
 TW_STATE_CALL_ACTION    equ 4
 TW_STATE_CURSOR_BLINK   equ 5
-TW_STATE_MAX            equ 6                   ;should be the last state
+TW_STATE_DANCE_BOY      equ 6
+TW_STATE_MAX            equ 7                   ;should be the last state
 text_writer_callbacks_init:
         dw      0                                       ;no init for print_char
         dw      text_writer_state_idle_init
@@ -2478,6 +2526,7 @@ text_writer_callbacks_init:
         dw      text_writer_state_goto_y_init
         dw      text_writer_state_call_action_init
         dw      text_writer_state_cursor_blink_init
+        dw      text_writer_state_dance_boy_init
 
 text_writer_callbacks_anim:
         dw      text_writer_state_print_char_anim
@@ -2486,6 +2535,7 @@ text_writer_callbacks_anim:
         dw      text_writer_state_goto_y_anim
         dw      text_writer_state_call_action_anim
         dw      text_writer_state_cursor_blink_anim
+        dw      text_writer_state_dance_boy_anim
 
         ;control codes: think of it as a printer
         ; 0 - idle
@@ -2496,14 +2546,23 @@ text_writer_callbacks_anim:
 text_writer_data:
                 ;0123456789012345678901234567890123456789
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,39
+        db      TW_STATE_GOTO_X,17
+        db      'Hi!'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0
+        db      TW_STATE_GOTO_X,17
+        db      ' '
+        db      31
+        db      TW_STATE_GOTO_Y,18
+        db      TW_STATE_GOTO_X,18
+        db      29
+        db      TW_STATE_CURSOR_BLINK,2         ;wait blinks
+        db      TW_STATE_GOTO_Y,19
+        db      TW_STATE_GOTO_X,38
+
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
-        db      TW_STATE_GOTO_Y,15
-        db      TW_STATE_GOTO_X,1
-        db      TW_STATE_GOTO_Y,19
+        db      TW_STATE_CALL_ACTION,0          ;execute action 0: enable dance boy
+
         db      TW_STATE_GOTO_X,0
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
@@ -2513,7 +2572,6 @@ text_writer_data:
 
         db      'Pungas de Villa Martelli here'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_CALL_ACTION,0          ;execute action 0: enable rhythm
         db      TW_STATE_GOTO_X,3               ;go to pos
 
         db      '   --- Tandy 64 - BETA VERSION ---'
@@ -2543,9 +2601,10 @@ TEXT_WRITER_DATA_LEN equ $-text_writer_data
 
 text_writer_cursor_blink_delay:                 ;how many cursor blinks to wait
         db      0
-text_writer_delay:
-        db      0                               ;used by 'delay state' to know who many
-                                                ;vert retrace to wait
+text_writer_delay:                              ;used by 'delay state' to know who many
+        db      0                               ; vert retrace to wait
+text_writer_dance_boy_delay:                    ;how many frames the dance boy should have the
+        db      0                               ; his foot up
 key_pressed:                                    ;boolean. non-zero when a key was pressed
         db      0
 tick:                                           ;to trigger once the irq was called
