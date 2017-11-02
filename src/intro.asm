@@ -1627,6 +1627,7 @@ state_enable_scroll:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_scroll_sine_init:
         mov     byte [raster_colors_sine_idx],0
+        mov     word [raster_bars_colors_addr], raster_bars_colors_addr_start
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1651,7 +1652,25 @@ state_scroll_sine_anim:
         mov     es,bp                           ;restore es
 
         inc     byte [raster_colors_sine_idx]
+        jnz     .exit
 
+        ;change raster bar colors
+        mov     bx,es
+        mov     ax,ds
+        mov     es,ax                           ;ds=es
+        mov     si,[raster_bars_colors_addr]    ;ds:si src
+        mov     di,raster_colors_color_tbl      ;es:di: dst
+        mov     cx,RASTER_BARS_COLOR_MAX        ;colors to copy
+        rep movsb
+        mov     es,bx                           ;restore es
+
+        cmp     si,raster_bars_colors_addr_end
+        jne     .update_addr
+        mov     si,raster_bars_colors_addr_start
+.update_addr:
+        mov     [raster_bars_colors_addr],si    ;update position of next color bar
+
+.exit:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -2656,10 +2675,30 @@ raster_colors_anim_tbl:                         ;colors than will be copied to r
         db      15,15,15,15,15
         db      15,15,15,15,15
         db      15,15,15,15,15,15
-        db      7,9,8,1,8,9,7
+        db      7
+raster_colors_color_tbl:                        ;here starts the real colors to be updated
+        db      9,8,1,8,9
+        db      7
         db      15,15,15,15,15
         db      15,15,15,15,15
         db      15,15,15,15,15,15
+
+raster_bars_colors_addr_start:                  ;used as an address: start of colors
+raster_bars_blue_tbl:
+        db      9,8,1,8,9
+raster_bars_red_tbl:
+        db      12,8,4,8,12
+raster_bars_green_tbl:
+        db      10,8,2,8,10
+raster_bars_cyan_tbl:
+        db      11,8,3,8,11
+raster_bars_magenta_tbl:
+        db      13,8,5,8,13
+RASTER_BARS_COLOR_MAX   equ $-raster_bars_magenta_tbl
+raster_bars_colors_addr_end:                    ;used as an address: end of colors
+raster_bars_colors_addr:
+        dw      0                               ;current address for colors
+
 
 raster_colors_sine_idx:                         ;index to be used with the sine table
         db      0
