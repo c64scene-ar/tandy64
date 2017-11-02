@@ -259,7 +259,7 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
         WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
         loop    .repeat                         ; is closer to emulators
 
-        mov     ax,PIT_DIVIDER                  ;Configure the PIT to
+        mov     bx,PIT_DIVIDER                  ;Configure the PIT to
         call    setup_pit                       ;setup PIT
 
         in      al,0x21                         ;Read primary PIC Interrupt Mask Register
@@ -293,7 +293,7 @@ state_new_i08_multi_color_init:
         WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
         loop    .repeat                         ; is closer to emulators
 
-        mov     ax,PIT_DIVIDER                  ;Configure the PIT to
+        mov     bx,PIT_DIVIDER                  ;Configure the PIT to
         call    setup_pit                       ;setup PIT
 
         sti
@@ -323,7 +323,7 @@ state_new_i08_full_color_init:
         WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
         loop    .repeat                         ; is closer to emulators
 
-        mov     ax,PIT_DIVIDER                  ;Configure the PIT to
+        mov     bx,PIT_DIVIDER                  ;Configure the PIT to
         call    setup_pit                       ;setup PIT
 
         sti
@@ -341,7 +341,7 @@ irq_cleanup:
         mov     al,[old_pic_imr]                ;Get old PIC settings
         out     0x21,al                         ;Set primary PIC Interrupt Mask Register
 
-        mov     ax,0                            ;Reset PIT to defaults (~18.2 Hz)
+        mov     bx,0                            ;Reset PIT to defaults (~18.2 Hz)
         call    setup_pit                       ; actually means 0x10000
 
         push    es
@@ -369,12 +369,11 @@ irq_cleanup:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 setup_pit:
-        ; AX = PIT clock period
+        ; IN    bx = PIT clock period
         ;          (Divider to 1193180 Hz)
-        push    ax
         mov     al,0b0011_0100                  ;0x34: channel 0, access mode lo/hi, rate generator, 16-bit binary
         out     0x43,al                         ;command port
-        pop     ax
+        mov     ax,bx
         out     0x40,al                         ;data port for IRQ0: freq LSB
         mov     al,ah
         out     0x40,al                         ;data port for IRQ0: freq MSB
