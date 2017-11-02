@@ -372,12 +372,12 @@ setup_pit:
         ; AX = PIT clock period
         ;          (Divider to 1193180 Hz)
         push    ax
-        mov     al,0x34
-        out     0x43,al
+        mov     al,0b0011_0100                  ;0x34: channel 0, access mode lo/hi, rate generator, 16-bit binary
+        out     0x43,al                         ;command port
         pop     ax
-        out     0x40,al
+        out     0x40,al                         ;data port for IRQ0: freq LSB
         mov     al,ah
-        out     0x40,al
+        out     0x40,al                         ;data port for IRQ0: freq MSB
 
         ret
 
