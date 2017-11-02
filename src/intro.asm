@@ -638,11 +638,13 @@ new_i08_main:
 
         ;after raster baster finishes
 
+        ;animate "main state machine"
         sub     bh,bh
-        mov     bl,byte [main_state]         ;fetch main state machine value
+        mov     bl,byte [main_state]            ;fetch main state machine value
         shl     bx,1                            ; and convert it into offset (2 bytes per offset)
-        call    [main_state_callbacks+bx]           ; and call correct state callback
+        call    [main_state_callbacks+bx]       ; and call correct state callback
 
+        ;animate "letter state machine"
         sub     bh,bh
         mov     bl,byte [letter_state]          ;fetch pvm-letters state machine value
         shl     bx,1                            ; and convert it into offset (2 bytes per offset)
@@ -650,7 +652,7 @@ new_i08_main:
 
         call    crtc_addr_anim                  ;change CRTC start address
         call    music_anim                      ;play music
-        call    text_writer_anim                ;text writer
+        call    central_screen_anim             ;text writer and/or boy walk
         call    scroll_anim                     ;anim scroll
 
 %if DEBUG
@@ -666,11 +668,11 @@ new_i08_main:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 sound_cleanup:
-        mov     si,volume_0
-        mov     cx,4
+        mov     si,volume_0                     ;volume to 0 data
+        mov     cx,VOLUME_0_MAX
 .repeat:
         lodsb
-        out     0xc0,al
+        out     0xc0,al                         ;set volume to 0
         loop    .repeat
 
         ret
@@ -1076,7 +1078,7 @@ letter_state_outline_noise_init:
 letter_state_outline_noise_anim:
         cmp     byte [noise_triggered],0
         je      .skip
-        mov     byte [noise_fade_color_idx],0           ;if triggered, reset anim
+        mov     byte [noise_fade_color_idx],0   ;if triggered, reset anim
 .skip:
         cmp     byte [noise_fade_color_idx],NOISE_FADE_COLORS_MAX       ;end of anim?
         je      .exit
@@ -1136,10 +1138,10 @@ scroll_anim:
         mov     ax,data                         ;restore ds. points to data
         mov     ds,ax
 
-        cmp     byte [scroll_bit_idx],0         ;only update cache if scroll_bit_idx == 0
+        ;HACK: scroll_bit_idx & scroll_col_used are contiguos in memory
+        ;using "word" to compare them
+        cmp     word [scroll_bit_idx],0         ;if scroll_bit_idx == 0 and scroll_col_used == 0
         jnz     .render_bits                    ; and scroll_col_used == 0
-        cmp     byte [scroll_col_used],0
-        jnz     .render_bits
 
 .read_and_process_char:
         ;update the cache with the next 32 bytes (2x2 chars)
@@ -1325,12 +1327,38 @@ END     equ     1000_0000b
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+central_screen_init:
+        mov     byte [central_screen_state],CENTRAL_SCREEN_STATE_WAIT
+        call    boy_walk_init                   ;init its two other states
+        jmp     text_writer_init
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+central_screen_anim:
+        mov     al,[central_screen_state]
+        or      al,al                           ;0 == exit
+        jz      .exit
+        shr     al,1                            ;1 == do walk_boy
+        jc      .do_walk_boy
+        jmp     text_writer_anim                ;>2 == do text_writer
+.do_walk_boy:
+        jmp     boy_walk_anim
+.exit:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+boy_walk_init:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+boy_walk_anim:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_init:
         sub     ax,ax
         mov     byte [text_writer_state],TW_STATE_PRINT_CHAR
         mov     word [text_writer_idx],-1       ;HACK: data offset is -1, because we do a +1 at anim
         mov     byte [text_writer_delay],10     ;delay waits 10 refreshes
-        mov     byte [text_writer_enabled],al   ;disabled by default
         mov     byte [text_writer_cursor_blink_delay],al ;how many blinks to wait
         mov     byte [text_writer_x_pos],al     ;at pos 0
         mov     byte [text_writer_x_dst],al     ;dst pos 0
@@ -1341,10 +1369,6 @@ text_writer_init:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_anim:
-        cmp     byte [text_writer_enabled],0    ;enabled?
-        jne     .ok                             ; if not,return
-        ret
-.ok:
         sub     bh,bh                           ;fetch state
         mov     bl,[text_writer_state]          ; and get state address from
         shl     bl,1                            ; table, and call it
@@ -1580,8 +1604,8 @@ crtc_addr_anim:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_enable_text_writer:
-        mov     byte [text_writer_enabled],1
+state_enable_boy_walk:
+        mov     byte [central_screen_state],CENTRAL_SCREEN_STATE_BOY_WALK
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -2284,8 +2308,8 @@ SCROLL_TEXT_LEN equ $-scroll_text
 scroll_char_idx:                                ;pointer to the next char
         dw 0
 scroll_bit_idx:                                 ;pointer to the next bit in the char
-        db 0
-scroll_col_used:
+        db 0                                    ;HACK: scroll_bit_idx must be placed RIGHT BEFORE scroll_col_used
+scroll_col_used:                                ;HACK: scroll_col_used MUST be placed RIGHT AFTER scroll_bit_idx
         db 0                                    ;chars are 2x2. col indicates which col is being used
 
 scroll_pixel_color_tbl:                         ;the colors for the scroll letters
@@ -2352,6 +2376,7 @@ volume_0:
         db      0b1011_1111                     ;vol 0 channel 1
         db      0b1101_1111                     ;vol 0 channel 2
         db      0b1111_1111                     ;vol 0 channel 3
+VOLUME_0_MAX equ $ - volume_0
 
 
 main_state_delay_frames:
@@ -2376,7 +2401,7 @@ main_state_inits:
         dw      state_clear_bottom_init         ;l
         dw      state_enable_scroll             ;m
         dw      state_delay_6s_init             ;n
-        dw      state_enable_text_writer        ;o
+        dw      state_enable_boy_walk           ;o
         dw      state_scroll_sine_init          ;p
         dw      state_nothing_init              ;q
 
@@ -2473,6 +2498,12 @@ letter_state_semaphore:                         ;semaphore used in letter state 
 letter_state_color_to_fade:                     ;which color idx to fade
         db      0
 
+CENTRAL_SCREEN_STATE_WAIT               equ 0
+CENTRAL_SCREEN_STATE_BOY_WALK           equ 1
+CENTRAL_SCREEN_STATE_TEXT_WRITTER       equ 2
+central_screen_state:                           ;state machine for the "central part of the screen"
+        db      0
+
 text_writer_addr:                               ;address where the char will be written
         dw      0
 text_writer_x_pos:                              ;position x for the cursor. 0-39
@@ -2483,8 +2514,6 @@ text_writer_y_pos:                              ;position y for the cursor. 0-24
         db      0                               ; but supports in the range of -127,128
 text_writer_y_dst:                              ;dst position 0 for the cursor. 0-24
         db      0
-text_writer_enabled:
-        db      0                               ;boolean: whether the text_writer anim is enabled
 
 text_writer_bitmap_to_video_tbl:                ;converts charset (bitmap) to video bytes. nibble only
         db      0x00,0x00                       ;0000
