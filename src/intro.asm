@@ -1651,9 +1651,13 @@ state_scroll_sine_anim:
 
         mov     es,bp                           ;restore es
 
-        inc     byte [raster_colors_sine_idx]
-        jnz     .exit
+        inc     byte [raster_colors_sine_idx]   ;0?
+        jz      .change_color
+        cmp     byte [raster_colors_sine_idx],128       ;half table
+        jz      .change_color
+        ret                                     ;exit
 
+.change_color:
         ;change raster bar colors
         mov     bx,es
         mov     ax,ds
@@ -1669,8 +1673,6 @@ state_scroll_sine_anim:
         mov     si,raster_bars_colors_addr_start
 .update_addr:
         mov     [raster_bars_colors_addr],si    ;update position of next color bar
-
-.exit:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
