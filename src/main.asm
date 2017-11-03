@@ -1,6 +1,7 @@
-; Tandy64
+; Tandy64  Intro - Pungas de Villa Martelli
 ; http://pungas.space
-;
+; code: riq
+
 bits    16
 cpu     8086
 
@@ -49,5 +50,5 @@ cleanup:
 ; STACK
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 section .stack stack
-        resb 4096
+        resb 2048
 stacktop:

@@ -1,4 +1,4 @@
-; Tandy64 intro
+; Tandy64  Intro - Pungas de Villa Martelli
 ; http://pungas.space
 ; code: riq
 
