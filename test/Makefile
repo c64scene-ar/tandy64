@@ -27,3 +27,7 @@ clean:
 
 test:
 	r2 -A -a x86 -b 16 $(TARGET)
+
+run: $(TARGET)
+	echo "Running game..."
+	dosbox-x -conf ../conf/dosbox-x.conf -c "mount c ./ && dir" -c "c:" -c ${TARGET_NAME}
