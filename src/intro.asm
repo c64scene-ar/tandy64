@@ -23,7 +23,7 @@ PLASMA_TEX_OFFSET       equ 21*2*160            ;plasma texture: video offset. +
 PLASMA_TEX_WIDTH        equ 160                 ;plasma texture: pixels wide
 PLASMA_TEX_HEIGHT       equ 32                  ;plasma texture: pixels height
 PLASMA_OFFSET   equ 22*2*160+0                  ;plasma: video offset
-PLASMA_WIDTH    equ 20                          ;plasma: pixels wide
+PLASMA_WIDTH    equ 16                          ;plasma: pixels wide
 PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 
 LETTER_P_COLOR_IDX      equ 1                   ;color index for the letters
