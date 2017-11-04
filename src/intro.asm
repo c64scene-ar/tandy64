@@ -10,19 +10,20 @@ extern ZTimerOn, ZTimerOff, ZTimerReport
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; MACROS
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-%define DEBUG 0                                 ;0=diabled, 1=enabled
+%define DEBUG 1                                 ;0=diabled, 1=enabled
 
 TEXT_WRITER_START_Y     equ 19                  ;start at line 19
 BOTTOM_OFFSET   equ     21*2*160-160            ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
 SCROLL_OFFSET   equ     22*2*160                ;start at line 22:160 bytes per line, lines are every 4 -> 8/4 =2
-SCROLL_COLS_TO_SCROLL   equ 256                 ;how many cols to scroll. max 320
-SCROLL_RIGHT_X  equ     (SCROLL_COLS_TO_SCROLL/2-1)     ;col in which the scroll starts from the right
-SCROLL_LEFT_X   equ     ((320-SCROLL_COLS_TO_SCROLL)/2) ;col in which the scroll ends from the left
+SCROLL_COLS_TO_SCROLL   equ 110                 ;how many cols to scroll. max 160 (width 320, but we scroll 2 pixels at the time)
+SCROLL_COLS_MARGIN      equ ((160-SCROLL_COLS_TO_SCROLL)/2)
+SCROLL_RIGHT_X  equ     (160-SCROLL_COLS_MARGIN-1)      ;col in which the scroll starts from the right
+SCROLL_LEFT_X   equ     (SCROLL_COLS_MARGIN)    ;col in which the scroll ends from the left
 PLASMA_TEX_OFFSET       equ 21*2*160            ;plasma texture: video offset. +160 bc it starts from right to left
 PLASMA_TEX_WIDTH        equ 160                 ;plasma texture: pixels wide
 PLASMA_TEX_HEIGHT       equ 32                  ;plasma texture: pixels height
-PLASMA_OFFSET   equ 22*2*160+64                 ;plasma: video offset
-PLASMA_WIDTH    equ 56                          ;plasma: pixels wide
+PLASMA_OFFSET   equ 22*2*160+0                  ;plasma: video offset
+PLASMA_WIDTH    equ 24                          ;plasma: pixels wide
 PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 
 LETTER_P_COLOR_IDX      equ 1                   ;color index for the letters
@@ -1101,23 +1102,20 @@ scroll_init:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_anim:
-        mov     al,byte [scroll_state]
-        cmp     al,SCROLL_STATE_SCROLL          ;scroll enabled?
-        je      .do_scroll
-        cmp     al,SCROLL_STATE_PLASMA
-        je      .do_plasma
+        cmp     byte [scroll_state],0
+        jne     .anim
         ret
 
-.do_plasma:
-        jmp     plasma_anim
+.anim
+        call    plasma_anim
 
-.do_scroll:
         mov     bp,ds                           ;save ds for later
         mov     ax,0xb800                       ;ds points to video memory
         mov     ds,ax                           ;es already points to it
 
-        mov     dx,SCROLL_COLS_TO_SCROLL/4      ;cols to scroll / 2, since we use 2 rows per pixel
+        mov     dx,SCROLL_COLS_TO_SCROLL/2      ;div 2 since we use movsw instead of movsb
 
+        int 3
         ;scroll 16 rows in total
         %assign XX 0
         %rep 4
@@ -2018,21 +2016,10 @@ scroll_control_code_plasma_init:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 plasma_anim:
-        inc     word [plasma_counter]
-        cmp     word [plasma_counter],15*60     ;5 seconds
-        jne     .do_plasma
 
-        mov     byte [scroll_state],SCROLL_STATE_SCROLL ;enable scroll again
-        ret
-
-.do_plasma:
-        call    plasma_update_sine_table
-        jmp     plasma_render_to_video
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-global plasma_update_sine_table
-plasma_update_sine_table:
-
+        ;
+        ;update xbuf and ybuf tables
+        ;
         mov     ax,ds
         mov     es,ax                           ;es = ds
 
@@ -2094,10 +2081,10 @@ plasma_update_sine_table:
 
         mov     ax,0xb800
         mov     es,ax                           ;restore es
-        ret
 
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-plasma_render_to_video:
+        ;
+        ;render plasma
+        ;
         mov     bx,luminances_6_colors          ;to be used by xlat. has the colors for the plasma
 
         mov     di,plasma_ybuf                  ;di -> pointer to plasma_ybuf
@@ -2113,7 +2100,8 @@ plasma_render_to_video:
                         lodsb                   ;fetch plasma X buffer
                         add     al,ah           ; and add both plasma buf x and y
                         xlat                    ; and get the color value from luminances_tble
-                        mov     [es:PLASMA_OFFSET+(YY/4)*160+(YY % 4)*8192+XX],al
+                        mov     [es:PLASMA_OFFSET+(YY/4)*160+(YY % 4)*8192+XX],al       ;left-to-right
+                        mov     [es:PLASMA_OFFSET+(YY/4)*160+(YY % 4)*8192+159-XX],al   ;mirror: right-to-left
                 %assign XX XX+1
                 %endrep
                 inc     di                      ;inc Y ref

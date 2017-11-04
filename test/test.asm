@@ -77,7 +77,7 @@ test_1:
         mov     es,ax
 
         call    ZTimerOn
-        mov     cx,16384
+        mov     cx,8192
         mov     di,buffer
         mov     si,buffer+1
         rep movsb
@@ -86,7 +86,7 @@ test_1:
 
 
         call    ZTimerOn
-        mov     cx,16384/2
+        mov     cx,8192/2
         mov     di,buffer
         mov     si,buffer+1
         rep movsw
