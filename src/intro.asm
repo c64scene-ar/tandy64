@@ -2022,7 +2022,7 @@ scroll_control_code_plasma_init:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 plasma_anim:
         inc     word [plasma_counter]
-        cmp     word [plasma_counter],5*60     ;5 seconds
+        cmp     word [plasma_counter],15*60     ;5 seconds
         jne     .do_plasma
 
         mov     byte [scroll_state],SCROLL_STATE_SCROLL ;enable scroll again
@@ -2036,16 +2036,14 @@ plasma_anim:
 global plasma_update_sine_table
 plasma_update_sine_table:
 
-        mov     bp,es                           ;save es for later
         mov     ax,ds
         mov     es,ax                           ;es = ds
 
         ; x
         mov     ax,word [plasma_off_x0]         ;fetches both xbuf_1 and xbuf_2
+        mov     bp,ax                           ;save ax for later
 
-        push    ax                              ;save cx for later
-        mov     dx,0x0508                       ;register is faster than memory
-
+        mov     dx,0x8003                       ;inc x0 / x1 values
         ;HACK: works because fn_table_1 and
         ;fn_table_2 are 256-aligned
         mov     bx,fn_table_1
@@ -2059,22 +2057,21 @@ plasma_update_sine_table:
         %rep    PLASMA_WIDTH
                 mov     al,[bx]                 ;xbuf[idx] = sine[bx]+sine[si]
                 add     al,[si]
-                stosb
-                add     bl,dh                   ;update offsets to sine tables
-                add     cl,dl
+                stosb                           ;update plasma xbuf
+                add     bl,dl                   ;update offsets to sine tables
+                add     cl,dh
                 mov     si,cx
         %assign XX XX+1
         %endrep
 
-        pop     ax                              ;restore cx
-        add     ax,0x09fa
-        mov     word [plasma_off_x0],ax         ;udpates both xbuf_1 and xbuf_2
+        add     bp,0xff01                       ;update offset x0/x1
+        mov     word [plasma_off_x0],bp         ; and save it for next iteration
 
         ; y
         mov     ax,word [plasma_off_y0]         ;fetches both ybuf_1 and ybuf_2
+        mov     bp,ax                           ;save ax for later
 
-        push    ax                              ;save cx for later
-        mov     dx,0x0305                       ;register is faster than memory
+        mov     dx,0xff02                       ;inc y0 / y1 values
         ;HACK: works because fn_table_1 and
         ;fn_table_2 are 256-aligned
         mov     bx,fn_table_1
@@ -2082,41 +2079,42 @@ plasma_update_sine_table:
         mov     cx,fn_table_2
         add     cl,ah
         mov     si,cx
+        mov     di,plasma_ybuf                  ;es:di -> dst
 
         %assign YY 0
         %rep    PLASMA_HEIGHT
                 mov     al,[bx]                 ;ybuff[YY] = sine[bx]+sine[si]
                 add     al,[si]
-                stosb
-                add     bl,dh
-                sub     cl,dl
+                stosb                           ;update plasma ybuf
+                add     bl,dl
+                add     cl,dh
                 mov     si,cx
         %assign YY YY+1
         %endrep
 
-        pop     ax                              ;restore ax
-        add     ax,0xfd07
-        mov     word [plasma_off_y0],ax         ;udpates both ybuf_1 and ybuf_2
+        add     bp,0x03ff                       ;update offset y0/y1
+        mov     word [plasma_off_y0],bp         ; and save it for next iteration
 
-        mov     es,bp                           ;restore es
+        mov     ax,0xb800
+        mov     es,ax                           ;restore es
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 plasma_render_to_video:
         mov     bx,luminances_6_colors          ;to be used by xlat. has the colors for the plasma
 
-        mov     di,plasma_ybuf
-        mov     cx,plasma_xbuf
+        mov     di,plasma_ybuf                  ;di -> pointer to plasma_ybuf
+        mov     cx,plasma_xbuf                  ;dx -> pointer to plasma_xbuf
         %assign YY 0
         %rep    PLASMA_HEIGHT
 
-                mov     ah,[di]                 ;di -> pointer to plasma_ybuf
-                mov     si,cx                   ;si -> pointer to plasma_xbuf
+                mov     ah,[di]                 ;fetch y buf value. to be used inside loop x
+                mov     si,cx                   ;reset xbuf pointer before starting loop x
 
                 %assign XX 0
                 %rep    PLASMA_WIDTH
                         lodsb                   ;fetch plasma X buffer
-                        add     al,ah           ; and add it to plasma Y buffer
+                        add     al,ah           ; and add both plasma buf x and y
                         xlat                    ; and get the color value from luminances_tble
                         mov     [es:PLASMA_OFFSET+(YY/4)*160+(YY % 4)*8192+XX],al
                 %assign XX XX+1
@@ -2336,6 +2334,7 @@ scroll_text:
 ;        db 129,'VILLA '
 ;        db 129,'M' db 128,'ARTELLI HERE, WITH OUR FIRST TANDY RELEASE. '
         db 129
+        db 130                                  ;start plasma
         db 'IT ALL BEGAN WHEN WE WENT TO PICK UP A COMMODORE 64 BUNDLE '
         db 'AND THE SELLER INCLUDED TWO TANDY 1000 HX IN IT. '
         db 'WTF IS A TANDY 1000 HX? WE GOOGLED IT, AND WE LIKED IT. '
