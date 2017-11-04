@@ -15,6 +15,9 @@ extern ZTimerOn, ZTimerOff, ZTimerReport
 TEXT_WRITER_START_Y     equ 19                  ;start at line 19
 BOTTOM_OFFSET   equ     21*2*160-160            ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
 SCROLL_OFFSET   equ     22*2*160                ;start at line 22:160 bytes per line, lines are every 4 -> 8/4 =2
+SCROLL_ROWS_TO_SCROLL   equ 320                 ;how many rows to scroll
+SCROLL_RIGHT_X  equ     (SCROLL_ROWS_TO_SCROLL/2-1)     ;row in which the scroll starts from the right
+SCROLL_LEFT_X   equ     ((320-SCROLL_ROWS_TO_SCROLL)/2) ;row in which the scroll ends from the left
 PLASMA_TEX_OFFSET       equ 21*2*160            ;plasma texture: video offset. +160 bc it starts from right to left
 PLASMA_TEX_WIDTH        equ 160                 ;plasma texture: pixels wide
 PLASMA_TEX_HEIGHT       equ 32                  ;plasma texture: pixels height
@@ -34,34 +37,32 @@ LETTER_BORDER_COLOR_IDX equ 5
 ; use the MSB bit. If it is on, use white, else black color
 ;
 ; IN:   ds:si   -> bit to render (pointer to cache)
-;       es:di   -> where to render (ponter to video memory)
 ;       dx      -> pointer to pixel color table
 ;       bp      -> row index
+;       cl      -> 0b1100_0000
 ; Args: %1: offset line.
 %macro RENDER_BIT 1
 
-        mov     di,SCROLL_OFFSET+160*(%1+1)-1   ;es:di points to video memory
-        mov     cx,4                            ;times to loop
-%%loop_print:
-        lodsb                                   ;fetches byte from the cache
-        mov     ah,al                           ;save value in ah for later use
-        and     al,1100_0000b
-        rol     al,1
-        rol     al,1
-        mov     bx,dx
-        xlat                                    ;al = [scroll_pixel_color_tbl+ al]
-        stosb
+        mov     di,SCROLL_OFFSET+160*%1+SCROLL_RIGHT_X  ;es:di points to video memory
+        %rep    4
+                lodsb                                   ;fetches byte from the cache
+                mov     ah,al                           ;save value in ah for later use
+                and     al,cl                           ;cl = 0b1100_0000
+                rol     al,1
+                rol     al,1
+                mov     bx,dx
+                xlat                                    ;al = [scroll_pixel_color_tbl+ al]
+                stosb
 
-        add     di,8192-1                       ;draw in next bank. di was incremented by
-                                                ; one in stosb.
+                add     di,8192-1                       ;draw in next bank. di was incremented by
+                                                        ; one in stosb.
 
-        shl     ah,1                            ;al << 2. bit 7,6 contains next bits to render
-        shl     ah,1                            ;
-        mov     bx,bp                           ;index by bp
-        mov     [cache_charset+bx],ah           ;update cache for next iteration
-        inc     bp                              ;inc row index
-
-        loop    %%loop_print
+                shl     ah,1                            ;al << 2. bit 7,6 contains next bits to render
+                shl     ah,1                            ;
+                mov     bx,bp                           ;index by bp
+                mov     [cache_charset+bx],ah           ;update cache for next iteration
+                inc     bp                              ;inc row index
+        %endrep
 %endmacro
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1111,31 +1112,32 @@ scroll_anim:
         jmp     plasma_anim
 
 .do_scroll:
+        mov     bp,ds                           ;save ds for later
         mov     ax,0xb800                       ;ds points to video memory
         mov     ds,ax                           ;es already points to it
 
-        mov     cx,320                          ;scroll 4 lines of 80 chars
+        mov     dx,SCROLL_ROWS_TO_SCROLL
+        mov     cx,dx                           ;scroll 4 lines of 80 chars
         mov     si,SCROLL_OFFSET+1              ;source: last char of screen
         mov     di,SCROLL_OFFSET                ;dest: last char of screen - 1
         rep movsw                               ;do the copy
 
-        mov     cx,320                          ;scroll 4 lines of 80 chars
+        mov     cx,dx                           ;scroll 4 lines of 80 chars
         mov     si,SCROLL_OFFSET+8192+1         ;source: last char of screen
         mov     di,SCROLL_OFFSET+8192           ;dest: last char of screen - 1
         rep movsw                               ;do the copy
 
-        mov     cx,320                          ;scroll 4 lines of 80 chars
+        mov     cx,dx                           ;scroll 4 lines of 80 chars
         mov     si,SCROLL_OFFSET+16384+1        ;source: last char of screen
         mov     di,SCROLL_OFFSET+16384          ;dest: last char of screen - 1
         rep movsw                               ;do the copy
 
-        mov     cx,320                          ;scroll 4 lines of 80 chars
+        mov     cx,dx                           ;scroll 4 lines of 80 chars
         mov     si,SCROLL_OFFSET+24576+1        ;source: last char of screen
         mov     di,SCROLL_OFFSET+24576          ;dest: last char of screen - 1
         rep movsw                               ;do the copy
 
-        mov     ax,data                         ;restore ds. points to data
-        mov     ds,ax
+        mov     ds,bp                           ;restore ds
 
         ;HACK: scroll_bit_idx & scroll_col_used are contiguos in memory
         ;using "word" to compare them
@@ -1180,10 +1182,10 @@ scroll_anim:
         mov     ax,0xb800
         mov     es,ax
 
-        mov     di,SCROLL_OFFSET+159            ;es:di points to video memory
         mov     si,cache_charset                ;ds:si points to cache_charset
         sub     bp,bp                           ;used for the cache index in the macros
-        mov     dx,scroll_pixel_color_tbl       ;used in the macros
+        mov     dx,scroll_pixel_color_tbl       ;table for colors used in the macros
+        mov     cl,0b1100_0000                  ;mask used in macros
 
         RENDER_BIT 0
         RENDER_BIT 1
@@ -2328,13 +2330,13 @@ scroll_control_code_tbl:
         ;       129 = color anim
         ;       130 = plasma init
 scroll_text:
-        db 128                                  ;color white
+;        db 128                                  ;color white
 ;        db 'HI THERE. '
 ;        db 129,'PUNGAS DE '
 ;        db 129,'VILLA '
-;        db 129,'M' db 128,'ARTELLI HERE, WITH OUR FIRST TANDY RELEASE. '
+;        db 129,'M'
+;        db 128,'ARTELLI HERE, WITH OUR FIRST TANDY RELEASE. '
         db 129
-        db 130                                  ;start plasma
         db 'IT ALL BEGAN WHEN WE WENT TO PICK UP A COMMODORE 64 BUNDLE '
         db 'AND THE SELLER INCLUDED TWO TANDY 1000 HX IN IT. '
         db 'WTF IS A TANDY 1000 HX? WE GOOGLED IT, AND WE LIKED IT. '
