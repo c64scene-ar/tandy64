@@ -1718,20 +1718,18 @@ state_clear_bottom_anim:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 plasma_tex_init_sine_table:
 
-        mov     dx,es                           ;save es for later
         mov     ax,ds
         mov     es,ax                           ;es = ds
         ; x
-        mov     bp,255                          ;register is faster than memory
         mov     dh,[plasma_tex_inc_x0]
-        sub     cx,cx
-        mov     cl,[plasma_tex_inc_x1]
+        mov     dl,[plasma_tex_inc_x1]
 
         ;HACK: works because fn_table_1 and
         ;fn_table_2 are 256-aligned
         mov     bx,fn_table_1
         mov     si,fn_table_2
-        mov     di,plasma_tex_xbuf
+        mov     cx,si
+        mov     di,plasma_tex_xbuf              ;es:di -> dst
 
         %assign XX 0
         %rep    PLASMA_TEX_WIDTH
@@ -1739,23 +1737,21 @@ plasma_tex_init_sine_table:
                 add     al,[si]
                 stosb
                 add     bl,dh                   ;dh=5. update offsets to sine tables
-                add     si,cx                   ;cx=8
-                and     si,bp                   ;only use LSB part of si
+                add     cl,dl                   ;cx=8
+                mov     si,cx
         %assign XX XX+1
         %endrep
 
         ; y
-        sub     si,si
-        sub     bx,bx
         mov     dh,[plasma_tex_inc_y0]
-        sub     cx,cx
-        mov     cl,[plasma_tex_inc_y1]
+        mov     dl,[plasma_tex_inc_y1]
 
         ;HACK: works because fn_table_1 and
         ;fn_table_2 are 256-aligned
         mov     bx,fn_table_1
         mov     si,fn_table_2
-        mov     di,plasma_tex_ybuf
+        mov     cx,si
+        mov     di,plasma_tex_ybuf              ;es:di -> dst
 
         %assign YY 0
         %rep    PLASMA_TEX_HEIGHT
@@ -1763,11 +1759,12 @@ plasma_tex_init_sine_table:
                 add     al,[si]
                 stosb
                 add     bl,dh                   ;dh=3
-                add     si,cx                   ;cx=5
-                and     si,bp                   ;bp=255. update offets, and use only LSB part of si
+                add     cl,dl                   ;cx=5
+                mov     si,cx
         %assign YY YY+1
         %endrep
 
+        mov     dx,0xb800
         mov     es,dx                           ;restore es
 
         ret
@@ -1965,7 +1962,7 @@ plasma_tex_render_to_video:
         mov     bx,luminances_6_colors          ;to be used by xlat. has the colors for the plasma
         mov     si,[plasma_tex_x_offset]        ;to be used for the plasma_tex_xbuff offset
         mov     di,si
-        not     di                              ;
+        not     di                              ;going from right to left
 
         %assign YY 0
         %rep    PLASMA_TEX_HEIGHT
@@ -2038,63 +2035,70 @@ plasma_anim:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 global plasma_update_sine_table
 plasma_update_sine_table:
-        ; x
-        sub     bh,bh                           ;bx MSB = 0
-        mov     ah,bh                           ;ax MSB = 0
-        mov     cx,word [plasma_off_x0]         ;fetches both xbuf_1 and xbuf_2
-        mov     bl,cl                           ;bx = xbuf_1
-        mov     al,ch                           ;ax = xbuf_2
-        mov     si,ax                           ;si = xbuf_2
 
-        push    cx                              ;save cx for later
-        mov     dh,5                            ;register is faster than memory
-        mov     cx,8                            ;register is faster than memory
-        mov     bp,255                          ;register is faster than memory
+        mov     bp,es                           ;save es for later
+        mov     ax,ds
+        mov     es,ax                           ;es = ds
+
+        ; x
+        mov     ax,word [plasma_off_x0]         ;fetches both xbuf_1 and xbuf_2
+
+        push    ax                              ;save cx for later
+        mov     dx,0x0508                       ;register is faster than memory
+
+        ;HACK: works because fn_table_1 and
+        ;fn_table_2 are 256-aligned
+        mov     bx,fn_table_1
+        add     bl,al
+        mov     cx,fn_table_2
+        add     cl,ah
+        mov     si,cx
+        mov     di,plasma_xbuf                  ;es:di -> dst
 
         %assign XX 0
         %rep    PLASMA_WIDTH
-                mov     al,[fn_table_1+bx]      ;xbuf[idx] = sine[bx]+sine[si]
-                add     al,[fn_table_2+si]
-                mov     [plasma_xbuf+XX],al
+                mov     al,[bx]                 ;xbuf[idx] = sine[bx]+sine[si]
+                add     al,[si]
+                stosb
                 add     bl,dh                   ;update offsets to sine tables
-                sub     si,cx
-                and     si,bp                   ;bp=255. only use LSB part of si
+                add     cl,dl
+                mov     si,cx
         %assign XX XX+1
         %endrep
 
-        pop cx                                  ;restore cx
-        add     cl,9                            ;update buffer x1 and x2 offsets
-        sub     ch,5                            ; for the next frame
-        mov     word [plasma_off_x0],cx         ;udpates both xbuf_1 and xbuf_2
+        pop     ax                              ;restore cx
+        add     ax,0x09fa
+        mov     word [plasma_off_x0],ax         ;udpates both xbuf_1 and xbuf_2
 
         ; y
-        sub     bh,bh                           ;bx MSB = 0
-        mov     ah,bh                           ;ax MSB = 0
-        mov     cx,word [plasma_off_y0]         ;fetches both ybuf_1 and ybuf_2
-        mov     bl,cl                           ;bx = xbuf_1
-        mov     al,ch                           ;ax = xbuf_2
-        mov     si,ax                           ;si = xbuf_2
+        mov     ax,word [plasma_off_y0]         ;fetches both ybuf_1 and ybuf_2
 
-        push    cx                              ;save cx for later
-        mov     dh,3                            ;register is faster than memory
-        mov     cx,5
+        push    ax                              ;save cx for later
+        mov     dx,0x0305                       ;register is faster than memory
+        ;HACK: works because fn_table_1 and
+        ;fn_table_2 are 256-aligned
+        mov     bx,fn_table_1
+        add     bl,al
+        mov     cx,fn_table_2
+        add     cl,ah
+        mov     si,cx
 
         %assign YY 0
         %rep    PLASMA_HEIGHT
-                mov     al,[fn_table_1+bx]      ;ybuff[YY] = sine[bx]+sine[si]
-                add     al,[fn_table_2+si]
-                mov     [plasma_ybuf+YY],al     ;update y buffer with sine+sine
+                mov     al,[bx]                 ;ybuff[YY] = sine[bx]+sine[si]
+                add     al,[si]
+                stosb
                 add     bl,dh
-                sub     si,cx
-                and     si,bp                   ;bp=255. update offets, and use only LSB part of si
+                sub     cl,dl
+                mov     si,cx
         %assign YY YY+1
         %endrep
 
-        pop     cx                              ;restore cx
-        add     cl,7                            ;update sine values for later
-        sub     ch,3
-        mov     word [plasma_off_y0],cx         ;udpates both ybuf_1 and ybuf_2
+        pop     ax                              ;restore ax
+        add     ax,0xfd07
+        mov     word [plasma_off_y0],ax         ;udpates both ybuf_1 and ybuf_2
 
+        mov     es,bp                           ;restore es
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -2861,6 +2865,7 @@ clear_bottom_state:                             ;used by state_clearn_bottom_ani
 crtc_start_addr:
         dw      0                               ;crtc start address
 
+;HACK: plasma_off_x0 and x1 must be contiguos
 plasma_off_x0:                                  ;plasma: xbuf idx 1
         db      0
 plasma_off_x1:                                  ;plasma: xbuf idx 2
