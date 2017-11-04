@@ -20,6 +20,14 @@ section .text
 
         cld
 
+;        call    test_0
+        call    test_1
+
+        mov     ax,4c00h
+        int     21h                             ;exit to DOS
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+test_0:
         mov     ax,data
         mov     ds,ax
 
@@ -60,15 +68,38 @@ section .text
         call    ZTimerOff
         call    ZTimerReport
 
-        mov     ax,4c00h
-        int     21h                             ;exit to DOS
+        ret
 
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+test_1:
+        mov     ax,data
+        mov     ds,ax
+        mov     es,ax
+
+        call    ZTimerOn
+        mov     cx,16384
+        mov     di,buffer
+        mov     si,buffer+1
+        rep movsb
+        call    ZTimerOff
+        call    ZTimerReport
+
+
+        call    ZTimerOn
+        mov     cx,16384/2
+        mov     di,buffer
+        mov     si,buffer+1
+        rep movsw
+        call    ZTimerOff
+        call    ZTimerReport
+
+        ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 section .data data
 
 buffer:
-        resb    4096
+        resb    32368
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; STACK

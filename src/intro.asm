@@ -15,9 +15,9 @@ extern ZTimerOn, ZTimerOff, ZTimerReport
 TEXT_WRITER_START_Y     equ 19                  ;start at line 19
 BOTTOM_OFFSET   equ     21*2*160-160            ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
 SCROLL_OFFSET   equ     22*2*160                ;start at line 22:160 bytes per line, lines are every 4 -> 8/4 =2
-SCROLL_ROWS_TO_SCROLL   equ 320                 ;how many rows to scroll
-SCROLL_RIGHT_X  equ     (SCROLL_ROWS_TO_SCROLL/2-1)     ;row in which the scroll starts from the right
-SCROLL_LEFT_X   equ     ((320-SCROLL_ROWS_TO_SCROLL)/2) ;row in which the scroll ends from the left
+SCROLL_COLS_TO_SCROLL   equ 256                 ;how many cols to scroll. max 320
+SCROLL_RIGHT_X  equ     (SCROLL_COLS_TO_SCROLL/2-1)     ;col in which the scroll starts from the right
+SCROLL_LEFT_X   equ     ((320-SCROLL_COLS_TO_SCROLL)/2) ;col in which the scroll ends from the left
 PLASMA_TEX_OFFSET       equ 21*2*160            ;plasma texture: video offset. +160 bc it starts from right to left
 PLASMA_TEX_WIDTH        equ 160                 ;plasma texture: pixels wide
 PLASMA_TEX_HEIGHT       equ 32                  ;plasma texture: pixels height
@@ -1116,26 +1116,21 @@ scroll_anim:
         mov     ax,0xb800                       ;ds points to video memory
         mov     ds,ax                           ;es already points to it
 
-        mov     dx,SCROLL_ROWS_TO_SCROLL
-        mov     cx,dx                           ;scroll 4 lines of 80 chars
-        mov     si,SCROLL_OFFSET+1              ;source: last char of screen
-        mov     di,SCROLL_OFFSET                ;dest: last char of screen - 1
-        rep movsw                               ;do the copy
+        mov     dx,SCROLL_COLS_TO_SCROLL/4      ;cols to scroll / 2, since we use 2 rows per pixel
 
-        mov     cx,dx                           ;scroll 4 lines of 80 chars
-        mov     si,SCROLL_OFFSET+8192+1         ;source: last char of screen
-        mov     di,SCROLL_OFFSET+8192           ;dest: last char of screen - 1
-        rep movsw                               ;do the copy
-
-        mov     cx,dx                           ;scroll 4 lines of 80 chars
-        mov     si,SCROLL_OFFSET+16384+1        ;source: last char of screen
-        mov     di,SCROLL_OFFSET+16384          ;dest: last char of screen - 1
-        rep movsw                               ;do the copy
-
-        mov     cx,dx                           ;scroll 4 lines of 80 chars
-        mov     si,SCROLL_OFFSET+24576+1        ;source: last char of screen
-        mov     di,SCROLL_OFFSET+24576          ;dest: last char of screen - 1
-        rep movsw                               ;do the copy
+        ;scroll 16 rows in total
+        %assign XX 0
+        %rep 4
+                %assign YY 0
+                %rep 4
+                        mov     cx,dx                           ;scroll 4 lines of 80 chars
+                        mov     si,SCROLL_OFFSET+8192*XX+160*YY+SCROLL_LEFT_X+1  ;source: last char of screen
+                        mov     di,SCROLL_OFFSET+8192*XX+160*YY+SCROLL_LEFT_X    ;dest: last char of screen - 1
+                        rep movsw                               ;do the copy
+                %assign YY YY+1
+                %endrep
+        %assign XX XX+1
+        %endrep
 
         mov     ds,bp                           ;restore ds
 
