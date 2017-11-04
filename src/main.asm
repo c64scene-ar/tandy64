@@ -5,7 +5,6 @@
 bits    16
 cpu     8086
 
-extern ZTimerOn, ZTimerOff, ZTimerReport
 extern intro_start, pre_intro_start, post_intro_start
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
