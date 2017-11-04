@@ -1106,7 +1106,7 @@ scroll_anim:
         jne     .anim
         ret
 
-.anim
+.anim:
         call    plasma_anim
 
         mov     bp,ds                           ;save ds for later
@@ -1999,8 +1999,6 @@ scroll_control_code_color_anim:
 scroll_control_code_plasma_init:
         sub     ax,ax
 
-        mov     [plasma_counter],ax             ;ticks at 0
-
         ;update palette
         mov     ax,data
         mov     es,ax                           ;es=ds
@@ -2016,7 +2014,11 @@ scroll_control_code_plasma_init:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 plasma_anim:
+        ror     byte [plasma_anim_state],1
+        jc      .generate_tables
+        jmp     .render_plasma
 
+.generate_tables:
         ;
         ;update xbuf and ybuf tables
         ;
@@ -2081,7 +2083,9 @@ plasma_anim:
 
         mov     ax,0xb800
         mov     es,ax                           ;restore es
+        ret
 
+.render_plasma:
         ;
         ;render plasma
         ;
@@ -2858,8 +2862,8 @@ plasma_off_y0:                                  ;plasma: ybuf idx 1
         db      0
 plasma_off_y1:                                  ;plasma: ybuf idx 2
         db      0
-plasma_counter:                                 ;ticks elapsed in plasma effect
-        dw      0
+plasma_anim_state:
+        db      0b1010_1010                     ;cycles between 1 and 0
 luminances_6_colors:
         db      0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11         ;white (0xff)
         db      0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11
