@@ -1,6 +1,6 @@
-; Tandy64  Intro - Pungas de Villa Martelli
-; http://pungas.space
-; code: riq
+; Tandy64  Intro - Pungas de Villa Martelli - http://pungas.space
+;
+; code: riq (http://retro.moe)
 
 bits    16
 cpu     8086

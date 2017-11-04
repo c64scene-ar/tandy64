@@ -1,6 +1,6 @@
-; Tandy64  Intro - Pungas de Villa Martelli
-; http://pungas.space
-; code: riq
+; Tandy64  Intro - Pungas de Villa Martelli - http://pungas.space
+;
+; code: riq (http://retro.moe)
 
 bits    16
 cpu     8086
@@ -11,18 +11,23 @@ cpu     8086
 %define DEBUG 1                                 ;0=diabled, 1=enabled
 
 TEXT_WRITER_START_Y     equ 19                  ;start at line 19
+
 BOTTOM_OFFSET   equ     21*2*160-160            ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
+
 SCROLL_OFFSET   equ     22*2*160                ;start at line 22:160 bytes per line, lines are every 4 -> 8/4 =2
 SCROLL_COLS_TO_SCROLL   equ 112                 ;how many cols to scroll. max 160 (width 320, but we scroll 2 pixels at the time)
 SCROLL_COLS_MARGIN      equ ((160-SCROLL_COLS_TO_SCROLL)/2)
 SCROLL_RIGHT_X  equ     (160-SCROLL_COLS_MARGIN-1)      ;col in which the scroll starts from the right
 SCROLL_LEFT_X   equ     (SCROLL_COLS_MARGIN)    ;col in which the scroll ends from the left
+
 PLASMA_TEX_OFFSET       equ 21*2*160            ;plasma texture: video offset. +160 bc it starts from right to left
 PLASMA_TEX_WIDTH        equ 160                 ;plasma texture: pixels wide
 PLASMA_TEX_HEIGHT       equ 32                  ;plasma texture: pixels height
 PLASMA_OFFSET   equ 22*2*160+0                  ;plasma: video offset
 PLASMA_WIDTH    equ 20                          ;plasma: pixels wide
 PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
+
+RASTER_BAR_LOOP_FOR_EACH_COLOR  equ 1           ;4 loops for each color before switching to the next one
 
 LETTER_P_COLOR_IDX      equ 1                   ;color index for the letters
 LETTER_V_COLOR_IDX      equ 2
@@ -1095,17 +1100,18 @@ letter_state_outline_noise_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_init:
-        mov     byte [scroll_state],SCROLL_STATE_WAIT   ;nothing by default
+        mov     byte [scroll_enabled],0                 ;disabled by default
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_anim:
-        cmp     byte [scroll_state],0
+        cmp     byte [scroll_enabled],0
         jne     .anim
         ret
 
 .anim:
         call    plasma_anim
+        call    plasma_update_effect
 
         mov     bp,ds                           ;save ds for later
         mov     ax,0xb800                       ;ds points to video memory
@@ -1113,7 +1119,6 @@ scroll_anim:
 
         mov     dx,SCROLL_COLS_TO_SCROLL/2      ;div 2 since we use movsw instead of movsb
 
-        int 3
         ;scroll 16 rows in total
         %assign XX 0
         %rep 4
@@ -1602,24 +1607,15 @@ state_enable_boy_walk:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_enable_scroll:
-        mov     byte [scroll_state],SCROLL_STATE_SCROLL ;start the scroll
-
-        mov     bx,es                           ;save es for later
-        mov     ax,ds
-        mov     es,ax
-
-        ;FIXME: probably this is not needed
-        mov     cx,8                            ;16 colors (16 bytes == 8 words)
-        mov     di,bottom_palette               ;destination: bottom palette
-        mov     si,palette_default              ;source: default palette
-        rep movsw                               ;copy the new 16 colors
-
-        mov     es,bx                           ;restore es
-        ret
+        mov     byte [scroll_enabled],1         ;start the scroll
+        jmp     plasma_init                     ;init plasma here, not before
+                                                ; since palette might be used
+                                                ; for other reasons before this state
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_scroll_sine_init:
         mov     byte [raster_colors_sine_idx],0
+        mov     byte [raster_colors_loops_for_each_color],RASTER_BAR_LOOP_FOR_EACH_COLOR
         mov     word [raster_bars_colors_addr], raster_bars_colors_addr_start
         ret
 
@@ -1645,12 +1641,15 @@ state_scroll_sine_anim:
         mov     es,bp                           ;restore es
 
         inc     byte [raster_colors_sine_idx]   ;0?
+        jnz     .exit
+        dec     byte [raster_colors_loops_for_each_color]
         jz      .change_color
-        cmp     byte [raster_colors_sine_idx],128       ;half table
-        jz      .change_color
+.exit:
         ret                                     ;exit
 
 .change_color:
+        mov     byte [raster_colors_loops_for_each_color],RASTER_BAR_LOOP_FOR_EACH_COLOR
+
         ;change raster bar colors
         mov     bx,es
         mov     ax,ds
@@ -1664,8 +1663,10 @@ state_scroll_sine_anim:
         cmp     si,raster_bars_colors_addr_end
         jne     .update_addr
         mov     si,raster_bars_colors_addr_start
+
 .update_addr:
         mov     [raster_bars_colors_addr],si    ;update position of next color bar
+        mov     byte [plasma_effect_trigger],1  ;start effect transition
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1778,7 +1779,7 @@ state_plasma_red_tex_init:
 
         mov     bx,es                           ;save es in bx for later
 
-        mov     ax,data
+        mov     ax,ds
         mov     es,ax                           ;es is data segment
         mov     cx,8                            ;repeat it 8 times
         sub     ax,ax                           ;ax=0
@@ -1805,7 +1806,7 @@ state_plasma_green_tex_init:
 
         mov     bx,es                           ;save es in bx for later
 
-        mov     ax,data
+        mov     ax,ds
         mov     es,ax                           ;es is data segment
         mov     cx,8                            ;repeat it 8 times
         sub     ax,ax                           ;ax=0
@@ -1832,7 +1833,7 @@ state_plasma_magenta_tex_init:
 
         mov     bx,es                           ;save es in bx for later
 
-        mov     ax,data
+        mov     ax,ds
         mov     es,ax                           ;es is data segment
         mov     cx,8                            ;repeat it 8 times
         sub     ax,ax                           ;ax=0
@@ -1869,7 +1870,7 @@ state_plasma_tex_anim:
         mov     byte [plasma_tex_delay],3       ;reset delay
 
         mov     bx,es                           ;save it for later
-        mov     ax,data
+        mov     ax,ds
         mov     es,ax
 
         sub     ch,ch
@@ -1913,7 +1914,7 @@ state_plasma_tex_anim:
         mov     byte [plasma_tex_delay],3       ;reset delay
 
         mov     bx,es                           ;save it for later
-        mov     ax,data
+        mov     ax,ds
         mov     es,ax
 
         sub     ch,ch
@@ -1994,27 +1995,101 @@ scroll_control_code_color_anim:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-scroll_control_code_plasma_init:
-        sub     ax,ax
-
-        ;update palette
-        mov     ax,data
+plasma_init:
+        mov     bp,es                           ;save es for later
+        mov     ax,ds
         mov     es,ax                           ;es=ds
-        mov     cx,PLASMA_TEX_PALETTE_MAX       ;number of colors to update
-        mov     di,bottom_palette+1             ;destination: bottom palette, skipping black
-        mov     si,plasma_tex_blue_palette      ;source: blue palette
-        rep movsb                               ;copy the new palette
-        mov     ax,0xb800
-        mov     es,ax                           ;restore es
 
-        mov     byte [scroll_state],SCROLL_STATE_PLASMA
+        sub     al,al                           ;black color
+        mov     cx,PLASMA_TEX_PALETTE_MAX       ;set bottom palette to black
+        mov     di,bottom_palette+1             ;destination: bottom palette, skipping black
+        rep stosb                               ;copy the new palette
+        mov     es,bp                           ;restore es
+
+        mov     byte [plasma_effect_transition_state],0
+        mov     byte [plasma_effect_idx],0
+        mov     byte [plasma_effect_trigger],1      ;trigger effect
+        mov     byte [plasma_effect_delay],5    ;delay
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; updates the plasma effect
+plasma_update_effect:
+        cmp     byte [plasma_effect_trigger],0
+        jnz     .do
+        ret
+
+.do:
+        dec     byte [plasma_effect_delay]
+        jz      .do_effect
+        ret
+
+.do_effect:
+        mov     byte [plasma_effect_delay],5
+        sub     bh,bh
+        mov     bl,[plasma_effect_transition_state]
+        inc     byte [plasma_effect_transition_state]
+        cmp     bl,13
+        je      .finish_transition
+        cmp     bl,6
+        jb      .fade_out
+        je      .change_plasma_effect
+
+        ;fall through
+.fade_in:                                       ;called with bl 7-12
+        sub     bh,bh
+        sub     bl,7                            ;re-range to 0-5
+        mov     cl,5                            ;inverse it: 0->5...5->0
+        sub     cl,bl
+
+        mov     bl,[plasma_effect_idx]          ;fetch plasma effect index
+        shl     bl,1                            ;*2, since each entry takes 2 bytes
+
+        mov     si,[plasma_palettes_tbl+bx]     ;pointer to palette to be used
+        mov     bl,cl                           ;inverse pointer for color idx
+        mov     al,[si+bx]
+        mov     [bottom_palette+1+bx],al
+        ret
+
+.fade_out:                                      ;called with bl 0-5
+        mov     byte [bottom_palette+1+bx],0    ;set color to black
+        ret
+
+.change_plasma_effect:                          ;called with bl==6
+        sub     bh,bh
+        mov     bl,[plasma_effect_idx]          ;fetch plasma effect index
+        shl     bl,1                            ;*2, since each entry takes 2 bytes
+
+        mov     ax,[plasma_inc_x0_x1_tbl+bx]    ;update plasma inc x0 x0
+        mov     [plasma_inc_x0_x1],ax
+
+        mov     ax,[plasma_inc_y0_y1_tbl+bx]    ;update plasma inc y0 y1
+        mov     [plasma_inc_y0_y1],ax
+
+        mov     ax,[plasma_off_x0_x1_inc_tbl+bx]        ;update plasma offset inc x0 x1
+        mov     [plasma_off_x0_x1_inc],ax
+
+        mov     ax,[plasma_off_y0_y1_inc_tbl+bx]        ;update plasma offset inc y0 y1
+        mov     [plasma_off_y0_y1_inc],ax
+
+        ret
+
+.finish_transition:                             ;called with bl=13
+        sub     al,al
+        mov     [plasma_effect_trigger],al      ;disable the "trigger effect" condition
+        mov     [plasma_effect_transition_state],al     ;reset state for next transition
+        inc     byte [plasma_effect_idx]
+        cmp     byte [plasma_effect_idx],PLASMA_EFFECT_MAX
+        jne     .exit
+        mov     byte [plasma_effect_idx],al
+.exit:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 plasma_anim:
-        ror     byte [plasma_anim_state],1
-        jc      .generate_tables
-        jmp     .render_plasma
+        ror     byte [plasma_anim_state],1      ;plasma at 30FPS:
+        jc      .generate_tables                ; on frame it generates the tables
+        jmp     .render_plasma                  ; on the other frame renders the plasma
 
 .generate_tables:
         ;
@@ -2024,10 +2099,10 @@ plasma_anim:
         mov     es,ax                           ;es = ds
 
         ; x
-        mov     ax,word [plasma_off_x0]         ;fetches both xbuf_1 and xbuf_2
+        mov     ax,word [plasma_off_x0_x1]      ;fetches both xbuf_1 and xbuf_2
         mov     bp,ax                           ;save ax for later
 
-        mov     dx,0x8003                       ;inc x0 / x1 values
+        mov     dx,[plasma_inc_x0_x1]           ;inc x0 / x1 values
         ;HACK: works because fn_table_1 and
         ;fn_table_2 are 256-aligned
         mov     bx,fn_table_1
@@ -2048,14 +2123,14 @@ plasma_anim:
         %assign XX XX+1
         %endrep
 
-        add     bp,0xff01                       ;update offset x0/x1
-        mov     word [plasma_off_x0],bp         ; and save it for next iteration
+        add     bp,[plasma_off_x0_x1_inc]       ;update offset x0/x1
+        mov     word [plasma_off_x0_x1],bp      ; and save it for next iteration
 
         ; y
-        mov     ax,word [plasma_off_y0]         ;fetches both ybuf_1 and ybuf_2
+        mov     ax,word [plasma_off_y0_y1]      ;fetches both ybuf_1 and ybuf_2
         mov     bp,ax                           ;save ax for later
 
-        mov     dx,0xff02                       ;inc y0 / y1 values
+        mov     dx,[plasma_inc_y0_y1]           ;inc y0 / y1 values
         ;HACK: works because fn_table_1 and
         ;fn_table_2 are 256-aligned
         mov     bx,fn_table_1
@@ -2076,8 +2151,8 @@ plasma_anim:
         %assign YY YY+1
         %endrep
 
-        add     bp,0x03ff                       ;update offset y0/y1
-        mov     word [plasma_off_y0],bp         ; and save it for next iteration
+        add     bp,[plasma_off_y0_y1_inc]       ;update offset y0/y1
+        mov     word [plasma_off_y0_y1],bp      ; and save it for next iteration
 
         mov     ax,0xb800
         mov     es,ax                           ;restore es
@@ -2245,13 +2320,6 @@ dec_d020:
 
         ret
 
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; DATA PLASMA PRE RENDERED
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-section .plasma_pre_rendered data               ;contains the plasma pre rendered
-global plasma_pre_rendered_tbl
-plasma_pre_rendered_tbl:
-        resb    65536
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; DATA GFX
@@ -2304,7 +2372,6 @@ charset:
 scroll_control_code_tbl:
         dw      scroll_control_code_color_white
         dw      scroll_control_code_color_anim
-        dw      scroll_control_code_plasma_init
         ; # = tm
         ; % = closing double quotes
         ; $ = smiley
@@ -2332,8 +2399,7 @@ scroll_text:
         db `"TANDY 64%... GOT IT ? & . `
         db '   ;    '
         db 'SENDING OUR REGARDS TO ALL THE TANDY 1000 SCENE, STARTING WITH: '
-        db '                      '
-        db 130                                  ;start plasma
+        db '                     '
         db ' NO TANDY 1000 SCENE ??? HOW DARE YOU !!! '
         db '   ;   '
         db 'BIG THANKS TO DEMOSPLASH FOR GOING THE EXTRA MILE, AND ADDING TANDY 1000 TO THE LIST OF SUPPORTED SYSTEMS!!! '
@@ -2367,10 +2433,7 @@ scroll_pixel_anim_tbl:
         db      0xf0                            ;10 - white/black
         db      0xff                            ;11 - white/white
 
-SCROLL_STATE_WAIT       equ 0                   ;wait
-SCROLL_STATE_SCROLL     equ 1                   ;do the scroll
-SCROLL_STATE_PLASMA     equ 2                   ;do the plasma instead of the scroll
-scroll_state:                                   ;scroll state machine
+scroll_enabled:                                 ;boolean: enabled?
         db      0
 
 palette_letter_color_idx:                       ;index for table used in fade in/out effects
@@ -2725,6 +2788,8 @@ raster_bars_colors_addr:
         dw      0                               ;current address for colors
 
 
+raster_colors_loops_for_each_color:            ;how many sine loops to do before chaning colors
+        db      0
 raster_colors_sine_idx:                         ;index to be used with the sine table
         db      0
 raster_colors_sine_tbl:                         ;table that manipulates the raster_colors_anim_idx
@@ -2821,6 +2886,58 @@ plasma_tex_blue_palette:
         db      0x1                             ;blue
         db      0                               ;black
 
+plasma_tex_gray_palette:
+        db      0xf                             ;white
+        db      0x7                             ;light gray
+        db      0x7                             ;light gray
+        db      0x8                             ;gray
+        db      0x8                             ;gray
+        db      0                               ;black
+
+plasma_effect_delay:                            ;delay used while in transition to slow it down
+        db      0
+plasma_effect_trigger:                          ;boolean, when enabled start effect transition
+        db      0
+plasma_effect_transition_state:                 ;state of the transition effect
+        db      0
+plasma_effect_idx:                              ;plasma effect index
+        db      0
+plasma_palettes_tbl:                            ;table that contains the different palettes
+        dw      plasma_tex_red_palette
+        dw      plasma_tex_green_palette
+        dw      plasma_tex_blue_palette
+        dw      plasma_tex_magenta_palette
+PLASMA_EFFECT_MAX equ ($-plasma_palettes_tbl)/2 ;div 2, since each entry takes 2 bytes (dw)
+
+plasma_inc_x0_x1_tbl:                           ;table that contains the different inc values for x
+        dw      0x0104
+        dw      0x0304
+        dw      0x0304
+        dw      0x0305
+        dw      0x8003
+
+plasma_inc_y0_y1_tbl:                           ;table that contains the different inc values for y
+        dw      0x0202
+        dw      0x8302
+        dw      0x837f
+        dw      0xfb02
+        dw      0xff02
+
+plasma_off_x0_x1_inc_tbl:                       ;table that contains the different off inc values for x
+        dw      0x0004
+        dw      0x0004
+        dw      0x0002
+        dw      0x0703
+        dw      0xff01
+
+plasma_off_y0_y1_inc_tbl:                       ;table that contains the different off inc values for y
+        dw      0x0400
+        dw      0x0403
+        dw      0x0403
+        dw      0xfcfd
+        dw      0x03ff
+
+
 plasma_tex_state:                               ;internal state used inside the state_plasma_tex state
         db      0                               ;0=render texture, 1=fade in palette
 plasma_tex_colors_updated:                      ;number of palette colors that were updated
@@ -2851,17 +2968,20 @@ clear_bottom_state:                             ;used by state_clearn_bottom_ani
 crtc_start_addr:
         dw      0                               ;crtc start address
 
-;HACK: plasma_off_x0 and x1 must be contiguos
-plasma_off_x0:                                  ;plasma: xbuf idx 1
-        db      0
-plasma_off_x1:                                  ;plasma: xbuf idx 2
-        db      0
-plasma_off_y0:                                  ;plasma: ybuf idx 1
-        db      0
-plasma_off_y1:                                  ;plasma: ybuf idx 2
-        db      0
+plasma_inc_x0_x1:                               ;plasma: inc x0 x1
+        dw      0
+plasma_inc_y0_y1:                               ;plasma: inc y0 y1
+        dw      0
+plasma_off_x0_x1:                               ;plasma: offset x0 y1
+        dw      0
+plasma_off_x0_x1_inc:                           ;plasma: offset increment x0 y1
+        dw      0
+plasma_off_y0_y1:                               ;plasma: offset x0 y1
+        dw      0
+plasma_off_y0_y1_inc:                           ;plasma: offset increment x0 y1
+        dw      0
 plasma_anim_state:
-        db      0b1010_1010                     ;cycles between 1 and 0
+        db      0b1010_1010                     ;cycles between 1 and 0 with a ror
 luminances_6_colors:
         db      0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11         ;white (0xff)
         db      0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11
