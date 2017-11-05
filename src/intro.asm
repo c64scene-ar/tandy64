@@ -8,7 +8,7 @@ cpu     8086
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; MACROS
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-%define DEBUG 1                                 ;0=diabled, 1=enabled
+%define DEBUG 0                                 ;0=diabled, 1=enabled
 
 TEXT_WRITER_START_Y     equ 19                  ;start at line 19
 
@@ -2800,7 +2800,9 @@ raster_bars_green_tbl:
         db      10,8,2,8,10
 raster_bars_magenta_tbl:
         db      13,8,5,8,13
-RASTER_BARS_COLOR_MAX   equ $-raster_bars_magenta_tbl
+raster_bars_yellow_tbl:
+        db      14,8,6,8,14
+RASTER_BARS_COLOR_MAX   equ $-raster_bars_yellow_tbl
 raster_bars_colors_addr_end:                    ;used as an address: end of colors
 raster_bars_colors_addr:
         dw      0                               ;current address for colors
@@ -2912,6 +2914,14 @@ plasma_tex_cyan_palette:
         db      0x3                             ;cyan
         db      0                               ;black
 
+plasma_tex_yellow_palette:
+        db      0xf                             ;white
+        db      0x7                             ;light gray
+        db      0xe                             ;yellow
+        db      0x8                             ;gray
+        db      0x6                             ;brown
+        db      0                               ;black
+
 plasma_effect_delay:                            ;delay used while in transition to slow it down
         db      0
 plasma_effect_trigger:                          ;boolean, when enabled start effect transition
@@ -2926,9 +2936,11 @@ plasma_palettes_tbl:                            ;table that contains the differe
         dw      plasma_tex_cyan_palette
         dw      plasma_tex_green_palette
         dw      plasma_tex_magenta_palette
+        dw      plasma_tex_yellow_palette
 PLASMA_EFFECT_MAX equ ($-plasma_palettes_tbl)/2 ;div 2, since each entry takes 2 bytes (dw)
 
 plasma_inc_x0_x1_tbl:                           ;table that contains the different inc values for x
+        dw      0x0406
         dw      0x0104
         dw      0x0304
         dw      0x0304
@@ -2936,6 +2948,7 @@ plasma_inc_x0_x1_tbl:                           ;table that contains the differe
         dw      0x8003
 
 plasma_inc_y0_y1_tbl:                           ;table that contains the different inc values for y
+        dw      0x0500
         dw      0x0202
         dw      0x8302
         dw      0x837f
@@ -2943,6 +2956,7 @@ plasma_inc_y0_y1_tbl:                           ;table that contains the differe
         dw      0xff02
 
 plasma_off_x0_x1_inc_tbl:                       ;table that contains the different off inc values for x
+        dw      0x0300
         dw      0x0004
         dw      0x0004
         dw      0x0002
@@ -2950,6 +2964,7 @@ plasma_off_x0_x1_inc_tbl:                       ;table that contains the differe
         dw      0xff01
 
 plasma_off_y0_y1_inc_tbl:                       ;table that contains the different off inc values for y
+        dw      0xff00
         dw      0x0400
         dw      0x0403
         dw      0x0403
