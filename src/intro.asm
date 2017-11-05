@@ -15,7 +15,7 @@ TEXT_WRITER_START_Y     equ 19                  ;start at line 19
 BOTTOM_OFFSET   equ     21*2*160-160            ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
 
 SCROLL_OFFSET   equ     22*2*160                ;start at line 22:160 bytes per line, lines are every 4 -> 8/4 =2
-SCROLL_COLS_TO_SCROLL   equ 112                 ;how many cols to scroll. max 160 (width 320, but we scroll 2 pixels at the time)
+SCROLL_COLS_TO_SCROLL   equ 116                 ;how many cols to scroll. max 160 (width 320, but we scroll 2 pixels at the time)
 SCROLL_COLS_MARGIN      equ ((160-SCROLL_COLS_TO_SCROLL)/2)
 SCROLL_RIGHT_X  equ     (160-SCROLL_COLS_MARGIN-1)      ;col in which the scroll starts from the right
 SCROLL_LEFT_X   equ     (SCROLL_COLS_MARGIN)    ;col in which the scroll ends from the left
@@ -751,8 +751,18 @@ state_delay_2s_init:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_delay_3s_init:
+        mov     word [main_state_delay_frames],60*3     ;wait 3 seconds before showing logo
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_delay_5s_init:
         mov     word [main_state_delay_frames],60*5     ;wait 5 seconds before showing logo
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_delay_6s_init:
+        mov     word [main_state_delay_frames],60*6     ;wait 6 seconds before showing logo
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -760,10 +770,6 @@ state_delay_10s_init:
         mov     word [main_state_delay_frames],60*10    ;wait 5 seconds before showing logo
         ret
 
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_delay_6s_init:
-        mov     word [main_state_delay_frames],60*6     ;wait 6 seconds before showing logo
-        ret
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -846,6 +852,11 @@ state_skip_anim:
         jmp     main_state_next                 ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_delay_200ms_init:
+        mov     word [letter_state_delay_frames],60/5   ;wait 200ms
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 letter_state_delay_2s_init:
         mov     word [letter_state_delay_frames],60*2   ;wait 2 seconds
         ret
@@ -856,8 +867,8 @@ letter_state_delay_5s_init:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-letter_state_delay_200ms_init:
-        mov     word [letter_state_delay_frames],60/5   ;wait 200ms
+letter_state_delay_10s_init:
+        mov     word [letter_state_delay_frames],60*10  ;wait 10 seconds
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1978,9 +1989,17 @@ plasma_tex_render_to_video:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-scroll_control_code_color_white:
-        mov     al,[scroll_pixel_white_tbl+1]   ;skip first byte. it is black in all conf
-        mov     bx,[scroll_pixel_white_tbl+2]
+scroll_control_code_color_red:
+        mov     al,[scroll_pixel_red_tbl+1]   ;skip first byte. it is black in all conf
+        mov     bx,[scroll_pixel_red_tbl+2]
+        mov     [scroll_pixel_color_tbl+1],al
+        mov     [scroll_pixel_color_tbl+2],bx
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+scroll_control_code_color_yellow:
+        mov     al,[scroll_pixel_yellow_tbl+1]   ;skip first byte. it is black in all conf
+        mov     bx,[scroll_pixel_yellow_tbl+2]
         mov     [scroll_pixel_color_tbl+1],al
         mov     [scroll_pixel_color_tbl+2],bx
         ret
@@ -2388,17 +2407,18 @@ charset:
         incbin 'src/font_unknown_2x2-charset.bin'
 
 scroll_control_code_tbl:
-        dw      scroll_control_code_color_white
+        dw      scroll_control_code_color_red
         dw      scroll_control_code_color_anim
+        dw      scroll_control_code_color_yellow
         ; # = tm
         ; % = closing double quotes
         ; $ = smiley
         ; ; = ~ (kind of separator)
         ; < = heart
         ; bit 7=on (128) - control code
-        ;       128 = color white
-        ;       129 = color anim
-        ;       130 = plasma init
+        ;       128 = color red
+        ;       129 = color with raster bar
+        ;       130 = color yellow
 scroll_text:
 ;        db 128                                  ;color white
 ;        db 'HI THERE. '
@@ -2406,7 +2426,7 @@ scroll_text:
 ;        db 129,'VILLA '
 ;        db 129,'M'
 ;        db 128,'ARTELLI HERE, WITH OUR FIRST TANDY RELEASE. '
-        db 129
+        db 129                                  ;color with raster bar
         db 'IT ALL BEGAN WHEN WE WENT TO PICK UP A COMMODORE 64 BUNDLE '
         db 'AND THE SELLER INCLUDED TWO TANDY 1000 HX IN IT. '
         db 'WTF IS A TANDY 1000 HX? WE GOOGLED IT, AND WE LIKED IT. '
@@ -2414,20 +2434,25 @@ scroll_text:
         db 'STANDARD VIDEO MODES, A BETTER-THAN-SPEAKER SOUNDCARD, AND JOYSTICK PORTS '
         db '(UNIJOYSTICLE COMMING SOON#). '
         db 'AND HERE WE ARE, WITH OUR FIRST TANDY 1000 RELEASE. WE CALL IT '
-        db `"TANDY 64%... GOT IT ? & . `
-        db '   ;    '
-        db 'SENDING OUR REGARDS TO ALL THE TANDY 1000 SCENE, STARTING WITH: '
-        db '                     '
-        db ' NO TANDY 1000 SCENE ??? HOW DARE YOU !!! '
+        db `"TANDY 64%... GOT IT ? `
+        db  130,'&',129                      ;emoticons in yellow
+        db '.'
         db '   ;   '
-        db 'BIG THANKS TO DEMOSPLASH FOR GOING THE EXTRA MILE, AND ADDING TANDY 1000 TO THE LIST OF SUPPORTED SYSTEMS!!! '
+        db 'MANY THANKS TO DEMOSPLASH FOR GOING THE EXTRA MILE, AND ADDING TANDY 1000 SUPPORT!!! '
+        db 128                                  ;color red
         db 27,28,29,30,31,42,43                 ;Radio Shack (using Radio Shack font)
+        db 129                                  ;color with raster bar
         db ' DESERVES IT ! '
         db '   ;   '
-        db `BESO GRANDE A LA MAS GRANDE DE TODAS: <<< LIA CRUCET <<< LA MEJOR CANTANTE DE TODOS LOS TIEMPOS`
+        db 'SENDING OUR REGARDS TO ALL THE 8088 SCENE, AND TO OUR C64 FRIENDS'
+        db '   ;   '
+        db 'BESO GRANDE A LA MAS GRANDE DE TODAS: '
+        db 130,'<<< ',129                       ;hears in yellow
+        db 'LIA CRUCET '
+        db 130,'<<< ',129                       ;hears in yellow
         db '   ;   '
         db 'CODE:RIQ, MUSIC: UCTUMI, GRAPHICS: ALAKRAN'
-        db '   ;   '
+        db '   ',130,'> > >',129,'   '
 SCROLL_TEXT_LEN equ $-scroll_text
 
 scroll_char_idx:                                ;pointer to the next char
@@ -2438,14 +2463,19 @@ scroll_col_used:                                ;HACK: scroll_col_used MUST be p
         db 0                                    ;chars are 2x2. col indicates which col is being used
 
 scroll_pixel_color_tbl:                         ;the colors for the scroll letters
-        db      0,0,0,0                         ; it contains a copy of one of the tables
-                                                ; below
-scroll_pixel_white_tbl:
+        db      0,0,0,0                         ; it contains a copy of one of the tables below
+
+scroll_pixel_red_tbl:                           ;these are pixels, not palette colors
         db      0x00                            ;00 - black/black
-        db      0x08                            ;01 - black/white
-        db      0x80                            ;10 - white/black
-        db      0x88                            ;11 - white/white
-scroll_pixel_anim_tbl:
+        db      0x0c                            ;01 - black/white
+        db      0xc0                            ;10 - white/black
+        db      0xcc                            ;11 - white/white
+scroll_pixel_yellow_tbl:                        ;these are pixels, not palette colors
+        db      0x00                            ;00 - black/black
+        db      0x0e                            ;01 - black/white
+        db      0xe0                            ;10 - white/black
+        db      0xee                            ;11 - white/white
+scroll_pixel_anim_tbl:                          ;these are pixels, not palette colors
         db      0x00                            ;00 - black/black
         db      0x0f                            ;01 - black/white
         db      0xf0                            ;10 - white/black
@@ -2522,9 +2552,10 @@ main_state_inits:
         dw      state_signal_letter_state_sem_init      ;j
         dw      state_clear_bottom_init         ;l
         dw      state_enable_scroll             ;m
-        dw      state_delay_6s_init             ;n
-        dw      state_enable_boy_walk           ;o
+        dw      state_delay_2s_init             ;n
         dw      state_scroll_sine_init          ;p
+        dw      state_delay_2s_init             ;n'
+        dw      state_enable_boy_walk           ;o
         dw      state_nothing_init              ;q
 
 main_state_callbacks:
@@ -2543,8 +2574,9 @@ main_state_callbacks:
         dw      state_clear_bottom_anim         ;l
         dw      state_skip_anim                 ;m
         dw      state_delay_anim                ;n
-        dw      state_skip_anim                 ;o
         dw      state_scroll_sine_anim          ;p
+        dw      state_delay_anim                ;n'
+        dw      state_skip_anim                 ;o
         dw      state_nothing_anim              ;q
 
 
@@ -2555,11 +2587,12 @@ letter_state:                                   ;PVM letters animation state mac
         db      0
 
 letter_state_inits:
-;        dw      letter_state_outline_fade_init        ;a
         dw      letter_state_wait_sem_init      ;b
         dw      letter_state_fade_in_1_at_time_init     ;c
         dw      letter_state_outline_fade_init  ;d
-        dw      letter_state_delay_5s_init      ;e
+        dw      letter_state_delay_10s_init     ;e
+        dw      letter_state_delay_10s_init     ;e
+
         dw      letter_state_outline_fade_init  ;f
 
         dw      letter_state_fade_out_p_init    ;g
@@ -2585,11 +2618,12 @@ letter_state_inits:
         dw      letter_state_wait_sem_init      ;u
 
 letter_state_callbacks:
-;        dw      letter_state_outline_fade_in_anim     ;a
         dw      letter_state_wait_sem_anim      ;b
         dw      letter_state_fade_in_1_at_time_anim     ;c
         dw      letter_state_outline_fade_to_final_anim ;d
         dw      letter_state_delay_anim         ;e
+        dw      letter_state_delay_anim         ;e
+
         dw      letter_state_outline_fade_out_anim      ;f
 
         dw      letter_state_fade_out_letter_anim       ;g
@@ -3034,6 +3068,7 @@ luminances_6_colors:
         db      0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66
         db      0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66,0x66
 
+;HACK: must be 256 aligned to be faster at calculating the plasma table
 align 256
 fn_table_1:
 fn_table_2:
