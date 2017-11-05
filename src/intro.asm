@@ -27,7 +27,7 @@ PLASMA_OFFSET   equ 22*2*160+0                  ;plasma: video offset
 PLASMA_WIDTH    equ 20                          ;plasma: pixels wide
 PLASMA_HEIGHT   equ 16                          ;plasma: pixels height
 
-RASTER_BAR_LOOP_FOR_EACH_COLOR  equ 1           ;4 loops for each color before switching to the next one
+RASTER_BAR_LOOP_FOR_EACH_COLOR  equ 4           ;4 loops for each color before switching to the next one
 
 LETTER_P_COLOR_IDX      equ 1                   ;color index for the letters
 LETTER_V_COLOR_IDX      equ 2
@@ -768,9 +768,8 @@ state_delay_6s_init:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_delay_anim:
-        cmp     word [main_state_delay_frames],0
-        je      .next
         dec     word [main_state_delay_frames]
+        jz      .next
         ret
 .next:
         jmp     main_state_next                 ;set next state and return
@@ -1608,16 +1607,16 @@ state_enable_boy_walk:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_enable_scroll:
         mov     byte [scroll_enabled],1         ;start the scroll
-        jmp     plasma_init                     ;init plasma here, not before
-                                                ; since palette might be used
-                                                ; for other reasons before this state
+        ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_scroll_sine_init:
         mov     byte [raster_colors_sine_idx],0
         mov     byte [raster_colors_loops_for_each_color],RASTER_BAR_LOOP_FOR_EACH_COLOR
-        mov     word [raster_bars_colors_addr], raster_bars_colors_addr_start
-        ret
+        mov     word [raster_bars_colors_addr],raster_bars_colors_addr_start+RASTER_BARS_COLOR_MAX      ;point to next color
+        jmp     plasma_init                     ;init plasma here, not before
+                                                ; since palette might be used
+                                                ; for other reasons before this state
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_scroll_sine_anim:
@@ -2028,7 +2027,6 @@ plasma_effect_update:
         mov     byte [plasma_effect_delay],3
         sub     bh,bh
         mov     bl,[plasma_effect_transition_state]
-        int 3
         inc     byte [plasma_effect_transition_state]
         cmp     bl,13
         je      .finish_transition
@@ -2792,14 +2790,14 @@ raster_colors_color_tbl:                        ;here starts the real colors to 
         db      15,15,15,15,15                  ;buffer
 
 raster_bars_colors_addr_start:                  ;used as an address: start of colors
-raster_bars_blue_tbl:
-        db      9,8,1,8,9
+raster_bars_blue_tbl:                           ;HACK: order must be the same as in
+        db      9,8,1,8,9                       ; plasma_palettes_tbl
 raster_bars_red_tbl:
         db      12,8,4,8,12
-raster_bars_green_tbl:
-        db      10,8,2,8,10
 raster_bars_cyan_tbl:
         db      11,8,3,8,11
+raster_bars_green_tbl:
+        db      10,8,2,8,10
 raster_bars_magenta_tbl:
         db      13,8,5,8,13
 RASTER_BARS_COLOR_MAX   equ $-raster_bars_magenta_tbl
@@ -2808,7 +2806,7 @@ raster_bars_colors_addr:
         dw      0                               ;current address for colors
 
 
-raster_colors_loops_for_each_color:            ;how many sine loops to do before chaning colors
+raster_colors_loops_for_each_color:             ;how many sine loops to do before chaning colors
         db      0
 raster_colors_sine_idx:                         ;index to be used with the sine table
         db      0
@@ -2906,12 +2904,12 @@ plasma_tex_blue_palette:
         db      0x1                             ;blue
         db      0                               ;black
 
-plasma_tex_gray_palette:
+plasma_tex_cyan_palette:
         db      0xf                             ;white
         db      0x7                             ;light gray
-        db      0x7                             ;light gray
+        db      0xb                             ;light cyan
         db      0x8                             ;gray
-        db      0x8                             ;gray
+        db      0x3                             ;cyan
         db      0                               ;black
 
 plasma_effect_delay:                            ;delay used while in transition to slow it down
@@ -2923,9 +2921,10 @@ plasma_effect_transition_state:                 ;state of the transition effect
 plasma_effect_idx:                              ;plasma effect index
         db      0
 plasma_palettes_tbl:                            ;table that contains the different palettes
+        dw      plasma_tex_blue_palette         ; order must same as in raster_bars_colors_addr_start
         dw      plasma_tex_red_palette
+        dw      plasma_tex_cyan_palette
         dw      plasma_tex_green_palette
-        dw      plasma_tex_blue_palette
         dw      plasma_tex_magenta_palette
 PLASMA_EFFECT_MAX equ ($-plasma_palettes_tbl)/2 ;div 2, since each entry takes 2 bytes (dw)
 
