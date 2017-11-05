@@ -1111,7 +1111,7 @@ scroll_anim:
 
 .anim:
         call    plasma_anim
-        call    plasma_update_effect
+        call    plasma_effect_update
 
         mov     bp,ds                           ;save ds for later
         mov     ax,0xb800                       ;ds points to video memory
@@ -2009,12 +2009,12 @@ plasma_init:
         mov     byte [plasma_effect_transition_state],0
         mov     byte [plasma_effect_idx],0
         mov     byte [plasma_effect_trigger],1      ;trigger effect
-        mov     byte [plasma_effect_delay],5    ;delay
+        mov     byte [plasma_effect_delay],3    ;delay
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; updates the plasma effect
-plasma_update_effect:
+plasma_effect_update:
         cmp     byte [plasma_effect_trigger],0
         jnz     .do
         ret
@@ -2025,9 +2025,10 @@ plasma_update_effect:
         ret
 
 .do_effect:
-        mov     byte [plasma_effect_delay],5
+        mov     byte [plasma_effect_delay],3
         sub     bh,bh
         mov     bl,[plasma_effect_transition_state]
+        int 3
         inc     byte [plasma_effect_transition_state]
         cmp     bl,13
         je      .finish_transition
@@ -2039,20 +2040,39 @@ plasma_update_effect:
 .fade_in:                                       ;called with bl 7-12
         sub     bh,bh
         sub     bl,7                            ;re-range to 0-5
-        mov     cl,5                            ;inverse it: 0->5...5->0
-        sub     cl,bl
+        mov     dl,5                            ;re-range to 5-0
+        sub     dl,bl                           ;inverse it. fetch last color first
+
+        mov     bp,es
+        mov     ax,ds
+        mov     es,ax
+        mov     cx,5
+        mov     si,bottom_palette+1+4           ;shift colors to the left
+        mov     di,bottom_palette+1+5           ;after 6 iterations all colors should be in
+        std
+        rep movsb                               ; their final position
+        cld
+        mov     es,bp                           ;restore bp
 
         mov     bl,[plasma_effect_idx]          ;fetch plasma effect index
         shl     bl,1                            ;*2, since each entry takes 2 bytes
 
         mov     si,[plasma_palettes_tbl+bx]     ;pointer to palette to be used
-        mov     bl,cl                           ;inverse pointer for color idx
+        mov     bl,dl                           ;color to be used
         mov     al,[si+bx]
-        mov     [bottom_palette+1+bx],al
+        mov     [bottom_palette+1+0],al         ;move it for 1st position
+                                                ;and rotate colors to the right
         ret
 
 .fade_out:                                      ;called with bl 0-5
-        mov     byte [bottom_palette+1+bx],0    ;set color to black
+        mov     bp,es
+        mov     ax,ds
+        mov     es,ax
+        mov     cx,5
+        mov     si,bottom_palette+1+1           ;shift colors to the left (black is color idx 5)
+        mov     di,bottom_palette+1+0           ;after 6 iterations, everything will be black
+        rep movsb
+        mov     es,bp                           ;restore bp
         ret
 
 .change_plasma_effect:                          ;called with bl==6
