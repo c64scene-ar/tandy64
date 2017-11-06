@@ -198,7 +198,9 @@ LETTER_BORDER_COLOR_IDX equ 5
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+;
 ; CODE
+;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 section .text
 
@@ -657,6 +659,7 @@ new_i08_main:
         call    crtc_addr_anim                  ;change CRTC start address
         call    music_anim                      ;play music
         call    central_screen_anim             ;text writer and/or boy walk
+        call    scroll_effect_anim              ;plasma / rasterbar from scroll
         call    scroll_anim                     ;anim scroll
 
 %if DEBUG
@@ -711,13 +714,12 @@ state_fade_to_black_init:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_fade_to_black_anim:
-        cmp     word [palette_black_delay],0
-        je      .animate
         dec     word [palette_black_delay]
+        jz      .animate
         ret
 
 .animate:
-        mov     word [palette_black_delay],3    ;reset delay
+        mov     word [palette_black_delay],4    ;reset delay
         mov     bx,word [palette_black_idx]     ;fetch idx to table
         sub     ah,ah                           ;MSB for the index. used later
 
@@ -843,6 +845,7 @@ state_gfx_fade_in_anim:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_nothing_init:
         ret
+
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_nothing_anim:
         ret
@@ -1107,6 +1110,72 @@ letter_state_outline_noise_anim:
 .exit:
         ret
 
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+scroll_effect_anim:
+        cmp     byte [scroll_effect_enabled],0
+        jz     .exit
+        call    plasma_anim
+        call    plasma_effect_update
+        jmp     raster_bars_anim
+.exit:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+raster_bars_init:
+        mov     byte [raster_colors_sine_idx],0
+        mov     byte [raster_colors_loops_for_each_color],RASTER_BAR_LOOP_FOR_EACH_COLOR
+        mov     word [raster_bars_colors_addr],raster_bars_colors_addr_start+RASTER_BARS_COLOR_MAX      ;point to next color
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+raster_bars_anim:
+        mov     bp,es                           ;save for later
+        sub     bh,bh
+
+        mov     ax,ds
+        mov     es,ax                           ;ds:di -> dst
+        mov     di,raster_colors_tbl
+
+        ; table_offset = sine_tbl[sine_idx]
+        mov     bl,[raster_colors_sine_idx]     ;pointer to sine table
+        mov     bl,[raster_colors_sine_tbl+bx]  ;sine index for source colors
+        mov     si,raster_colors_anim_tbl
+        add     si,bx
+
+        mov     cx,(RASTER_COLORS_MAX-1)/2      ;don't overwrite last color. must be 15
+        ;assert (cx == 8)
+        rep movsw
+
+        mov     es,bp                           ;restore es
+
+        inc     byte [raster_colors_sine_idx]   ;0?
+        jnz     .exit
+        dec     byte [raster_colors_loops_for_each_color]
+        jz      .change_color
+.exit:
+        ret                                     ;exit
+
+.change_color:
+        mov     byte [raster_colors_loops_for_each_color],RASTER_BAR_LOOP_FOR_EACH_COLOR
+
+        ;change raster bar colors
+        mov     bx,es
+        mov     ax,ds
+        mov     es,ax                           ;ds=es
+        mov     si,[raster_bars_colors_addr]    ;ds:si src
+        mov     di,raster_colors_color_tbl      ;es:di: dst
+        mov     cx,RASTER_BARS_COLOR_MAX        ;colors to copy
+        rep movsb
+        mov     es,bx                           ;restore es
+
+        cmp     si,raster_bars_colors_addr_end
+        jne     .update_addr
+        mov     si,raster_bars_colors_addr_start
+
+.update_addr:
+        mov     [raster_bars_colors_addr],si    ;update position of next color bar
+        mov     byte [plasma_effect_trigger],1  ;start effect transition
+        ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_init:
@@ -1120,9 +1189,6 @@ scroll_anim:
         ret
 
 .anim:
-        call    plasma_anim
-        call    plasma_effect_update
-
         mov     bp,ds                           ;save ds for later
         mov     ax,0xb800                       ;ds points to video memory
         mov     ds,ax                           ;es already points to it
@@ -1344,28 +1410,37 @@ central_screen_anim:
         mov     al,[central_screen_state]
         or      al,al                           ;0 == exit
         jz      .exit
-        shr     al,1                            ;1 == do walk_boy
-        jc      .do_walk_boy
+        shr     al,1                            ;1 == do boy_walk
+        jc      .do_boy_walk
         jmp     text_writer_anim                ;>2 == do text_writer
-.do_walk_boy:
+.do_boy_walk:
         jmp     boy_walk_anim
 .exit:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 boy_walk_init:
+        mov     byte [boy_walk_delay],0
+        mov     word [boy_walk_vid_addr],TEXT_WRITER_START_Y*2*160+160+18*4   ;hardcode writing position
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 boy_walk_anim:
+        dec     byte [boy_walk_delay]
+        jz      .anim
         ret
+
+.anim:
+        mov     byte [boy_walk_delay],5         ;frames to wait with the foot up
+        ret
+
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_init:
         sub     ax,ax
         mov     byte [text_writer_state],TW_STATE_PRINT_CHAR
         mov     word [text_writer_idx],-1       ;HACK: data offset is -1, because we do a +1 at anim
-        mov     byte [text_writer_delay],10     ;delay waits 10 refreshes
+        mov     byte [text_writer_delay],10     ;waits 10 refreshes
         mov     byte [text_writer_cursor_blink_delay],al ;how many blinks to wait
         mov     byte [text_writer_x_pos],al     ;at pos 0
         mov     byte [text_writer_x_dst],al     ;dst pos 0
@@ -1405,7 +1480,7 @@ text_writer_state_print_char_anim:
         mov     al,0x77                         ;select "reverse" space (all gray char)
         call    text_writer_fill_one_char       ; and print it
 
-        mov     byte [text_writer_delay],1      ;cycles to wait
+        mov     byte [text_writer_delay],2      ;cycles to wait
         mov     byte [text_writer_state],TW_STATE_IDLE  ;after writing a char, switch to
                                                 ; delay state to make the writing slower
         ret
@@ -1428,9 +1503,8 @@ text_writer_state_idle_init:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_state_idle_anim:
-        cmp     byte [text_writer_delay],0
-        je      .end_delay
         dec     byte [text_writer_delay]
+        jz      .end_delay
         ret
 
 .end_delay:
@@ -1506,30 +1580,6 @@ text_writer_state_goto_y_anim:
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-text_writer_state_dance_boy_init:
-        mov     byte [text_writer_dance_boy_delay],0
-        mov     word [text_writer_addr],TEXT_WRITER_START_Y*2*160+160+18*4   ;hardcode writing position
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-text_writer_state_dance_boy_anim:
-        cmp     byte [text_writer_dance_boy_delay],0
-        je      .exit
-        dec     byte [text_writer_dance_boy_delay]
-        jnz     .exit2
-        mov     al,31                            ;foot down frame
-        jmp     text_writer_print_char
-
-.exit:
-        cmp     byte [noise_triggered],0
-        je      .exit2
-        mov     byte [text_writer_dance_boy_delay],5         ;frames to wait with the foot up
-        mov     al,30                            ;foot up frame
-        jmp     text_writer_print_char
-.exit2:
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_state_call_action_init:
         ret
 
@@ -1542,9 +1592,8 @@ text_writer_state_call_action_anim:
         mov     al,[text_writer_data+bx]        ; which is the action to perform
 
         ;assuming al==0
-        mov     byte [text_writer_state],TW_STATE_DANCE_BOY     ;next state dance boy
-        jmp     text_writer_state_dance_boy_init        ;FIXME: state_init is only called from
-                                                ; print_char state. forcing the init here.
+        int 3
+        ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_state_cursor_blink_init:
@@ -1557,26 +1606,22 @@ text_writer_state_cursor_blink_init:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_state_cursor_blink_anim:
-        cmp     byte [text_writer_cursor_blink_delay],0
-        je      .end_blink_state
-
         dec     byte [text_writer_delay]
+        jz      .next_blink
         cmp     byte [text_writer_delay],15     ;half cycles
         je      .cursor_off
-        cmp     byte [text_writer_delay],0
-        je      .next_blink
         ret
 
 .next_blink:
         dec     byte [text_writer_cursor_blink_delay]
-        cmp     byte [text_writer_cursor_blink_delay],0
-        je      .end_blink_state
+        jz      .end_blink_state
+
         mov     byte [text_writer_delay],30     ;init blink delay
         mov     al,0x77                         ;select all gray char
         jmp     text_writer_fill_one_char       ; print it, and return
 
 .cursor_off:
-        mov     al,0x00                         ;select all black char
+        sub     al,al                           ;select all black char
         jmp     text_writer_fill_one_char       ; print it, and return
 
 .end_blink_state:
@@ -1616,68 +1661,20 @@ state_enable_boy_walk:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+state_enable_text_writer:
+        mov     byte [central_screen_state],CENTRAL_SCREEN_STATE_TEXT_WRITTER
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_enable_scroll:
         mov     byte [scroll_enabled],1         ;start the scroll
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_scroll_sine_init:
-        mov     byte [raster_colors_sine_idx],0
-        mov     byte [raster_colors_loops_for_each_color],RASTER_BAR_LOOP_FOR_EACH_COLOR
-        mov     word [raster_bars_colors_addr],raster_bars_colors_addr_start+RASTER_BARS_COLOR_MAX      ;point to next color
-        jmp     plasma_init                     ;init plasma here, not before
-                                                ; since palette might be used
-                                                ; for other reasons before this state
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-state_scroll_sine_anim:
-        mov     bp,es                           ;save for later
-        sub     bh,bh
-
-        mov     ax,ds
-        mov     es,ax                           ;ds:di -> dst
-        mov     di,raster_colors_tbl
-
-        ; table_offset = sine_tbl[sine_idx]
-        mov     bl,[raster_colors_sine_idx]     ;pointer to sine table
-        mov     bl,[raster_colors_sine_tbl+bx]  ;sine index for source colors
-        mov     si,raster_colors_anim_tbl
-        add     si,bx
-
-        mov     cx,(RASTER_COLORS_MAX-1)/2      ;don't overwrite last color. must be 15
-        ;assert (cx == 8)
-        rep movsw
-
-        mov     es,bp                           ;restore es
-
-        inc     byte [raster_colors_sine_idx]   ;0?
-        jnz     .exit
-        dec     byte [raster_colors_loops_for_each_color]
-        jz      .change_color
-.exit:
-        ret                                     ;exit
-
-.change_color:
-        mov     byte [raster_colors_loops_for_each_color],RASTER_BAR_LOOP_FOR_EACH_COLOR
-
-        ;change raster bar colors
-        mov     bx,es
-        mov     ax,ds
-        mov     es,ax                           ;ds=es
-        mov     si,[raster_bars_colors_addr]    ;ds:si src
-        mov     di,raster_colors_color_tbl      ;es:di: dst
-        mov     cx,RASTER_BARS_COLOR_MAX        ;colors to copy
-        rep movsb
-        mov     es,bx                           ;restore es
-
-        cmp     si,raster_bars_colors_addr_end
-        jne     .update_addr
-        mov     si,raster_bars_colors_addr_start
-
-.update_addr:
-        mov     [raster_bars_colors_addr],si    ;update position of next color bar
-        mov     byte [plasma_effect_trigger],1  ;start effect transition
-        ret
+state_enable_scroll_effects:
+        inc     byte [scroll_effect_enabled]    ;enable effects
+        call    raster_bars_init
+        jmp     plasma_init
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_clear_bottom_init:
@@ -1779,7 +1776,7 @@ state_plasma_red_tex_init:
         mov     word [plasma_tex_x_offset],ax
         mov     byte [plasma_tex_state],al      ;initial state
         mov     byte [plasma_tex_colors_updated],al
-        mov     byte [plasma_tex_delay],al
+        mov     byte [plasma_tex_delay],1
         mov     word [plasma_tex_palette_addr],plasma_tex_red_palette
         mov     byte [plasma_tex_letter_color],LETTER_P_COLOR_IDX       ;letter P color idx
         mov     byte [plasma_tex_inc_x0],250     ;texture generator parameters
@@ -1806,7 +1803,7 @@ state_plasma_green_tex_init:
         mov     word [plasma_tex_x_offset],ax
         mov     byte [plasma_tex_state],al      ;initial state
         mov     byte [plasma_tex_colors_updated],al
-        mov     byte [plasma_tex_delay],al
+        mov     byte [plasma_tex_delay],1
         mov     word [plasma_tex_palette_addr],plasma_tex_green_palette
         mov     byte [plasma_tex_letter_color],LETTER_V_COLOR_IDX       ;letter V color idx
         mov     byte [plasma_tex_inc_x0],4      ;texture generator parameters
@@ -1833,7 +1830,7 @@ state_plasma_magenta_tex_init:
         mov     word [plasma_tex_x_offset],ax
         mov     byte [plasma_tex_state],al      ;initial state
         mov     byte [plasma_tex_colors_updated],al
-        mov     byte [plasma_tex_delay],al
+        mov     byte [plasma_tex_delay],1
         mov     word [plasma_tex_palette_addr],plasma_tex_magenta_palette
         mov     byte [plasma_tex_letter_color],LETTER_M_COLOR_IDX       ;letter M color idx
         mov     byte [plasma_tex_inc_x0],4      ;texture generator parameters
@@ -1871,13 +1868,12 @@ state_plasma_tex_anim:
         cmp     byte [plasma_tex_colors_updated],0
         je      .next_state
 
-        cmp     byte [plasma_tex_delay],0
-        je      .do_out
         dec     byte [plasma_tex_delay]
+        jz      .do_out
         ret
 
 .do_out:
-        mov     byte [plasma_tex_delay],3       ;reset delay
+        mov     byte [plasma_tex_delay],4       ;reset delay
 
         mov     bx,es                           ;save it for later
         mov     ax,ds
@@ -1915,13 +1911,12 @@ state_plasma_tex_anim:
         cmp     byte [plasma_tex_colors_updated],PLASMA_TEX_PALETTE_MAX
         je      .next_internal_state
 
-        cmp     byte [plasma_tex_delay],0       ;end of wait?
-        je      .do_in                          ; if so, jump to the effect
-        dec     byte [plasma_tex_delay]         ;delay--
+        dec     byte [plasma_tex_delay]         ;end of wait?
+        jz      .do_in                          ; if so, jump to the effect
         ret
 
 .do_in:
-        mov     byte [plasma_tex_delay],3       ;reset delay
+        mov     byte [plasma_tex_delay],4       ;reset delay
 
         mov     bx,es                           ;save it for later
         mov     ax,ds
@@ -1947,7 +1942,7 @@ state_plasma_tex_anim:
         ret
 
 .next_internal_state:
-        mov     byte [plasma_tex_delay],3       ;delay before starting next state
+        mov     byte [plasma_tex_delay],4       ;delay before starting next state
         inc     byte [plasma_tex_state]         ;set next state
         ret
 
@@ -2026,7 +2021,7 @@ plasma_init:
 
         mov     byte [plasma_effect_transition_state],0
         mov     byte [plasma_effect_idx],0
-        mov     byte [plasma_effect_trigger],1      ;trigger effect
+        mov     byte [plasma_effect_trigger],1  ;trigger effect
         mov     byte [plasma_effect_delay],3    ;delay
         ret
 
@@ -2359,13 +2354,17 @@ dec_d020:
 
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+;
 ; DATA GFX
+;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 section .gfx data
         incbin 'src/logo.raw'                   ;MUST be the first variable in the segment
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+;
 ; DATA MUSIC + CHARSET + MISC
+;
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 section .data data
 
@@ -2483,7 +2482,8 @@ scroll_pixel_anim_tbl:                          ;these are pixels, not palette c
 
 scroll_enabled:                                 ;boolean: enabled?
         db      0
-
+scroll_effect_enabled:                          ;boolean. whether to enable plasma + raster bar
+        db      0
 palette_letter_color_idx:                       ;index for table used in fade in/out effects
         db      0
 palette_grayscale_in_tbl:                       ;fade in in grayscale
@@ -2553,9 +2553,9 @@ main_state_inits:
         dw      state_clear_bottom_init         ;l
         dw      state_enable_scroll             ;m
         dw      state_delay_2s_init             ;n
-        dw      state_scroll_sine_init          ;p
+        dw      state_enable_scroll_effects     ;p
         dw      state_delay_2s_init             ;n'
-        dw      state_enable_boy_walk           ;o
+        dw      state_enable_text_writer        ;o
         dw      state_nothing_init              ;q
 
 main_state_callbacks:
@@ -2574,7 +2574,7 @@ main_state_callbacks:
         dw      state_clear_bottom_anim         ;l
         dw      state_skip_anim                 ;m
         dw      state_delay_anim                ;n
-        dw      state_scroll_sine_anim          ;p
+        dw      state_skip_anim                 ;p
         dw      state_delay_anim                ;n'
         dw      state_skip_anim                 ;o
         dw      state_nothing_anim              ;q
@@ -2702,8 +2702,7 @@ TW_STATE_GOTO_X         equ 2
 TW_STATE_GOTO_Y         equ 3
 TW_STATE_CALL_ACTION    equ 4
 TW_STATE_CURSOR_BLINK   equ 5
-TW_STATE_DANCE_BOY      equ 6
-TW_STATE_MAX            equ 7                   ;should be the last state
+TW_STATE_MAX            equ 6                   ;should be the last state
 text_writer_callbacks_init:
         dw      0                                       ;no init for print_char
         dw      text_writer_state_idle_init
@@ -2711,7 +2710,6 @@ text_writer_callbacks_init:
         dw      text_writer_state_goto_y_init
         dw      text_writer_state_call_action_init
         dw      text_writer_state_cursor_blink_init
-        dw      text_writer_state_dance_boy_init
 
 text_writer_callbacks_anim:
         dw      text_writer_state_print_char_anim
@@ -2720,7 +2718,6 @@ text_writer_callbacks_anim:
         dw      text_writer_state_goto_y_anim
         dw      text_writer_state_call_action_anim
         dw      text_writer_state_cursor_blink_anim
-        dw      text_writer_state_dance_boy_anim
 
         ;control codes: think of it as a printer
         ; 0 - idle
@@ -2745,8 +2742,6 @@ text_writer_data:
         db      TW_STATE_GOTO_X,38
 
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-
-        db      TW_STATE_CALL_ACTION,0          ;execute action 0: enable dance boy
 
         db      TW_STATE_GOTO_X,0
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
@@ -2788,8 +2783,96 @@ text_writer_cursor_blink_delay:                 ;how many cursor blinks to wait
         db      0
 text_writer_delay:                              ;used by 'delay state' to know who many
         db      0                               ; vert retrace to wait
-text_writer_dance_boy_delay:                    ;how many frames the dance boy should have the
-        db      0                               ; his foot up
+boy_walk_delay:                                 ;how many frames to wait
+        db      0
+boy_walk_vid_addr:                              ;video address to where draw the next frame
+        dw      0
+boy_walk_col_pos:                               ;in which col the boy is positioned
+        db      0
+boy_walk_frame_nro:                             ;which frame is being displayed
+boy_walk_frame_0:                               ;walk frame 0
+        db      0xf0,0xf0,0xf0,0xf0
+        db      0xf0,0xf0,0xf0,0xf0
+        db      0xf0,0xf0,0xf0,0xf0
+        db      0xf0,0xf0,0xf0,0xf0
+        db      0xf0,0xf0,0xf0,0xf0
+        db      0xf0,0xf0,0xf0,0xf0
+        db      0xf0,0xf0,0xf0,0xf0
+        db      0xf0,0xf0,0xf0,0xf0
+        db      0xf0,0xf0,0xf0,0xf0
+
+        db      0xf0,0xf0,0xf0,0xf0
+        db      0xf0,0xf0,0xf0,0xf0
+        db      0xf0,0xf0,0xf0,0xf0
+        db      0xf0,0xf0,0xf0,0xf0
+        db      0xf0,0xf0,0xf0,0xf0
+        db      0xf0,0xf0,0xf0,0xf0
+        db      0xf0,0xf0,0xf0,0xf0
+        db      0xf0,0xf0,0xf0,0xf0
+        db      0xf0,0xf0,0xf0,0xf0
+
+boy_walk_frame_1:                               ;walk frame 1
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+
+boy_dance_frame_0:                              ;dance frame 0
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+
+boy_dance_frame_1:                              ;dance frame 1
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
+        db      0x0f,0x0f,0x0f,0x0f
 key_pressed:                                    ;boolean. non-zero when a key was pressed
         db      0
 tick:                                           ;to trigger once the irq was called
@@ -3122,3 +3205,4 @@ plasma_xbuf:                                    ;plasma xbuffer
         resb   PLASMA_WIDTH
 plasma_ybuf:                                    ;plasma ybuffer
         resb   PLASMA_HEIGHT
+
