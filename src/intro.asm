@@ -475,9 +475,9 @@ new_i09:
         mov     dx,0x60
         in      al,dx
 
-        in      al,0x61
-        or      al,0x80
-        out     0x61,al
+        in      al,0x61                         ;FIXME: not sure if really needed
+        or      al,0x80                         ; This code was taken from the Tandy 1000 HX
+        out     0x61,al                         ; BIOS.
         and     al,0x7f
         out     0x61,al
 
@@ -576,7 +576,8 @@ new_i08_bottom_full_color:
 
         mov     si,raster_colors_tbl            ;where the colors are for each raster bar
 
-        WAIT_HORIZONTAL_RETRACE                 ;prevents flicker on real machine (???)
+        WAIT_HORIZONTAL_RETRACE                 ;FIXME: prevents flicker on real machine (???)
+                                                ; remove it!
 
         ;BEGIN raster bar code
         ;should be done as fast as possible
