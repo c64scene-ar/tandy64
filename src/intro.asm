@@ -1,4 +1,5 @@
-; Tandy64  Intro - Pungas de Villa Martelli - http://pungas.space
+; Tandy64 Intro
+; Pungas de Villa Martelli - http://pungas.space
 ;
 ; code: riq (http://retro.moe)
 
@@ -145,14 +146,7 @@ LETTER_BORDER_COLOR_IDX equ 5
         mov     ah,al                           ;move it ah
 
 %if %1
-        %%wait:
-                in      al,dx                   ;inline wait horizontal retrace for performance reasons
-                test    al,dh                   ;FIXME: using 0x3 instead of 0x1. Might break with light pen
-                jnz     %%wait
-        %%retrace:
-                in      al,dx
-                test    al,dh                   ;FIXME: using 0x3 instead of 0x1. might break with light pen
-                jz      %%retrace               ;horizontal retrace after this
+        WAIT_HORIZONTAL_RETRACE
 %endif
 
         mov     dl,bh                           ;dx = 0x3de
@@ -186,14 +180,14 @@ LETTER_BORDER_COLOR_IDX equ 5
 ;       dx      -> 0x3da
 %macro WAIT_HORIZONTAL_RETRACE 0
 %%wait:
-        in      al,dx                           ;wait for vertical retrace
-        test    al,1                            ; to finish
-        jnz     %%wait
+        in      al,dx                           ;wait for horizontal retrace
+        ror     al,1
+        jc      %%wait
 
 %%retrace:
-        in      al,dx                           ;wait for vertical retrace
-        test    al,1                            ; to start
-        jz      %%retrace
+        in      al,dx                           ;wait for horizontal retrace
+        ror     al,1
+        jnc     %%retrace
 %endmacro
 
 
@@ -393,31 +387,14 @@ setup_pit:
 global wait_vertical_retrace
 wait_vertical_retrace:
         mov     dx,0x03da
-.wait_retrace_finish:
-        in      al,dx                           ;wait for vertical retrace
-        test    al,8                            ; to finish
-        jnz     .wait_retrace_finish
-
-.wait_retrace_start:
-        in      al,dx                           ;wait for vertical retrace
-        test    al,8                            ; to start
-        jz      .wait_retrace_start
-
+        WAIT_VERTICAL_RETRACE
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 global wait_horiz_retrace
 wait_horiz_retrace:
         mov     dx,0x3da
-.wait_retrace_finish:                            ;wait for horizontal retrace start
-        in      al,dx
-        test    al,1
-        jnz      .wait_retrace_finish
-
-.wait_retrace_start:
-        in      al,dx                           ;wait until start of the retrace
-        test    al,1
-        jz      .wait_retrace_start
+        WAIT_HORIZONTAL_RETRACE
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -562,14 +539,8 @@ new_i08_bottom_multi_color:
 .l0:
         lodsb                                   ;fetch color
         mov     ah,al                           ; and save it for later
-.wait:
-        in      al,dx                           ;inline wait horizontal retrace for performance reasons
-        test    al,dh                           ;FIXME: using 0x3 instead of 0x1. Might break with light pen
-        jnz     .wait
-.retrace:
-        in      al,dx
-        test    al,dh                           ;FIXME: using 0x3 instead of 0x1. Might break with light pen
-        jz      .retrace                        ;horizontal retrace after this
+
+        WAIT_HORIZONTAL_RETRACE
 
         loop    .l0                             ;and do it 17 times
 
@@ -614,14 +585,8 @@ new_i08_bottom_full_color:
         mov     dl,bh                           ;dx = 0x3da
         lodsb                                   ;fetch color
         mov     ah,al                           ; and save it for later
-.wait:
-        in      al,dx                           ;inline wait horizontal retrace for performance reasons
-        test    al,dh                           ;FIXME: using 0x3 instead of 0x1. Might break with light pen
-        jnz     .wait
-.retrace:
-        in      al,dx
-        test    al,dh                           ;FIXME: using 0x3 instead of 0x1. Might break with light pen
-        jz      .retrace                        ;horizontal retrace after this
+
+        WAIT_HORIZONTAL_RETRACE
 
         mov     dl,bl                           ;dx = 0x3de
         mov     al,ah
