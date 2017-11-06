@@ -2443,7 +2443,7 @@ scroll_text:
         db 129                                  ;color with raster bar
         db ' DESERVES IT ! '
         db '   ;   '
-        db 'SENDING OUR REGARDS TO ALL THE 8088 SCENE, AND TO OUR C64 FRIENDS'
+        db 'SENDING OUR REGARDS TO ALL THE 8088 SCENE, AND TO OUR =64 FRIENDS'
         db '   ;   '
         db 'BESO GRANDE A LA MAS GRANDE DE TODAS: '
         db 130,'<<< ',129                       ;hears in yellow
