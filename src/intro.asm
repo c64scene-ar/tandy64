@@ -574,25 +574,23 @@ new_i08_bottom_full_color:
         mov     al,0x1f                         ;select palette color 15 (white)
         out     dx,al
 
-        mov     cl,RASTER_COLORS_MAX            ;total number of raster bars
         mov     si,raster_colors_tbl            ;where the colors are for each raster bar
 
         WAIT_HORIZONTAL_RETRACE                 ;prevents flicker on real machine (???)
 
         ;BEGIN raster bar code
         ;should be done as fast as possible
-.l0:
-        mov     dl,bh                           ;dx = 0x3da
-        lodsb                                   ;fetch color
-        mov     ah,al                           ; and save it for later
+        %rep    17                              ;FIXME: must be RASTER_COLORS_MAX
+                lodsb                           ;fetch color
+                mov     ah,al                   ; and save it for later
 
-        WAIT_HORIZONTAL_RETRACE
+                WAIT_HORIZONTAL_RETRACE
 
-        mov     dl,bl                           ;dx = 0x3de
-        mov     al,ah
-        out     dx,al                           ;set new color
-
-        loop    .l0                             ;and do it 17 times
+                mov     dl,bl                   ;dx = 0x3de
+                mov     al,ah
+                out     dx,al                   ;set new color
+                mov     dl,bh                   ;dx = 0x3da
+        %endrep
         ;END raster bar code
 
         ;update top-screen palette
@@ -1107,7 +1105,7 @@ raster_bars_anim:
         mov     si,raster_colors_anim_tbl
         add     si,bx
 
-        mov     cx,(RASTER_COLORS_MAX-1)/2      ;don't overwrite last color. must be 15
+        mov     cx,(RASTER_COLORS_MAX-1)/2      ;don't overwrite last color
         ;assert (cx == 8)
         rep movsw
 
