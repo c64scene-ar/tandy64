@@ -1524,7 +1524,7 @@ text_writer_state_goto_y_anim:
         ret                                     ; then change state to read chars again
 
 .down:
-        mov     al,0x00                         ;char to write: empty
+        sub     al,al                           ;char to write: empty
         call    text_writer_fill_one_char
         inc     byte [text_writer_y_pos]        ;cursor.y += 1 (going down)
         add     word [text_writer_addr],320     ;video addr += 320
@@ -1532,7 +1532,7 @@ text_writer_state_goto_y_anim:
         jmp     text_writer_fill_one_char
 
 .up:
-        mov     al,0x00                         ;char to write: empty
+        sub     al,al                           ;char to write: empty
         call    text_writer_fill_one_char
         dec     byte [text_writer_y_pos]        ;cursor.y -= 1. (going up)
         sub     word [text_writer_addr],320     ;video addr -= 320
@@ -1648,7 +1648,7 @@ state_clear_bottom_anim:
         ;previously it was filled with the plasma pixels
         ;do it in two parts since there is not enough CPU power to do it in
         ;just one pass
-        mov     ax,0x0000                       ;black * 4
+        sub     ax,ax                           ;black * 4
 
         cmp     byte [clear_bottom_state],0
         jne     .second_half
