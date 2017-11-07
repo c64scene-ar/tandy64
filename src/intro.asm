@@ -700,7 +700,7 @@ state_fade_to_black_anim:
         mov     [border_color],al
 
         inc     word [palette_black_idx]
-        cmp     word [palette_black_idx], PALETTE_BLACK_MAX
+        cmp     word [palette_black_idx],PALETTE_BLACK_MAX
         je      .next_state
         ret
 .next_state:
@@ -758,13 +758,10 @@ state_gfx_fade_in_init:
         REFRESH_PALETTE 0                       ;refresh the palette, don't wait for horizontal retrace
 
         ;logo should be turned off by default
-        mov     cx,6                            ;first six colors should be blue at firt
-        mov     al,1                            ;blue color
-        sub     bx,bx
-.loop:
-        mov     byte [top_palette+bx],al        ;update color index with blue
-        inc     bx
-        loop    .loop
+        mov     ax,0x0101                       ;blue/blue color
+        mov     word [top_palette+0],ax         ;color idx 0,1 = blue
+        mov     word [top_palette+2],ax         ;color idx 2,3 = blue
+        mov     word [top_palette+4],ax         ;color idx 4,5 = blue
 
         ret
 
@@ -773,7 +770,7 @@ state_gfx_fade_in_init:
 ; https://en.wikipedia.org/wiki/Linear-feedback_shift_register
 state_gfx_fade_in_anim:
 
-        push    ds
+        mov     bp,ds                           ;save ds for later
 
         mov     ax,[clemente_lfsr_current_state]
 
@@ -798,12 +795,12 @@ state_gfx_fade_in_anim:
         je      .end
         loop    .loop
 
-        pop     ds
+        mov     ds,bp                           ;restore ds
         mov     [clemente_lfsr_current_state],ax
         ret
 
 .end:
-        pop     ds
+        mov     ds,bp                           ;restore ds
         jmp     main_state_next                 ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1143,7 +1140,7 @@ raster_bars_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_init:
-        mov     byte [scroll_enabled],0                 ;disabled by default
+        mov     byte [scroll_enabled],0         ;disabled by default
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1154,8 +1151,8 @@ scroll_anim:
 
 .anim:
         mov     bp,ds                           ;save ds for later
-        mov     ax,0xb800                       ;ds points to video memory
-        mov     ds,ax                           ;es already points to it
+        mov     ax,es                           ;ds and es point to video memory
+        mov     ds,ax
 
         mov     dx,SCROLL_COLS_TO_SCROLL/2      ;div 2 since we use movsw instead of movsb
 
@@ -1193,6 +1190,7 @@ scroll_anim:
         shl     bx,1
         lea     si,[charset+bx]                 ;ds:si: charset
 
+        mov     bp,es                           ;save es for later
         mov     ax,ds
         mov     es,ax                           ;es = ds
         mov     di,cache_charset                ;es:di: cache
@@ -1212,12 +1210,11 @@ scroll_anim:
         add     si,(128-1)*8                    ;point to next char. offset=192
         rep movsw
 
+        mov     es,bp                           ;restore es
+
         ;fall-through
 
 .render_bits:
-        mov     ax,0xb800
-        mov     es,ax
-
         mov     si,cache_charset                ;ds:si points to cache_charset
         sub     bp,bp                           ;used for the cache index in the macros
         mov     dx,scroll_pixel_color_tbl       ;table for colors used in the macros
