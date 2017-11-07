@@ -1035,6 +1035,26 @@ letter_state_outline_fade_to_final_anim:
         jmp     letter_state_next               ;set next state and return
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_bkg_in_out_init:
+        mov     byte [palette_letter_color_idx],0       ;reusing variable
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_bkg_in_out_anim:
+        mov     bl,[palette_letter_color_idx]
+        cmp     bl,PALETTE_BLACK_WHITE_BLACK_MAX
+        je      .end
+
+        sub     bh,bh
+        mov     al,[palette_black_white_black_tbl+bx]
+        mov     [top_palette+LETTER_BKG_COLOR_IDX],al
+
+        inc     byte [palette_letter_color_idx]
+        ret
+.end:
+        jmp     letter_state_next
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 letter_state_wait_sem_init:
         mov     byte [letter_state_semaphore],0
         ret
@@ -1048,12 +1068,25 @@ letter_state_wait_sem_anim:
         jmp     letter_state_next
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_restart_loop_init:
+        mov     byte [letter_state],1
+        jmp     [letter_state_inits+2]          ;init entry 1 (skip the "sem wait" state)
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_restart_loop_anim:
+        ret                                     ;nothing.
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 letter_state_outline_noise_init:
         mov     byte [noise_fade_color_idx],0
+        mov     word [letter_state_delay_frames],60*10   ;for 10 seconds
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 letter_state_outline_noise_anim:
+        dec     word [letter_state_delay_frames]
+        jz      .next_state
+
         cmp     byte [noise_triggered],0
         je      .skip
         mov     byte [noise_fade_color_idx],0   ;if triggered, reset anim
@@ -1062,14 +1095,16 @@ letter_state_outline_noise_anim:
         je      .exit
 
         sub     bh,bh
-        mov     bl,[noise_fade_color_idx]               ;bx with index to table
+        mov     bl,[noise_fade_color_idx]       ;bx with index to table
 
-        mov     al,[noise_fade_colors_tbl+bx]           ;fetch color
+        mov     al,[noise_fade_colors_tbl+bx]   ;fetch color
         mov     [top_palette+LETTER_BORDER_COLOR_IDX],al
 
         inc     byte [noise_fade_color_idx]
 .exit:
         ret
+.next_state:
+        jmp     letter_state_next
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 scroll_effect_anim:
@@ -2471,6 +2506,10 @@ palette_outline_fade_to_final_tbl:              ;fade in until gets final color
         db      8,8,7,7,11,11,11,11,7,7,8,8,1
 PALETTE_OUTLINE_FADE_TO_FINAL_MAX equ $-palette_outline_fade_to_final_tbl
 
+palette_black_white_black_tbl:
+        db      0,8,8,8,7,7,7,15,15,15,15,15,15,15,7,7,7,8,8,8,0
+PALETTE_BLACK_WHITE_BLACK_MAX equ $-palette_black_white_black_tbl
+
 palette_idx:
         db      0
 
@@ -2547,67 +2586,172 @@ letter_state_delay_frames:
 letter_state:                                   ;PVM letters animation state machine
         db      0
 
-letter_state_inits:
-        dw      letter_state_wait_sem_init      ;b
-        dw      letter_state_fade_in_1_at_time_init     ;c
-        dw      letter_state_outline_fade_init  ;d
-        dw      letter_state_delay_10s_init     ;e
-        dw      letter_state_delay_10s_init     ;e
+letter_state_inits:                             ;initialization callbacks
+        dw      letter_state_wait_sem_init      ;a
 
-        dw      letter_state_outline_fade_init  ;f
+        ; PVM in blue, like IBM
+        dw      letter_state_fade_in_1_at_time_init     ;b
+        dw      letter_state_outline_fade_init  ;c
+        dw      letter_state_delay_10s_init     ;d
+        dw      letter_state_bkg_in_out_init    ;e
+        dw      letter_state_delay_5s_init      ;f
+        dw      letter_state_bkg_in_out_init    ;g
+        dw      letter_state_delay_2s_init      ;h
 
-        dw      letter_state_fade_out_p_init    ;g
-        dw      letter_state_fade_in_p_init     ;h
-        dw      letter_state_delay_200ms_init   ;i
+        dw      letter_state_outline_fade_init  ;i
 
-        dw      letter_state_fade_out_v_init    ;j
-        dw      letter_state_fade_in_v_init     ;k
+        ;P in
+        dw      letter_state_fade_out_p_init    ;j
+        dw      letter_state_fade_in_p_init     ;k
         dw      letter_state_delay_200ms_init   ;l
 
-        dw      letter_state_fade_out_m_init    ;m
-        dw      letter_state_fade_in_m_init     ;n
-        dw      letter_state_delay_5s_init      ;o
+        ;V in
+        dw      letter_state_fade_out_v_init    ;m
+        dw      letter_state_fade_in_v_init     ;n
+        dw      letter_state_delay_200ms_init   ;o
 
-        dw      letter_state_fade_out_p_init    ;q
-        dw      letter_state_delay_200ms_init   ;q
-        dw      letter_state_fade_out_v_init    ;r
-        dw      letter_state_delay_200ms_init   ;r'
-        dw      letter_state_fade_out_m_init    ;s
-        dw      letter_state_delay_5s_init      ;s'
+        ;M in
+        dw      letter_state_fade_out_m_init    ;p
+        dw      letter_state_fade_in_m_init     ;q
 
-        dw      letter_state_outline_noise_init ;t
-        dw      letter_state_wait_sem_init      ;u
+        dw      letter_state_delay_5s_init      ;r
 
-letter_state_callbacks:
-        dw      letter_state_wait_sem_anim      ;b
-        dw      letter_state_fade_in_1_at_time_anim     ;c
-        dw      letter_state_outline_fade_to_final_anim ;d
-        dw      letter_state_delay_anim         ;e
-        dw      letter_state_delay_anim         ;e
+        ;PVM out
+        dw      letter_state_fade_out_p_init    ;s
+        dw      letter_state_delay_200ms_init   ;t
+        dw      letter_state_fade_out_v_init    ;u
+        dw      letter_state_delay_200ms_init   ;v
+        dw      letter_state_fade_out_m_init    ;w
 
-        dw      letter_state_outline_fade_out_anim      ;f
+        dw      letter_state_delay_5s_init      ;x
 
-        dw      letter_state_fade_out_letter_anim       ;g
-        dw      letter_state_fade_to_cyan_letter_anim   ;h
-        dw      letter_state_delay_anim         ;i
+        ;music rythm
+        dw      letter_state_outline_noise_init ;y
 
+        ;PVM in (left to right)
+        dw      letter_state_fade_in_p_init     ;z
+        dw      letter_state_delay_200ms_init   ;aa
+        dw      letter_state_fade_in_v_init     ;ab
+        dw      letter_state_delay_200ms_init   ;ac
+        dw      letter_state_fade_in_m_init     ;ad
+        dw      letter_state_delay_200ms_init   ;ae
+
+        ;music rythm
+        dw      letter_state_outline_noise_init ;af
+
+        ;PVM out (left to right)
+        dw      letter_state_fade_out_p_init    ;ag
+        dw      letter_state_delay_200ms_init   ;ah
+        dw      letter_state_fade_out_v_init    ;ai
+        dw      letter_state_delay_200ms_init   ;aj
+        dw      letter_state_fade_out_m_init    ;ak
+
+        dw      letter_state_delay_5s_init      ;al
+
+        ;PVM in (right to left)
+        dw      letter_state_fade_in_m_init     ;am
+        dw      letter_state_delay_200ms_init   ;an
+        dw      letter_state_fade_in_v_init     ;ao
+        dw      letter_state_delay_200ms_init   ;ap
+        dw      letter_state_fade_in_p_init     ;aq
+        dw      letter_state_delay_200ms_init   ;ar
+
+        ;music rythm
+        dw      letter_state_outline_noise_init ;as
+
+        ;PVM out (right to left)
+        dw      letter_state_fade_out_m_init    ;at
+        dw      letter_state_delay_200ms_init   ;au
+        dw      letter_state_fade_out_v_init    ;av
+        dw      letter_state_delay_200ms_init   ;aw
+        dw      letter_state_fade_out_p_init    ;ax
+
+        dw      letter_state_delay_5s_init      ;ay
+
+        dw      letter_state_restart_loop_init  ;az
+
+letter_state_callbacks:                         ;animation callbacks
+        dw      letter_state_wait_sem_anim      ;a
+
+        ; PVM in blue, like IBM
+        dw      letter_state_fade_in_1_at_time_anim     ;b
+        dw      letter_state_outline_fade_to_final_anim ;c
+        dw      letter_state_delay_anim         ;d
+        dw      letter_state_bkg_in_out_anim    ;e
+        dw      letter_state_delay_anim         ;f
+        dw      letter_state_bkg_in_out_anim    ;g
+        dw      letter_state_delay_anim         ;h
+
+        dw      letter_state_outline_fade_out_anim      ;i
+
+        ;P in
         dw      letter_state_fade_out_letter_anim       ;j
-        dw      letter_state_fade_to_green_letter_anim  ;k
+        dw      letter_state_fade_to_cyan_letter_anim   ;k
         dw      letter_state_delay_anim         ;l
 
+        ;V in
         dw      letter_state_fade_out_letter_anim       ;m
-        dw      letter_state_fade_to_pink_letter_anim   ;n
+        dw      letter_state_fade_to_green_letter_anim  ;n
         dw      letter_state_delay_anim         ;o
 
-        dw      letter_state_fade_out_letter_anim       ;q
-        dw      letter_state_delay_anim         ;q'
-        dw      letter_state_fade_out_letter_anim       ;r
-        dw      letter_state_delay_anim         ;r'
-        dw      letter_state_fade_out_letter_anim       ;s
-        dw      letter_state_delay_anim         ;s'
+        ;M in
+        dw      letter_state_fade_out_letter_anim       ;p
+        dw      letter_state_fade_to_pink_letter_anim   ;q
+        dw      letter_state_delay_anim         ;r
 
-        dw      letter_state_outline_noise_anim ;t
-        dw      letter_state_wait_sem_anim      ;u
+        ;PVM out
+        dw      letter_state_fade_out_letter_anim       ;s
+        dw      letter_state_delay_anim         ;t
+        dw      letter_state_fade_out_letter_anim       ;u
+        dw      letter_state_delay_anim         ;v
+        dw      letter_state_fade_out_letter_anim       ;w
+
+        dw      letter_state_delay_anim         ;x
+
+        ;music rythm
+        dw      letter_state_outline_noise_anim ;y
+
+        ;PVM in (left to right)
+        dw      letter_state_fade_to_cyan_letter_anim   ;z
+        dw      letter_state_delay_anim         ;aa
+        dw      letter_state_fade_to_green_letter_anim  ;ab
+        dw      letter_state_delay_anim         ;ac
+        dw      letter_state_fade_to_pink_letter_anim   ;ad
+        dw      letter_state_delay_anim         ;ae
+
+        ;music rythm
+        dw      letter_state_outline_noise_anim ;af
+
+        ;PVM out (left to right)
+        dw      letter_state_fade_out_letter_anim       ;ag
+        dw      letter_state_delay_anim         ;ah
+        dw      letter_state_fade_out_letter_anim       ;ai
+        dw      letter_state_delay_anim         ;aj
+        dw      letter_state_fade_out_letter_anim       ;ak
+
+        dw      letter_state_delay_anim         ;al
+
+        ;PVM in (right to left)
+        dw      letter_state_fade_to_cyan_letter_anim   ;am
+        dw      letter_state_delay_anim         ;an
+        dw      letter_state_fade_to_green_letter_anim  ;ao
+        dw      letter_state_delay_anim         ;ap
+        dw      letter_state_fade_to_pink_letter_anim   ;aq
+        dw      letter_state_delay_anim         ;ar
+
+        ;music rythm
+        dw      letter_state_outline_noise_anim ;as
+
+        ;PVM out (right to left)
+        dw      letter_state_fade_out_letter_anim       ;at
+        dw      letter_state_delay_anim         ;au
+        dw      letter_state_fade_out_letter_anim       ;av
+        dw      letter_state_delay_anim         ;aw
+        dw      letter_state_fade_out_letter_anim       ;ax
+
+        dw      letter_state_delay_anim         ;ay
+
+        dw      letter_state_restart_loop_anim  ;az
 
 letter_state_semaphore:                         ;semaphore used in letter state machine
         db      0
