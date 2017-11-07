@@ -576,9 +576,6 @@ new_i08_bottom_full_color:
 
         mov     si,raster_colors_tbl            ;where the colors are for each raster bar
 
-        WAIT_HORIZONTAL_RETRACE                 ;FIXME: prevents flicker on real machine (???)
-                                                ; remove it!
-
         ;BEGIN raster bar code
         ;should be done as fast as possible
         %rep    17                              ;FIXME: must be RASTER_COLORS_MAX
