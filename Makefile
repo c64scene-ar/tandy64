@@ -45,3 +45,10 @@ x: $(TARGET)
 runx: x
 	echo "Running game..."
 	dosbox-x -conf conf/dosbox-x.conf -c "mount c bin/ && dir" -c "c:" -c ${TARGET_NAME}
+
+dist: x
+	echo "Generating distribution .zip"
+	-rm tandy64.zip
+	-rm tandy64/tandy64.exe
+	cp bin/tandy64.exe tandy64/
+	zip tandy64.zip -r tandy64
