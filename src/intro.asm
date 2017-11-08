@@ -1583,7 +1583,7 @@ central_screen_anim:
 boy_walk_init:
         mov     word [boy_anim_vid_addr],TEXT_WRITER_START_Y*2*160-160  ;hardcode writing position
         sub     al,al
-        mov     byte [boy_anim_delay],al
+        mov     byte [boy_anim_delay],1
         mov     byte [boy_walk_frame_idx],al
         mov     byte [boy_walk_col_pos],al
         mov     byte [boy_anim_state],al
@@ -1624,7 +1624,7 @@ boy_walk_anim:
         inc     word [boy_anim_vid_addr]        ;move sprite 2 pixels to the right
         inc     byte [boy_walk_col_pos]         ;next column
 
-        cmp     byte [boy_walk_col_pos],74      ;half screen
+        cmp     byte [boy_walk_col_pos],70      ;half screen
         je      .enable_dance
         cmp     byte [boy_walk_col_pos],154     ;end of screen
         je      .enable_end_anim
@@ -1675,6 +1675,7 @@ boy_dance_anim:
         ret
 
 .end_dance:
+        mov     byte [boy_anim_delay],1         ;reset delay to min
         mov     byte [boy_anim_state],BOY_ANIM_STATE_WALK       ;walk again...to right margin
         ret
 
@@ -2804,6 +2805,7 @@ main_state_inits:
         dw      state_enable_scroll             ;m
         dw      state_delay_2s_init             ;n
         dw      state_enable_scroll_effects     ;p
+        dw      state_delay_2s_init             ;n'
 ;        dw      state_enable_text_writer        ;o
         dw      state_enable_boy_walk           ;o
 
@@ -2826,6 +2828,7 @@ main_state_callbacks:
         dw      state_skip_anim                 ;m
         dw      state_delay_anim                ;n
         dw      state_skip_anim                 ;p
+        dw      state_delay_anim                ;n'
         dw      state_skip_anim                 ;o
         dw      state_nothing_anim              ;q
 
@@ -3083,8 +3086,6 @@ text_writer_callbacks_anim:
 text_writer_data:
                 ;0123456789012345678901234567890123456789
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,17
-
         db      '                Hi there'
         db      TW_STATE_CURSOR_BLINK,5         ;wait blinks
         db      TW_STATE_GOTO_X,3               ;go to pos
