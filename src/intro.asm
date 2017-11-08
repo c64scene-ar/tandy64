@@ -122,6 +122,167 @@ LETTER_BORDER_COLOR_IDX equ 5
 %endmacro
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; renders a boy-walk/dance frame
+;
+; IN:
+;       ds:si   -> source (frame data)
+;       es:di   -> destination (video memory)
+;
+%macro RENDER_BOY_FRAME 0
+        sub     al,al                           ;clean MSB bit from previous frame
+        mov     cx,8192-5                       ;increment value after each row
+        mov     dx,24576-155                    ;decrement value after 4 rows
+
+        stosb                                   ;row 0
+        movsw
+        movsw
+        add     di,cx                           ;row 1
+        stosb
+        movsw
+        movsw
+        add     di,cx                           ;row 2
+        stosb
+        movsw
+        movsw
+        add     di,cx                           ;row 3
+        stosb
+        movsw
+        movsw
+
+        sub     di,dx                           ;row 4
+        stosb
+        movsw
+        movsw
+        add     di,cx                           ;row 5
+        stosb
+        movsw
+        movsw
+        add     di,cx                           ;row 6
+        stosb
+        movsw
+        movsw
+        add     di,cx                           ;row 7
+        stosb
+        movsw
+        movsw
+
+        sub     di,dx                           ;row 8
+        stosb
+        movsw
+        movsw
+        add     di,cx                           ;row 9
+        stosb
+        movsw
+        movsw
+        add     di,cx                           ;row 10
+        stosb
+        movsw
+        movsw
+        add     di,cx                           ;row 11
+        stosb
+        movsw
+        movsw
+
+        sub     di,dx                           ;row 12
+        stosb
+        movsw
+        movsw
+        add     di,cx                           ;row 13
+        stosb
+        movsw
+        movsw
+        add     di,cx                           ;row 14
+        stosb
+        movsw
+        movsw
+        add     di,cx                           ;row 15
+        stosb
+        movsw
+        movsw
+%endmacro
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; renders an empty boy-walk/dance frame
+;
+; IN:
+;       es:di   -> destination (video memory)
+;
+%macro RENDER_BOY_FRAME_EMPTY 0
+        sub     ax,ax                           ;clean MSB bit from previous frame
+        mov     cx,8192-5                       ;increment value after each row
+        mov     dx,24576-155                    ;decrement value after 4 rows
+
+        stosb                                   ;row 0
+        stosw
+        stosw
+        add     di,cx                           ;row 1
+        stosb
+        stosw
+        stosw
+        add     di,cx                           ;row 2
+        stosb
+        stosw
+        stosw
+        add     di,cx                           ;row 3
+        stosb
+        stosw
+        stosw
+
+        sub     di,dx                           ;row 4
+        stosb
+        stosw
+        stosw
+        add     di,cx                           ;row 5
+        stosb
+        stosw
+        stosw
+        add     di,cx                           ;row 6
+        stosb
+        stosw
+        stosw
+        add     di,cx                           ;row 7
+        stosb
+        stosw
+        stosw
+
+        sub     di,dx                           ;row 8
+        stosb
+        stosw
+        stosw
+        add     di,cx                           ;row 9
+        stosb
+        stosw
+        stosw
+        add     di,cx                           ;row 10
+        stosb
+        stosw
+        stosw
+        add     di,cx                           ;row 11
+        stosb
+        stosw
+        stosw
+
+        sub     di,dx                           ;row 12
+        stosb
+        stosw
+        stosw
+        add     di,cx                           ;row 13
+        stosb
+        stosw
+        stosw
+        add     di,cx                           ;row 14
+        stosb
+        stosw
+        stosw
+        add     di,cx                           ;row 15
+        stosb
+        stosw
+        stosw
+%endmacro
+
+
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; refreshes the palette. used as a macro, and not function, since it is being
 ; called from time-critical sections
 ;
@@ -1074,10 +1235,17 @@ letter_state_restart_loop_anim:
         ret                                     ;nothing.
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-letter_state_outline_noise_init:
+letter_state_outline_noise_5s_init:
+        mov     byte [noise_fade_color_idx],0
+        mov     word [letter_state_delay_frames],60*5   ;for 10 seconds
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+letter_state_outline_noise_10s_init:
         mov     byte [noise_fade_color_idx],0
         mov     word [letter_state_delay_frames],60*10   ;for 10 seconds
         ret
+
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 letter_state_outline_noise_anim:
@@ -1407,113 +1575,108 @@ central_screen_anim:
         jc      .do_boy_walk
         jmp     text_writer_anim                ;>2 == do text_writer
 .do_boy_walk:
-        jmp     boy_walk_anim
+        jmp     boy_do_anim
 .exit:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 boy_walk_init:
-        mov     byte [boy_walk_delay],0
-        mov     word [boy_walk_vid_addr],TEXT_WRITER_START_Y*2*160+160  ;hardcode writing position
-        mov     byte [boy_walk_frame_idx],0
+        mov     word [boy_anim_vid_addr],TEXT_WRITER_START_Y*2*160-160  ;hardcode writing position
+        sub     al,al
+        mov     byte [boy_anim_delay],al
+        mov     byte [boy_walk_frame_idx],al
+        mov     byte [boy_walk_col_pos],al
+        mov     byte [boy_anim_state],al
+        mov     word [boy_dance_timeout],10*60  ;dance for 10 seconds
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+boy_do_anim:
+        mov     al,[boy_anim_state]
+        or      al,al
+        jz      boy_walk_anim
+        shr     al,1
+        jc      boy_dance_anim
+
+        ;fall through
+        mov     di,[boy_anim_vid_addr]          ;clear boy walk frame
+        RENDER_BOY_FRAME_EMPTY
+
+        mov     byte [central_screen_state],CENTRAL_SCREEN_STATE_TEXT_WRITTER   ;enable text writer
+        jmp     text_writer_init                ;init text writer
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 boy_walk_anim:
-        dec     byte [boy_walk_delay]
+        dec     byte [boy_anim_delay]
         jz      .anim
         ret
 
 .anim:
-        mov     byte [boy_walk_delay],5         ;reset delay
-
+        mov     byte [boy_anim_delay],5         ;reset delay
         sub     bh,bh
         mov     bl,[boy_walk_frame_idx]
         shl     bl,1                            ;each address takes 2 bytes
         mov     si,[boy_walk_animation_tbl+bx]  ;src: ds:si (frame data)
-        mov     di,[boy_walk_vid_addr]          ;dst: es:di (video memory)
+        mov     di,[boy_anim_vid_addr]          ;dst: es:di (video memory)
 
-        sub     al,al                           ;clean MSB bit from previous frame
-        mov     cx,8192-5
-        mov     dx,24576-155
+        RENDER_BOY_FRAME
 
-        stosb                                   ;row 0
-        movsw
-        movsw
-        add     di,cx                           ;row 1
-        stosb
-        movsw
-        movsw
-        add     di,cx                           ;row 2
-        stosb
-        movsw
-        movsw
-        add     di,cx                           ;row 3
-        stosb
-        movsw
-        movsw
+        inc     word [boy_anim_vid_addr]        ;move sprite 2 pixels to the right
+        inc     byte [boy_walk_col_pos]         ;next column
 
-        sub     di,dx                           ;row 4
-        stosb
-        movsw
-        movsw
-        add     di,cx                           ;row 5
-        stosb
-        movsw
-        movsw
-        add     di,cx                           ;row 6
-        stosb
-        movsw
-        movsw
-        add     di,cx                           ;row 7
-        stosb
-        movsw
-        movsw
+        cmp     byte [boy_walk_col_pos],74      ;half screen
+        je      .enable_dance
+        cmp     byte [boy_walk_col_pos],154     ;end of screen
+        je      .enable_end_anim
 
-        sub     di,dx                           ;row 8
-        stosb
-        movsw
-        movsw
-        add     di,cx                           ;row 9
-        stosb
-        movsw
-        movsw
-        add     di,cx                           ;row 10
-        stosb
-        movsw
-        movsw
-        add     di,cx                           ;row 11
-        stosb
-        movsw
-        movsw
-
-        sub     di,dx                           ;row 12
-        stosb
-        movsw
-        movsw
-        add     di,cx                           ;row 13
-        stosb
-        movsw
-        movsw
-        add     di,cx                           ;row 14
-        stosb
-        movsw
-        movsw
-        add     di,cx                           ;row 15
-        stosb
-        movsw
-        movsw
-
-
-        inc     word [boy_walk_vid_addr]        ;move sprite to the right
-
-        inc     byte [boy_walk_frame_idx]
+        inc     byte [boy_walk_frame_idx]       ;points to next frame
         cmp     byte [boy_walk_frame_idx],BOY_WALK_ANIM_FRAME_MAX
         jne     .exit
         mov     byte [boy_walk_frame_idx],0
+
+.exit:
+        ret
+.enable_dance:
+        mov     byte [boy_anim_state],BOY_ANIM_STATE_DANCE
+        ret
+.enable_end_anim:
+        mov     byte [boy_anim_state],BOY_ANIM_STATE_END
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+boy_dance_anim:
+        dec     word [boy_dance_timeout]        ;only dance for 10 senconds
+        jz      .end_dance
+
+        mov     di,[boy_anim_vid_addr]
+
+        cmp     byte [noise_triggered],0
+        jne     .foot_up
+
+.foot_down:
+        dec     byte [boy_anim_delay]           ;if 0, draw foot down
+        jnz     .exit                           ; after drawing foot down, delay will be 255
+                                                ; exactly what we wanted... to just fake a delay
+                                                ; so that we don't draw the foot down during all the frames
+
+        mov     si,boy_anim_frame_1             ;foot_down
+        jmp     .render
+
+.foot_up:
+        mov     si,boy_anim_frame_0             ;foot up
+        mov     byte [boy_anim_delay],3         ;three frames with foot up
+
+        ;fall-through
+
+.render:
+        RENDER_BOY_FRAME
+
 .exit:
         ret
 
+.end_dance:
+        mov     byte [boy_anim_state],BOY_ANIM_STATE_WALK       ;walk again...to right margin
+        ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_init:
@@ -1546,7 +1709,10 @@ text_writer_state_print_char_anim:
         inc     bx                              ;data offset += 1
         cmp     bx,TEXT_WRITER_DATA_LEN         ;end of line?
         jne     .l0
-        sub     bx,bx                           ;new offset is 0
+
+        mov     byte [central_screen_state],CENTRAL_SCREEN_STATE_BOY_ANIM       ;switch to walk state
+        jmp     boy_walk_init                   ; and init it
+
 .l0:
         mov     word [text_writer_idx],bx       ;save offset
 
@@ -1737,13 +1903,13 @@ crtc_addr_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_enable_boy_walk:
-        mov     byte [central_screen_state],CENTRAL_SCREEN_STATE_BOY_WALK
-        ret
+        mov     byte [central_screen_state],CENTRAL_SCREEN_STATE_BOY_ANIM
+        jmp     boy_walk_init
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_enable_text_writer:
         mov     byte [central_screen_state],CENTRAL_SCREEN_STATE_TEXT_WRITTER
-        ret
+        jmp     text_writer_init
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 state_enable_scroll:
@@ -2451,7 +2617,7 @@ section .data data
 pvm_song:
         incbin "src/uctumi-song.pvm"
 
-pvm_wait:                                       ;cycles to read diviced 0x2df
+pvm_wait:                                       ;cycles to read divided 0x2df
         db 0
 pvm_offset:                                     ;pointer to next byte to read
         dw 0
@@ -2591,7 +2757,7 @@ palette_outline_fade_to_final_tbl:              ;fade in until gets final color
 PALETTE_OUTLINE_FADE_TO_FINAL_MAX equ $-palette_outline_fade_to_final_tbl
 
 palette_black_white_black_tbl:
-        db      0,8,8,8,7,7,7,15,15,15,15,15,15,15,7,7,7,8,8,8,0
+        db      0,8,8,8,7,7,15,15,7,7,8,8,8,0
 PALETTE_BLACK_WHITE_BLACK_MAX equ $-palette_black_white_black_tbl
 
 palette_idx:
@@ -2638,7 +2804,6 @@ main_state_inits:
         dw      state_enable_scroll             ;m
         dw      state_delay_2s_init             ;n
         dw      state_enable_scroll_effects     ;p
-        dw      state_delay_2s_init             ;n'
 ;        dw      state_enable_text_writer        ;o
         dw      state_enable_boy_walk           ;o
 
@@ -2661,7 +2826,6 @@ main_state_callbacks:
         dw      state_skip_anim                 ;m
         dw      state_delay_anim                ;n
         dw      state_skip_anim                 ;p
-        dw      state_delay_anim                ;n'
         dw      state_skip_anim                 ;o
         dw      state_nothing_anim              ;q
 
@@ -2680,7 +2844,7 @@ letter_state_inits:                             ;initialization callbacks
         dw      letter_state_outline_fade_init  ;c
         dw      letter_state_delay_10s_init     ;d
         dw      letter_state_bkg_in_out_init    ;e
-        dw      letter_state_delay_5s_init      ;f
+        dw      letter_state_outline_noise_5s_init ;f
         dw      letter_state_bkg_in_out_init    ;g
         dw      letter_state_delay_2s_init      ;h
 
@@ -2712,7 +2876,7 @@ letter_state_inits:                             ;initialization callbacks
         dw      letter_state_delay_5s_init      ;x
 
         ;music rythm
-        dw      letter_state_outline_noise_init ;y
+        dw      letter_state_outline_noise_10s_init ;y
 
         ;PVM in (left to right)
         dw      letter_state_fade_in_p_init     ;z
@@ -2723,7 +2887,7 @@ letter_state_inits:                             ;initialization callbacks
         dw      letter_state_delay_200ms_init   ;ae
 
         ;music rythm
-        dw      letter_state_outline_noise_init ;af
+        dw      letter_state_outline_noise_10s_init ;af
 
         ;PVM out (left to right)
         dw      letter_state_fade_out_p_init    ;ag
@@ -2743,7 +2907,7 @@ letter_state_inits:                             ;initialization callbacks
         dw      letter_state_delay_200ms_init   ;ar
 
         ;music rythm
-        dw      letter_state_outline_noise_init ;as
+        dw      letter_state_outline_noise_10s_init ;as
 
         ;PVM out (right to left)
         dw      letter_state_fade_out_m_init    ;at
@@ -2764,7 +2928,7 @@ letter_state_callbacks:                         ;animation callbacks
         dw      letter_state_outline_fade_to_final_anim ;c
         dw      letter_state_delay_anim         ;d
         dw      letter_state_bkg_in_out_anim    ;e
-        dw      letter_state_delay_anim         ;f
+        dw      letter_state_outline_noise_anim ;f
         dw      letter_state_bkg_in_out_anim    ;g
         dw      letter_state_delay_anim         ;h
 
@@ -2846,7 +3010,7 @@ letter_state_color_to_fade:                     ;which color idx to fade
         db      0
 
 CENTRAL_SCREEN_STATE_WAIT               equ 0
-CENTRAL_SCREEN_STATE_BOY_WALK           equ 1
+CENTRAL_SCREEN_STATE_BOY_ANIM           equ 1
 CENTRAL_SCREEN_STATE_TEXT_WRITTER       equ 2
 central_screen_state:                           ;state machine for the "central part of the screen"
         db      0
@@ -2920,22 +3084,6 @@ text_writer_data:
                 ;0123456789012345678901234567890123456789
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_GOTO_X,17
-        db      'Hi!'
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,17
-        db      ' '
-        db      31
-        db      TW_STATE_GOTO_Y,18
-        db      TW_STATE_GOTO_X,18
-        db      29
-        db      TW_STATE_CURSOR_BLINK,2         ;wait blinks
-        db      TW_STATE_GOTO_Y,19
-        db      TW_STATE_GOTO_X,38
-
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-
-        db      TW_STATE_GOTO_X,0
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
         db      '                Hi there'
         db      TW_STATE_CURSOR_BLINK,5         ;wait blinks
@@ -2974,12 +3122,16 @@ text_writer_cursor_blink_delay:                 ;how many cursor blinks to wait
         db      0
 text_writer_delay:                              ;used by 'delay state' to know who many
         db      0                               ; vert retrace to wait
-boy_walk_delay:                                 ;how many frames to wait
+
+BOY_ANIM_STATE_WALK     equ 0
+BOY_ANIM_STATE_DANCE    equ 1
+BOY_ANIM_STATE_END      equ 2
+boy_anim_state:                                 ;states for boy animation
         db      0
-boy_walk_vid_addr:                              ;video address to where draw the next frame
+boy_anim_delay:                                 ;how many frames to wait
+        db      0
+boy_anim_vid_addr:                              ;video address to where draw the next frame
         dw      0
-boy_walk_col_pos:                               ;in which col the boy is positioned
-        db      0
 boy_anim_frame_0:                               ;dance: right root up
         db      0x00,0x00,0x00,0x00,0x07,0x77,0x70,0x00,0x7f,0x77,0x77,0x00,0xf0,0xff,0x0f,0x00
         db      0xff,0xff,0xff,0x00,0x8f,0x8f,0xf8,0x00,0x0f,0xff,0xf0,0x00,0x00,0x07,0x70,0x00
@@ -3010,6 +3162,10 @@ boy_anim_frame_5:                               ;walk 2
         db      0x00,0x7f,0xff,0xff,0x00,0x87,0xff,0x8f,0x00,0x08,0xff,0xf0,0x00,0x07,0x70,0x00
         db      0x00,0x7f,0xf7,0x00,0x07,0x7f,0xff,0x00,0x07,0x0f,0xff,0x70,0x00,0x0f,0xff,0x00
         db      0x00,0x07,0x78,0x00,0x08,0x88,0x87,0x00,0x08,0x00,0x07,0x00,0x00,0x00,0x08,0x80
+boy_dance_timeout:                              ;how many frames should the dance animation be active
+        dw      0
+boy_walk_col_pos:                               ;in which col the boy is positioned
+        db      0
 boy_walk_frame_idx:                             ;which frame is being displayed
         db      0
 boy_walk_animation_tbl:                         ;frames for a full walk cycle
