@@ -1583,7 +1583,7 @@ central_screen_anim:
 boy_walk_init:
         mov     word [boy_anim_vid_addr],TEXT_WRITER_START_Y*2*160-160  ;hardcode writing position
         sub     al,al
-        mov     byte [boy_anim_delay],1
+        mov     byte [boy_anim_delay],50        ;some delay to get sync with letter noise anim
         mov     byte [boy_walk_frame_idx],al
         mov     byte [boy_walk_col_pos],al
         mov     byte [boy_anim_state],al
@@ -2846,10 +2846,10 @@ letter_state_inits:                             ;initialization callbacks
         dw      letter_state_fade_in_1_at_time_init     ;b
         dw      letter_state_outline_fade_init  ;c
         dw      letter_state_delay_10s_init     ;d
-        dw      letter_state_bkg_in_out_init    ;e
-        dw      letter_state_outline_noise_5s_init ;f
-        dw      letter_state_bkg_in_out_init    ;g
-        dw      letter_state_delay_2s_init      ;h
+;        dw      letter_state_bkg_in_out_init    ;e
+        dw      letter_state_outline_noise_10s_init ;f
+;        dw      letter_state_bkg_in_out_init    ;g
+        dw      letter_state_delay_200ms_init      ;h
 
         dw      letter_state_outline_fade_init  ;i
 
@@ -2930,9 +2930,9 @@ letter_state_callbacks:                         ;animation callbacks
         dw      letter_state_fade_in_1_at_time_anim     ;b
         dw      letter_state_outline_fade_to_final_anim ;c
         dw      letter_state_delay_anim         ;d
-        dw      letter_state_bkg_in_out_anim    ;e
+;        dw      letter_state_bkg_in_out_anim    ;e
         dw      letter_state_outline_noise_anim ;f
-        dw      letter_state_bkg_in_out_anim    ;g
+;        dw      letter_state_bkg_in_out_anim    ;g
         dw      letter_state_delay_anim         ;h
 
         dw      letter_state_outline_fade_out_anim      ;i
@@ -3086,37 +3086,54 @@ text_writer_callbacks_anim:
 text_writer_data:
                 ;0123456789012345678901234567890123456789
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      '                Hi there'
+        db      '             Hi there'
         db      TW_STATE_CURSOR_BLINK,5         ;wait blinks
         db      TW_STATE_GOTO_X,3               ;go to pos
 
-        db      'Pungas de Villa Martelli here'
+        db      'We are Pungas de Villa Martelli'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_GOTO_X,3               ;go to pos
 
-        db      '   --- Tandy 64 - BETA VERSION ---'
+        db      'presenting our first Tandy release'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO_X,3               ;go to pos
+
+        db      'We call it:'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO_X,3               ;go to pos
+
+        db      '   --- Tandy 64 ---'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_GOTO_X,5               ;go to pos
 
-        db      '--- Do not distribute ---'
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,1               ;go to pos
-
-        db      '- To be presented at Demospalsh 2017 -'
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos
-
-        db      'Use real hardware to try it'
+        db      'Test it using real hardware'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_GOTO_X,0               ;go to pos 5
 
-        db      'Tested on a:'
+        db      'Requirements:'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_GOTO_X,0               ;go to pos 5
 
-        db      'Tandy 1000 HX - 256k RAM - RGB output'
+        db      'Tandy 1000 HX (or compatible)'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_GOTO_X,0               ;go to pos 5
+
+        db      '256Kb RAM'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
+
+        db      'RGBI output'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
+
+        db      'Runs under DosBox / DosBox-x...'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
+
+        db      '...althouh with some glitches'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
+
 TEXT_WRITER_DATA_LEN equ $-text_writer_data
 
 text_writer_cursor_blink_delay:                 ;how many cursor blinks to wait
