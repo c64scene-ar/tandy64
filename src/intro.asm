@@ -2685,12 +2685,12 @@ scroll_text:
         db '.'
         db '   ;   '
         db 'MANY THANKS TO DEMOSPLASH FOR GOING THE EXTRA MILE, AND ADDING TANDY 1000 SUPPORT!!! '
-        db 128                                  ;color red
+        db 130                                  ;color yellow
         db 27,28,29,30,31,42,43                 ;Radio Shack (using Radio Shack font)
         db 129                                  ;color with raster bar
         db ' DESERVES IT ! '
         db '   ;   '
-        db 'SENDING OUR REGARDS TO ALL THE 8088 SCENE, AND TO OUR =64 FRIENDS'
+        db 'SENDING OUR REGARDS TO ALL THE 8088 SCENE, AND TO OUR =64 / PC FRIENDS'
         db '   ;   '
         db 'BESO GRANDE A LA MAS GRANDE DE TODAS: '
         db 130,'<<< ',129                       ;hears in yellow
@@ -2880,6 +2880,7 @@ letter_state_inits:                             ;initialization callbacks
 
         ;music rythm
         dw      letter_state_outline_noise_10s_init ;y
+        dw      letter_state_outline_fade_init  ;y'
 
         ;PVM in (left to right)
         dw      letter_state_fade_in_p_init     ;z
@@ -2891,6 +2892,7 @@ letter_state_inits:                             ;initialization callbacks
 
         ;music rythm
         dw      letter_state_outline_noise_10s_init ;af
+        dw      letter_state_outline_fade_init  ;af'
 
         ;PVM out (left to right)
         dw      letter_state_fade_out_p_init    ;ag
@@ -2911,6 +2913,7 @@ letter_state_inits:                             ;initialization callbacks
 
         ;music rythm
         dw      letter_state_outline_noise_10s_init ;as
+        dw      letter_state_outline_fade_init  ;as'
 
         ;PVM out (right to left)
         dw      letter_state_fade_out_m_init    ;at
@@ -2963,6 +2966,7 @@ letter_state_callbacks:                         ;animation callbacks
 
         ;music rythm
         dw      letter_state_outline_noise_anim ;y
+        dw      letter_state_outline_fade_out_anim      ;y'
 
         ;PVM in (left to right)
         dw      letter_state_fade_to_cyan_letter_anim   ;z
@@ -2974,6 +2978,7 @@ letter_state_callbacks:                         ;animation callbacks
 
         ;music rythm
         dw      letter_state_outline_noise_anim ;af
+        dw      letter_state_outline_fade_out_anim      ;af'
 
         ;PVM out (left to right)
         dw      letter_state_fade_out_letter_anim       ;ag
@@ -2994,6 +2999,7 @@ letter_state_callbacks:                         ;animation callbacks
 
         ;music rythm
         dw      letter_state_outline_noise_anim ;as
+        dw      letter_state_outline_fade_out_anim      ;as'
 
         ;PVM out (right to left)
         dw      letter_state_fade_out_letter_anim       ;at
