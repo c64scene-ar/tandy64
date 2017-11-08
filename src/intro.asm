@@ -3100,11 +3100,7 @@ text_writer_data:
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_GOTO_X,3               ;go to pos
 
-        db      'presenting our first Tandy release'
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,3               ;go to pos
-
-        db      'We call it:'
+        db      'presenting our first Tandy release:'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_GOTO_X,3               ;go to pos
 
@@ -3132,13 +3128,14 @@ text_writer_data:
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_GOTO_X,0               ;go to pos 5
 
-        db      'Runs under DosBox / DosBox-x...'
+        db      'Runs under DosBox / DosBox-x',31
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_GOTO_X,0               ;go to pos 5
 
-        db      '...althouh with some glitches'
+        db      31,'althouh with some glitches'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
         db      TW_STATE_GOTO_X,0               ;go to pos 5
+
 
 TEXT_WRITER_DATA_LEN equ $-text_writer_data
 
