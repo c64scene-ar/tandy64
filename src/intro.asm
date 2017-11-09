@@ -1581,7 +1581,7 @@ central_screen_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 boy_walk_init:
-        mov     word [boy_anim_vid_addr],TEXT_WRITER_START_Y*2*160-160  ;hardcode writing position
+        mov     word [boy_anim_vid_addr],TEXT_WRITER_START_Y*2*160      ;hardcode writing position
         sub     al,al
         mov     byte [boy_anim_delay],50        ;some delay to get sync with letter noise anim
         mov     byte [boy_walk_frame_idx],al
@@ -2692,13 +2692,14 @@ scroll_text:
         db '   ;   '
         db 'SENDING OUR REGARDS TO ALL THE 8088 SCENE, AND TO OUR =64 / PC FRIENDS'
         db '   ;   '
-        db 'BESO GRANDE A LA MAS GRANDE DE TODAS: '
+        db 'BESO GRANDE A LA CANTANTE MAS GROSA DE TODAS: '
         db 130,'<<< ',129                       ;hears in yellow
         db 'LIA CRUCET '
         db 130,'<<< ',129                       ;hears in yellow
         db '   ;   '
         db 'CODE:RIQ, MUSIC: UCTUMI, GRAPHICS: ALAKRAN'
-        db '   ',130,'> > >',129,'   '
+        db '             ',130,'> > >',129,
+        db '             '
 SCROLL_TEXT_LEN equ $-scroll_text
 
 scroll_char_idx:                                ;pointer to the next char
@@ -2806,8 +2807,8 @@ main_state_inits:
         dw      state_delay_2s_init             ;n
         dw      state_enable_scroll_effects     ;p
         dw      state_delay_2s_init             ;n'
-;        dw      state_enable_text_writer        ;o
-        dw      state_enable_boy_walk           ;o
+        dw      state_enable_text_writer        ;o
+;        dw      state_enable_boy_walk           ;o
 
         dw      state_nothing_init              ;q
 
@@ -3092,48 +3093,66 @@ text_writer_callbacks_anim:
 text_writer_data:
                 ;0123456789012345678901234567890123456789
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      '             Hi there'
+        db      TW_STATE_GOTO_X,17              ;go to pos
+        db      'Hi!'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+
+        db      TW_STATE_GOTO_X,7               ;go to pos
+        db      'Pungas de Villa Martelli'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+
+        db      TW_STATE_GOTO_X,7               ;go to pos
+        db      '    produly presents',31
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+
+        db      TW_STATE_GOTO_X,11              ;go to pos
+        db      '--- Tandy 64 ---'
+        db      TW_STATE_CURSOR_BLINK,4         ;wait blinks
+
+        db      TW_STATE_GOTO_X,7               ;go to pos
+        db      '(our first Tandy release)'
         db      TW_STATE_CURSOR_BLINK,5         ;wait blinks
-        db      TW_STATE_GOTO_X,3               ;go to pos
 
-        db      'We are Pungas de Villa Martelli'
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,3               ;go to pos
-
-        db      'presenting our first Tandy release:'
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,3               ;go to pos
-
-        db      '   --- Tandy 64 ---'
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,5               ;go to pos
-
+        db      TW_STATE_GOTO_X,6               ;go to pos
         db      'Test it using real hardware'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
-        db      'Requirements:'
+        db      TW_STATE_GOTO_X,6               ;go to pos 5
+        db      '       Requirements:'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
+        db      TW_STATE_GOTO_X,6               ;go to pos 5
         db      'Tandy 1000 HX (or compatible)'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
-        db      '256Kb RAM'
+        db      TW_STATE_GOTO_X,6               ;go to pos 5
+        db      '    at least 256Kb RAM'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
-        db      'RGBI output'
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
+        db      'and best if using RBGI output'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
         db      'Runs under DosBox / DosBox-x',31
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
 
-        db      31,'althouh with some glitches'
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
+        db      31,'but with some glitches'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
+        db      'Feel free to contact us at:'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
+        db      'http://pungas.space'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
+        db      'Until our next release!'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+
         db      TW_STATE_GOTO_X,0               ;go to pos 5
 
 
