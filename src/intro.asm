@@ -578,6 +578,16 @@ fake_crash:
         call    scroll_anim
         call    scroll_anim
 
+        call    central_screen_anim             ;text writer and/or boy walk
+        call    central_screen_anim             ;text writer and/or boy walk
+        call    central_screen_anim             ;text writer and/or boy walk
+        call    central_screen_anim             ;text writer and/or boy walk
+
+        call    scroll_effect_anim              ;plasma / rasterbar from scroll
+        call    scroll_effect_anim              ;plasma / rasterbar from scroll
+        call    scroll_effect_anim              ;plasma / rasterbar from scroll
+        call    scroll_effect_anim              ;plasma / rasterbar from scroll
+
         mov     al,[fake_crash_lfsr_state]
 
         mov     ah,al
@@ -1838,9 +1848,11 @@ text_writer_state_call_action_anim:
         mov     bx,word [text_writer_idx]       ;fetch next char
         mov     al,[text_writer_data+bx]        ; which is the action to perform
 
-        ;assuming al==0
-        int 3
-        ret
+        ;al == 0 -> turn off cursor
+.do_cursor_off:
+        mov     byte [text_writer_state],TW_STATE_PRINT_CHAR    ;print char is next state
+        sub     al,al                           ;char to write: empty
+        jmp     text_writer_fill_one_char
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 text_writer_state_cursor_blink_init:
@@ -2807,8 +2819,8 @@ main_state_inits:
         dw      state_delay_2s_init             ;n
         dw      state_enable_scroll_effects     ;p
         dw      state_delay_2s_init             ;n'
-        dw      state_enable_text_writer        ;o
-;        dw      state_enable_boy_walk           ;o
+;        dw      state_enable_text_writer        ;o
+        dw      state_enable_boy_walk           ;o
 
         dw      state_nothing_init              ;q
 
@@ -3097,16 +3109,16 @@ text_writer_data:
         db      'Hi!'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
-        db      TW_STATE_GOTO_X,7               ;go to pos
+        db      TW_STATE_GOTO_X,8               ;go to pos
         db      'Pungas de Villa Martelli'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
         db      TW_STATE_GOTO_X,7               ;go to pos
-        db      '    produly presents',31
+        db      '    proudly presents',31
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
         db      TW_STATE_GOTO_X,11              ;go to pos
-        db      '--- Tandy 64 ---'
+        db      '*** Tandy 64 ***'
         db      TW_STATE_CURSOR_BLINK,4         ;wait blinks
 
         db      TW_STATE_GOTO_X,7               ;go to pos
@@ -3125,37 +3137,61 @@ text_writer_data:
         db      'Tandy 1000 HX (or compatible)'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
-        db      TW_STATE_GOTO_X,6               ;go to pos 5
-        db      '    at least 256Kb RAM'
+        db      TW_STATE_GOTO_X,5               ;go to pos 5
+        db      '     at least 256Kb RAM'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
-        db      'and best if using RBGI output'
+        db      TW_STATE_GOTO_X,5               ;go to pos 5
+        db      `If the colors don't look good`,31
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
+        db      TW_STATE_GOTO_X,4               ;go to pos 5
+        db      '  ',31,`don't use composite output`,31
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+
+        db      TW_STATE_GOTO_X,4               ;go to pos 5
+        db      '    ',31,'use RGBI output instead'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+
+        db      TW_STATE_GOTO_X,5               ;go to pos 5
         db      'Runs under DosBox / DosBox-x',31
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
-        db      31,'but with some glitches'
+        db      TW_STATE_GOTO_X,5               ;go to pos 5
+        db      '   ',31,'but with some glitches'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
+        db      TW_STATE_GOTO_X,6               ;go to pos 5
         db      'Feel free to contact us at:'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
-        db      TW_STATE_GOTO_X,0               ;go to pos 5
-        db      'http://pungas.space'
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_GOTO_X,4               ;go to pos 5
+        db      '      http://pungas.space'
+        db      TW_STATE_CURSOR_BLINK,4         ;wait blinks
 
         db      TW_STATE_GOTO_X,0               ;go to pos 5
+        db      'Thanks Demosplash for supporting Tandy!'
+        db      TW_STATE_CURSOR_BLINK,4         ;wait blinks
+
+        db      TW_STATE_GOTO_X,0               ;go to pos 5
+        db      '              code: riq'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+
+        db      TW_STATE_GOTO_X,13               ;go to pos 5
+        db      'music: Uctumi'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+
+        db      TW_STATE_GOTO_X,11               ;go to pos 5
+        db      'graphics: Alakran'
+        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+
+        db      TW_STATE_GOTO_X,8               ;go to pos 5
         db      'Until our next release!'
-        db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
+        db      TW_STATE_CURSOR_BLINK,5         ;wait blinks
 
         db      TW_STATE_GOTO_X,0               ;go to pos 5
-
-
+        db      TW_STATE_CALL_ACTION,0          ;cursor off
+        db      TW_STATE_IDLE,200               ;wait 200 cycles
 TEXT_WRITER_DATA_LEN equ $-text_writer_data
 
 text_writer_cursor_blink_delay:                 ;how many cursor blinks to wait

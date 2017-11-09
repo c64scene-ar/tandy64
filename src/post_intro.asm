@@ -105,10 +105,6 @@ c64_screen:
         db `\n\n`
         db 2                                            ; turn on user input
         db `\n`
-        db `               CODE: RIQ\n`
-        db `             MUSIC: UCTUMI\n`
-        db `           GRAPHICS: ALAKRAN\n`
-        db `\n`
         db '          ',4,'HTTP://PUNGAS.SPACE',5,`\n`
         db 0,0,0,0,0
 C64_SCREEN_SIZE equ $ - c64_screen
