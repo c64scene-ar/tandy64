@@ -2710,8 +2710,8 @@ scroll_text:
         db 130,'<<< ',129                       ;hears in yellow
         db '   ;   '
         db 'CODE:RIQ, MUSIC: UCTUMI, GRAPHICS: ALAKRAN'
-        db '             ',130,'> > >',129,
-        db '             '
+        db '               ',130,'> > >',129,
+        db '               '
 SCROLL_TEXT_LEN equ $-scroll_text
 
 scroll_char_idx:                                ;pointer to the next char
@@ -3126,7 +3126,7 @@ text_writer_data:
         db      TW_STATE_CURSOR_BLINK,5         ;wait blinks
 
         db      TW_STATE_GOTO_X,6               ;go to pos
-        db      'Test it using real hardware'
+        db      ' Run it using real hardware'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
         db      TW_STATE_GOTO_X,6               ;go to pos 5
@@ -3191,7 +3191,8 @@ text_writer_data:
 
         db      TW_STATE_GOTO_X,0               ;go to pos 5
         db      TW_STATE_CALL_ACTION,0          ;cursor off
-        db      TW_STATE_IDLE,200               ;wait 200 cycles
+        db      TW_STATE_IDLE,230               ;wait some cycles
+                                                ; to make it sync with the letters
 TEXT_WRITER_DATA_LEN equ $-text_writer_data
 
 text_writer_cursor_blink_delay:                 ;how many cursor blinks to wait
