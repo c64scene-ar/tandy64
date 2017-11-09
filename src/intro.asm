@@ -2688,30 +2688,30 @@ scroll_text:
         db 'IT ALL BEGAN WHEN WE WENT TO PICK UP A COMMODORE 64 BUNDLE '
         db 'AND THE SELLER INCLUDED TWO TANDY 1000 HX IN IT. '
         db 'WTF IS A TANDY 1000 HX? WE GOOGLED IT, AND WE LIKED IT. '
-        db `HEY, IT HAS AN 8088 (WE DON'T NEED NO FANCY 386), SOME NON-`
+        db `HEY, IT HAS AN 8088 (THAT CPU FROM 1979), SOME NON-`
         db 'STANDARD VIDEO MODES, A BETTER-THAN-SPEAKER SOUNDCARD, AND JOYSTICK PORTS '
-        db '(UNIJOYSTICLE COMMING SOON#). '
+        db '(UNIJOYSTICLE COMING SOON#). '
         db 'AND HERE WE ARE, WITH OUR FIRST TANDY 1000 RELEASE. WE CALL IT '
         db `"TANDY 64%... GOT IT ? `
         db  130,'&',129                      ;emoticons in yellow
         db '.'
         db '   ;   '
         db 'MANY THANKS TO DEMOSPLASH FOR GOING THE EXTRA MILE, AND ADDING TANDY 1000 SUPPORT!!! '
-        db 130                                  ;color yellow
+        db 128                                  ;color yellow
         db 27,28,29,30,31,42,43                 ;Radio Shack (using Radio Shack font)
         db 129                                  ;color with raster bar
         db ' DESERVES IT ! '
         db '   ;   '
         db 'SENDING OUR REGARDS TO ALL THE 8088 SCENE, AND TO OUR =64 / PC FRIENDS'
         db '   ;   '
-        db 'BESO GRANDE A LA CANTANTE MAS GROSA DE TODAS: '
-        db 130,'<<< ',129                       ;hears in yellow
-        db 'LIA CRUCET '
-        db 130,'<<< ',129                       ;hears in yellow
+        db 'BESO GRANDE A LA CANTANTE MAS GROSA DE TODAS:  '
+        db 130,'<<<',129                       ;hears in yellow
+        db ' LIA CRUCET '
+        db 130,'<<<',129                       ;hears in yellow
         db '   ;   '
         db 'CODE:RIQ, MUSIC: UCTUMI, GRAPHICS: ALAKRAN'
-        db '               ',130,'> > >',129,
-        db '               '
+        db '                   ',130,'>  >  >  >  >',129,
+        db '                   '
 SCROLL_TEXT_LEN equ $-scroll_text
 
 scroll_char_idx:                                ;pointer to the next char
@@ -3288,14 +3288,14 @@ raster_colors_color_tbl:                        ;here starts the real colors to 
 raster_bars_colors_addr_start:                  ;used as an address: start of colors
 raster_bars_blue_tbl:                           ;HACK: order must be the same as in
         db      9,8,1,8,9                       ; plasma_palettes_tbl
-raster_bars_red_tbl:
-        db      12,8,4,8,12
-raster_bars_cyan_tbl:
-        db      11,8,3,8,11
-raster_bars_green_tbl:
-        db      10,8,2,8,10
 raster_bars_magenta_tbl:
         db      13,8,5,8,13
+raster_bars_cyan_tbl:
+        db      11,8,3,8,11
+raster_bars_red_tbl:
+        db      12,8,4,8,12
+raster_bars_green_tbl:
+        db      10,8,2,8,10
 raster_bars_yellow_tbl:
         db      14,8,6,8,14
 RASTER_BARS_COLOR_MAX   equ $-raster_bars_yellow_tbl
@@ -3428,10 +3428,10 @@ plasma_effect_idx:                              ;plasma effect index
         db      0
 plasma_palettes_tbl:                            ;table that contains the different palettes
         dw      plasma_tex_blue_palette         ; order must same as in raster_bars_colors_addr_start
-        dw      plasma_tex_red_palette
-        dw      plasma_tex_cyan_palette
-        dw      plasma_tex_green_palette
         dw      plasma_tex_magenta_palette
+        dw      plasma_tex_cyan_palette
+        dw      plasma_tex_red_palette
+        dw      plasma_tex_green_palette
         dw      plasma_tex_yellow_palette
 PLASMA_EFFECT_MAX equ ($-plasma_palettes_tbl)/2 ;div 2, since each entry takes 2 bytes (dw)
 
