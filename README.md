@@ -1,6 +1,6 @@
 # Tandy 64
 
-A intro for the Tandy 1000 HX (and compatible) computers.
+A intro for the Tandy 1000 HX (and compatible) computers released for [Demosplash 2017][8]
 
 [![Tandy 64 Intro](https://img.youtube.com/vi/M2X7e9KnoLk/0.jpg)](https://www.youtube.com/watch?v=M2X7e9KnoLk)
 
@@ -66,19 +66,33 @@ In `tools` folder you will find:
 *   `convert_vgm_to_pvm.py`: Converts VGM music format to PVM (Plays VGM Music) music format
     *   Almost the same as VGM but uses Run-leght encoding. As an example, the music that we use
         takes ~78K in VGM format, and around ~48K in PVM format. It is good to have it in less than 64k (1 segment)
+    * A stand-along PVM player could be found here: [pvmplay.asm](https://github.com/ricardoquesada/tandy1000-misc/blob/master/snd/pvmplay.asm)
 *   `convert_gfx_to_bios_format.py`: Converts graphics to Tandy format.
 *   `convert_anim_to_frames.py`: Quick hack to dump animation frames in tandy format
 
 We also used:
 
+*   [Deflemask][6] for composing the music
 *   [plasma_generator.py][5]: to visually build the plasma effects
-*   [Deflemask][6] for the music
 *   [VChar64][7] for the charset
+    *   The charset used is based on one used on a c64 intro?? (couldn't find the original intro)
+*   [Tandy 1000 HX BIOS dump](https://github.com/ricardoquesada/tandy1000hx-bios)
+    *   In order to learn more about the Tandy 1000 HX we disassembled its BIOS
 
 
 # Lessons learned
 
 *   Next time, we should support composite instead of RGBI
+
+
+# Questions and others
+
+Do you have questions? Do you want to collaborate with PVM? We're here:
+
+-   [http://pungas.space][9]
+-   On IRC. [EFnet][10] . Channel #pvm
+-   [Twitter](https://twitter.com/pungas64)
+-   [Facebook](https://www.facebook.com/PVM1996/)
 
 
 [0]: http://nasm.us/
@@ -89,3 +103,6 @@ We also used:
 [5]: https://github.com/ricardoquesada/c64-misc/blob/master/tools/plasma_generator.py
 [6]: http://deflemask.com/
 [7]: https://github.com/ricardoquesada/vchar64
+[8]: http://www.demosplash.org/
+[9]: http://pungas.space
+[10]: http://www.efnet.org/
