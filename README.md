@@ -2,6 +2,10 @@
 
 A intro for the Tandy 1000 HX (and compatible) computers released for [Demosplash 2017][8]
 
+<i>Capture from emulator (fonts don't look good, missing border, and some glitches):</i>
+[![Tandy 64 Intro](https://img.youtube.com/vi/M2X7e9KnoLk/0.jpg)](https://www.youtube.com/watch?v=M2X7e9KnoLk)
+
+<i>Catpure from real hardwre:</i>
 [![Tandy 64 Intro](https://img.youtube.com/vi/M2X7e9KnoLk/0.jpg)](https://www.youtube.com/watch?v=M2X7e9KnoLk)
 
 
