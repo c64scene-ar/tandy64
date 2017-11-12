@@ -2,13 +2,13 @@
 
 A intro for the Tandy 1000 HX (and compatible) computers.
 
-<img src="https://lh3.googleusercontent.com/6gGmjaQE3ZHaLAalGV1BsGPk8B-4j2vVImCuzMSSgRApg5lI9a5-hgmN2O2YCv2T35kOFsGOhVIl4MapYFjgvA5pavmqO6TRw54eXFlIO5-oBkzfzHFeNroG_xyQPqjxGBrBaPQ3tBY">
+[![Tandy 64 Intro](https://img.youtube.com/vi/M2X7e9KnoLk/0.jpg)](https://www.youtube.com/watch?v=M2X7e9KnoLk)
 
 
 ## Requirements
 
 * Tandy 1000 HX (or compatible)
-* 256Kb RAM (it could fit in 128Kb with some minor changes)
+* Tested with 256Kb RAM, but could fit in 128Kb with some minor changes
 
 
 ## How to compile it
@@ -59,9 +59,33 @@ There are 4 `.asm` files:
     * `raster_bars_*`: raster bar effect code
 *   `post_intro.asm`: the final C64 screen
 
+## Tools
+
+In `tools` folder you will find:
+
+*   `convert_vgm_to_pvm.py`: Converts VGM music format to PVM (Plays VGM Music) music format
+    *   Almost the same as VGM but uses Run-leght encoding. As an example, the music that we use
+        takes ~78K in VGM format, and around ~48K in PVM format. It is good to have it in less than 64k (1 segment)
+*   `convert_gfx_to_bios_format.py`: Converts graphics to Tandy format.
+*   `convert_anim_to_frames.py`: Quick hack to dump animation frames in tandy format
+
+We also used:
+
+*   [plasma_generator.py][5]: to visually build the plasma effects
+*   [Deflemask][6] for the music
+*   [VChar64][7] for the charset
+
+
+# Lessons learned
+
+*   Next time, we should support composite instead of RGBI
+
 
 [0]: http://nasm.us/
 [1]: https://github.com/ricardoquesada/alink
 [2]: https://www.python.org/downloads/
 [3]: http://dosbox-x.com/
 [4]: https://upx.github.io/
+[5]: https://github.com/ricardoquesada/c64-misc/blob/master/tools/plasma_generator.py
+[6]: http://deflemask.com/
+[7]: https://github.com/ricardoquesada/vchar64
