@@ -5,7 +5,7 @@ A intro for the Tandy 1000 HX (and compatible) computers released for [Demosplas
 <i>Capture from emulator (fonts don't look good, missing border, and some glitches):</i><br/>
 [![Tandy 64 Intro](https://img.youtube.com/vi/M2X7e9KnoLk/0.jpg)](https://www.youtube.com/watch?v=M2X7e9KnoLk)
 
-<i>Recorded real hardwre: (sucks)</i><br/>
+<i>Recorded real hardware: (he, we don't have a way to capture RGBI output yet... sorry)</i><br/>
 [![Tandy 64 Intro](https://img.youtube.com/vi/3YsQJ2ajfpU/0.jpg)](https://www.youtube.com/watch?v=3YsQJ2ajfpU)
 
 
