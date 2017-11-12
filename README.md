@@ -86,7 +86,7 @@ We also used:
 
 # Lessons learned
 
-*   Next time, we should support composite instead of RGBI
+*   Comming soon™
 
 
 # Questions and others
