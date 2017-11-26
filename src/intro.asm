@@ -297,8 +297,8 @@ LETTER_BORDER_COLOR_IDX equ 5
 %macro REFRESH_PALETTE 1
         mov     bh,0xde                         ;register is faster than memory
 
-%%repeat:
         mov     dx,bp                           ;dx = 0x3da. select color register
+%%repeat:
 
         mov     al,bl                           ;color to update
         out     dx,al                           ;dx=0x3da
@@ -316,7 +316,12 @@ LETTER_BORDER_COLOR_IDX equ 5
 
         inc     bl
 
+        mov     dx,bp                           ;dx = 0x3da. restore register after chaning palette
+        sub     al,al                           ; needed for original tandy
+        out     dx,al
+
         loop    %%repeat
+
 %endmacro
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
