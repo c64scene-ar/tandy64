@@ -85,14 +85,14 @@ LETTER_BORDER_COLOR_IDX equ 5
         shr     al,1                            ;process hi nibble. shift 3 times to right
         shr     al,1                            ; instead of shifting 4 times
         shr     al,1                            ; and then one shift left (needed for table offset)
-        and     al,0001_1110b                   ;turn off bit 0 in case it is one
+        and     al,0b0001_1110                  ;turn off bit 0 in case it is one
         mov     si,text_writer_bitmap_to_video_tbl
         add     si,ax
 
         movsw                                   ;render MSB nibble (4 pixels, 2 bytes)
 
         mov     al,dl                           ;restore al, and process LSB nibble
-        and     al,0000_1111b
+        and     al,0b0000_1111
         shl     al,1                            ;times 2. offset to table
 
         mov     si,text_writer_bitmap_to_video_tbl      ;reset si
@@ -290,18 +290,18 @@ LETTER_BORDER_COLOR_IDX equ 5
 ;       ds:si   -> table with the palette to update
 ;       cx      -> number of colors to update times 2, since it does 2 colors per h-line
 ;       bl      -> starting color + 0x10. example: use 0x1f for white: 0x10 + 0xf
-;       bp      -> 0x3da
+;       bp      -> 0x03da
 ;
 ; Arg:  0       -> don't wait for horizontal retrace
 ;       1       -> wait fro horizontal retrace
 %macro REFRESH_PALETTE 1
         mov     bh,0xde                         ;register is faster than memory
 
-        mov     dx,bp                           ;dx = 0x3da. select color register
+        mov     dx,bp                           ;dx = 0x03da. select color register
 %%repeat:
 
         mov     al,bl                           ;color to update
-        out     dx,al                           ;dx=0x3da
+        out     dx,al                           ;dx=0x03da
 
         lodsb                                   ;load one color value in al
         mov     ah,al                           ;move it ah
@@ -310,13 +310,13 @@ LETTER_BORDER_COLOR_IDX equ 5
         WAIT_HORIZONTAL_RETRACE
 %endif
 
-        mov     dl,bh                           ;dx = 0x3de
+        mov     dl,bh                           ;dx = 0x03de
         mov     al,ah
         out     dx,al                           ;update color
 
         inc     bl
 
-        mov     dx,bp                           ;dx = 0x3da. restore register after chaning palette
+        mov     dx,bp                           ;dx = 0x03da. restore register after chaning palette
         sub     al,al                           ; needed for original tandy
         out     dx,al
 
@@ -327,7 +327,7 @@ LETTER_BORDER_COLOR_IDX equ 5
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; inline vertical retrace
 ; IN:
-;       dx      -> 0x3da
+;       dx      -> 0x03da
 %macro WAIT_VERTICAL_RETRACE 0
 %%wait:
         in      al,dx                           ;wait for vertical retrace
@@ -343,7 +343,7 @@ LETTER_BORDER_COLOR_IDX equ 5
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; inline horizontal retrace
 ; IN:
-;       dx      -> 0x3da
+;       dx      -> 0x03da
 %macro WAIT_HORIZONTAL_RETRACE 0
 %%wait:
         in      al,dx                           ;wait for horizontal retrace
@@ -418,7 +418,7 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 
         mov     es,bp                           ;restore es
 
-        mov     dx,0x3da
+        mov     dx,0x03da
         WAIT_VERTICAL_RETRACE
 
         mov     cx,194                          ;and wait for scanlines
@@ -431,7 +431,7 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 
         in      al,0x21                         ;Read primary PIC Interrupt Mask Register
         mov     [old_pic_imr],al                ;Store it for later
-        mov     al,1111_1100b                   ;Mask off everything except IRQ 0
+        mov     al,0b1111_1100                  ;Mask off everything except IRQ 0
         out     0x21,al                         ; and IRQ1 (timer and keyboard)
 
         sti
@@ -452,7 +452,7 @@ state_new_i08_multi_color_init:
 
         mov     es,bp                           ;restore es
 
-        mov     dx,0x3da
+        mov     dx,0x03da
         WAIT_VERTICAL_RETRACE
 
         mov     cx,156                          ;and wait for scanlines
@@ -482,7 +482,7 @@ state_new_i08_full_color_init:
 
         mov     es,bp                           ;restore es
 
-        mov     dx,0x3da
+        mov     dx,0x03da
         WAIT_VERTICAL_RETRACE
 
         mov     cx,168                          ;and wait for scanlines
@@ -559,7 +559,7 @@ wait_vertical_retrace:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 global wait_horiz_retrace
 wait_horiz_retrace:
-        mov     dx,0x3da
+        mov     dx,0x03da
         WAIT_HORIZONTAL_RETRACE
         ret
 
@@ -679,10 +679,10 @@ new_i08_simple:
         mov     si,top_palette                  ;points to colors used at the top of the screen
         mov     cx,6                            ;update 6 colors
         mov     bl,0x10                         ; starting with color 0 (black)
-        mov     bp,0x3da                        ;bp should be 0x3da
+        mov     bp,0x03da                       ;bp should be 0x03da
         REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
-        mov     dx,bp                           ;dx=0x3da
+        mov     dx,bp                           ;dx=0x03da
         mov     al,2                            ;select border color register
         out     dx,al
         mov     dl,0xde                         ;dx=0x03de
@@ -701,7 +701,7 @@ new_i08_bottom_multi_color:
 ;        mov     ds,ax
 
         ;update bottom-screen palette
-        mov     bp,0x3da                        ;register address
+        mov     bp,0x03da                       ;register address
         mov     si,bottom_palette+1             ;points to colors used at the bottom. skips black
         mov     cx,6                            ;only update a few colors
         mov     bl,0x11                         ; starting with color 1 (skip black)
@@ -739,14 +739,14 @@ new_i08_bottom_full_color:
 ;        mov     ds,ax
 
         ;update bottom-screen palette
-        mov     bp,0x3da                        ;register address
+        mov     bp,0x03da                       ;register address
         mov     si,bottom_palette+1             ;points to colors used at the bottom. skips black
         mov     cx,6                            ;only update a few colors
         mov     bl,0x11                         ; starting with color 1 (skip black)
         REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
         mov     bx,0xdade                       ;used for 3da / 3de. registers faster than immediate
-        mov     dl,bh                           ;dx = 0x3da
+        mov     dl,bh                           ;dx = 0x03da
         mov     al,0x1f                         ;select palette color 15 (white)
         out     dx,al
 
@@ -760,10 +760,10 @@ new_i08_bottom_full_color:
 
                 WAIT_HORIZONTAL_RETRACE
 
-                mov     dl,bl                   ;dx = 0x3de
+                mov     dl,bl                   ;dx = 0x03de
                 mov     al,ah
                 out     dx,al                   ;set new color
-                mov     dl,bh                   ;dx = 0x3da
+                mov     dl,bh                   ;dx = 0x03da
         %endrep
         ;END raster bar code
 
@@ -927,7 +927,7 @@ state_gfx_fade_in_init:
         mov     cx,10                           ;update colors 10 colors
         mov     bl,0x10+6                       ; starting with color 6
         mov     si,palette_default+6            ;points to colors used at the top of the screen
-        mov     bp,0x3da                        ;bp should be 0x3da
+        mov     bp,0x03da                       ;bp should be 0x03da
         REFRESH_PALETTE 0                       ;refresh the palette, don't wait for horizontal retrace
 
         ;logo should be turned off by default
@@ -1483,6 +1483,9 @@ scroll_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 music_init:
+        mov     al,0x6c                         ;PCJr only:
+        out     0x61,al                         ; use 3-voice instead of speacker
+
         mov     word [pvm_offset],pvm_song + 0x10       ;update start offset
         sub     al,al
         mov     byte [pvm_wait],al              ;don't wait at start
@@ -1492,11 +1495,11 @@ music_init:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 music_anim:
 
-DATA    equ     0000_0000b
-DATA_EXTRA equ  0010_0000b
-DELAY   equ     0100_0000b
-DELAY_EXTRA equ 0110_0000b
-END     equ     1000_0000b
+DATA    equ     0b0000_0000
+DATA_EXTRA equ  0b0010_0000
+DELAY   equ     0b0100_0000
+DELAY_EXTRA equ 0b0110_0000
+END     equ     0b1000_0000
 
         sub     cx,cx                           ;cx=0... needed later
         mov     si,[pvm_offset]
@@ -1510,8 +1513,8 @@ END     equ     1000_0000b
 .l0:
         lodsb                                   ;fetch command byte
         mov     ah,al
-        and     al,1110_0000b                   ;al=command only
-        and     ah,0001_1111b                   ;ah=command args only
+        and     al,0b1110_0000                  ;al=command only
+        and     ah,0b0001_1111                  ;ah=command args only
 
         cmp     al,DATA                         ;data?
         je      .is_data
@@ -1543,8 +1546,8 @@ END     equ     1000_0000b
         out     0xc0,al
 
         mov     byte [noise_triggered],0
-        and     al,1111_0000b                   ;is noise?
-        cmp     al,1110_0000b
+        and     al,0b1111_0000                  ;is noise?
+        cmp     al,0b1110_0000
         jne     .not_noise
         inc     byte [noise_triggered]          ;notify noise is playing
 
@@ -1901,8 +1904,8 @@ crtc_addr_init:
 crtc_addr_anim:
         mov     bx,[crtc_start_addr]
 
-        mov     dx,0x3d4
-        mov     al,0xc                          ;select CRTC start address hi
+        mov     dx,0x03d4
+        mov     al,0x0c                         ;select CRTC start address hi
         out     dx,al
 
         inc     dx                              ;set value for CRTC hi address
@@ -1910,7 +1913,7 @@ crtc_addr_anim:
         out     dx,al
 
         dec     dx
-        mov     al,0xd
+        mov     al,0x0d
         out     dx,al                           ;select CRTC start address lo
 
         inc     dx
