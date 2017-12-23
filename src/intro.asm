@@ -11,6 +11,9 @@ cpu     8086
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 %define DEBUG 0                                 ;0=diabled, 1=enabled
 
+GFX_SEG         equ     0x1800                  ;0x1800 for PCJr with 32k video ram
+                                                ;0xb800 for Tandy
+
 TEXT_WRITER_START_Y     equ 19                  ;start at line 19
 
 BOTTOM_OFFSET   equ     21*2*160-160            ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
@@ -368,7 +371,7 @@ global intro_start
 intro_start:
         mov     ax,data                         ;init segments
         mov     ds,ax                           ;these values must always be true
-        mov     ax,0xb800                       ; through the whole intro.
+        mov     ax,GFX_SEG                      ; through the whole intro.
         mov     es,ax                           ; push/pop otherwise
 
         cld
@@ -2032,7 +2035,7 @@ plasma_tex_init_sine_table:
         %assign YY YY+1
         %endrep
 
-        mov     dx,0xb800
+        mov     dx,GFX_SEG
         mov     es,dx                           ;restore es
 
         ret
@@ -2060,7 +2063,7 @@ state_plasma_red_tex_init:
         mov     di,bottom_palette               ;es:di -> bottom palette
         rep stosw                               ;bottom palette is all black
 
-        mov     es,bx                           ;restore es. es=0xb800
+        mov     es,bx                           ;restore es. es=GFX_SEG
 
         jmp     plasma_tex_init_sine_table
 
@@ -2087,7 +2090,7 @@ state_plasma_green_tex_init:
         mov     di,bottom_palette               ;es:di -> bottom palette
         rep stosw                               ;bottom palette is all black
 
-        mov     es,bx                           ;restore es. es=0xb800
+        mov     es,bx                           ;restore es. es=GFX_SEG
 
         jmp     plasma_tex_init_sine_table
 
@@ -2114,7 +2117,7 @@ state_plasma_magenta_tex_init:
         mov     di,bottom_palette               ;es:di -> bottom palette
         rep stosw                               ;bottom palette is all black
 
-        mov     es,bx                           ;restore es. es=0xb800
+        mov     es,bx                           ;restore es. es=GFX_SEG
 
         jmp     plasma_tex_init_sine_table
 
@@ -2453,7 +2456,7 @@ plasma_anim:
         add     bp,[plasma_off_y0_y1_inc]       ;update offset y0/y1
         mov     word [plasma_off_y0_y1],bp      ; and save it for next iteration
 
-        mov     ax,0xb800
+        mov     ax,GFX_SEG
         mov     es,ax                           ;restore es
         ret
 
