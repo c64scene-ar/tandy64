@@ -348,14 +348,15 @@ LETTER_BORDER_COLOR_IDX equ 5
 ;       dx      -> VGA_ADDRESS
 %macro WAIT_HORIZONTAL_RETRACE 0
 %%wait:
+;FIXME PCJr
         in      al,dx                           ;wait for horizontal retrace
-        ror     al,1
-        jc      %%wait
+;        ror     al,1
+;        jc      %%wait
 
 %%retrace:
-        in      al,dx                           ;wait for horizontal retrace
-        ror     al,1
-        jnc     %%retrace
+;        in      al,dx                           ;wait for horizontal retrace
+;        ror     al,1
+;        jnc     %%retrace
 %endmacro
 
 
@@ -433,9 +434,9 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 
         in      al,0x21                         ;Read primary PIC Interrupt Mask Register
         mov     [old_pic_imr],al                ;Store it for later
-        mov     al,0b1111_1100                  ;Mask off everything except IRQ 0
-        out     0x21,al                         ; and IRQ1 (timer and keyboard)
-
+        mov     al,0b1111_1110                  ;Mask off everything except IRQ 0 (tiimer)
+        out     0x21,al                         ;IRQ1 (keyboard) disabled. PCJr. keyboard is handled in
+                                                ; NMI handler
         sti
         ret
 
@@ -513,25 +514,22 @@ irq_cleanup:
         mov     bx,0                            ;Reset PIT to defaults (~18.2 Hz)
         call    setup_pit                       ; actually means 0x10000
 
+        push    ds
         push    es
 
-        les     si,[old_i08]
-        push    ds
         xor     ax,ax
         mov     ds,ax
+
+        les     si,[old_i08]
         mov     [8*4],si
         mov     [8*4+2],es                      ;Restore the old INT 08 vector (timer)
-        pop     ds
 
         les     si,[old_i09]
-        push    ds
-        xor     ax,ax
-        mov     ds,ax
         mov     [9*4],si
         mov     [9*4+2],es                      ;Restore the old INT 09 vector (keyboard)
-        pop     ds
 
         pop     es
+        pop     ds
 
         sti
         ret
@@ -545,6 +543,8 @@ setup_pit:
         mov     ax,bx
         out     0x40,al                         ;data port for IRQ0: freq LSB
         mov     al,ah
+        nop                                     ;some pause
+        nop
         out     0x40,al                         ;data port for IRQ0: freq MSB
 
         ret
@@ -650,18 +650,6 @@ main_loop:
 ; IRQ
 new_i09:
         ;own keyboard handler to make it faster to ready keys
-        mov     dx,0x60
-        in      al,dx
-
-        in      al,0x61                         ;FIXME: not sure if really needed
-        or      al,0x80                         ; This code was taken from the Tandy 1000 HX
-        out     0x61,al                         ; BIOS.
-        and     al,0x7f
-        out     0x61,al
-
-        mov     al,0x20                         ;Send the EOI signal
-        out     0x20,al                         ; to the IRQ controller
-
         mov     ax,data
         mov     ds,ax
 
@@ -803,11 +791,12 @@ new_i08_main:
         call    dec_d020
 %endif
 
-        mov     al,0x20                         ;Send the EOI signal
-        out     0x20,al                         ; to the IRQ controller
-
         inc     byte [tick]                     ;tell main_loop that it could process
                                                 ; whatever he wants
+
+        mov     al,0x20                         ;send the EOI signal
+        out     0x20,al                         ; to the IRQ controller
+
         iret                                    ;exit interrupt
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
