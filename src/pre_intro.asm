@@ -33,13 +33,6 @@ pre_intro_start:
 test_border:
         call    init_screen
 
-        mov     dx,VGA_ADDRESS
-        mov     al,3                            ;select CRT mode control
-        out     dx,al
-
-        mov     dx,VGA_DATA
-        mov     al,0b0001_0100                  ;enable border color, enable 16 colors
-        out     dx,al
 
 ;        mov     cx,262 * 60 * 3                 ;wait 3 seconds (262 * 60 * 3)
 ;.repeat:
