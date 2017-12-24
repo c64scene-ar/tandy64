@@ -12,6 +12,9 @@ cpu     8086
 extern c64_charset
 extern wait_vertical_retrace, wait_horiz_retrace
 
+VGA_ADDRESS     equ     0x03da                  ;Tandy == PCJr.
+VGA_DATA        equ     0x03da                  ;Tandy = 0x03de. PCJr. 0x03da
+
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; CODE
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -30,11 +33,11 @@ pre_intro_start:
 test_border:
         call    init_screen
 
-        mov     dx,0x3da
+        mov     dx,VGA_ADDRESS
         mov     al,3                            ;select CRT mode control
         out     dx,al
 
-        mov     dx,0x3de
+        mov     dx,VGA_DATA
         mov     al,0b0001_0100                  ;enable border color, enable 16 colors
         out     dx,al
 

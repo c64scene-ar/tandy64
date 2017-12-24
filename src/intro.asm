@@ -13,6 +13,8 @@ cpu     8086
 
 GFX_SEG         equ     0x1800                  ;0x1800 for PCJr with 32k video ram
                                                 ;0xb800 for Tandy
+VGA_ADDRESS     equ     0x03da                  ;Tandy == PCJr.
+VGA_DATA        equ     0x03da                  ;Tandy = 0x03de. PCJr. 0x03da
 
 TEXT_WRITER_START_Y     equ 19                  ;start at line 19
 
@@ -293,14 +295,11 @@ LETTER_BORDER_COLOR_IDX equ 5
 ;       ds:si   -> table with the palette to update
 ;       cx      -> number of colors to update times 2, since it does 2 colors per h-line
 ;       bl      -> starting color + 0x10. example: use 0x1f for white: 0x10 + 0xf
-;       bp      -> 0x03da
+;       dx      -> VGA_ADDRESS
 ;
 ; Arg:  0       -> don't wait for horizontal retrace
 ;       1       -> wait fro horizontal retrace
 %macro REFRESH_PALETTE 1
-        mov     bh,0xde                         ;register is faster than memory
-
-        mov     dx,bp                           ;dx = 0x03da. select color register
 %%repeat:
 
         mov     al,bl                           ;color to update
@@ -313,15 +312,15 @@ LETTER_BORDER_COLOR_IDX equ 5
         WAIT_HORIZONTAL_RETRACE
 %endif
 
-        mov     dl,bh                           ;dx = 0x03de
         mov     al,ah
         out     dx,al                           ;update color
 
         inc     bl
 
-        mov     dx,bp                           ;dx = 0x03da. restore register after chaning palette
-        sub     al,al                           ; needed for original tandy
-        out     dx,al
+        ;FIXME: needed in PCJr???
+;        mov     dx,bp                           ;dx = 0x03da. restore register after chaning palette
+;        sub     al,al                           ; needed for original tandy
+;        out     dx,al
 
         loop    %%repeat
 
@@ -330,7 +329,7 @@ LETTER_BORDER_COLOR_IDX equ 5
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; inline vertical retrace
 ; IN:
-;       dx      -> 0x03da
+;       dx      -> VGA_ADDRESS
 %macro WAIT_VERTICAL_RETRACE 0
 %%wait:
         in      al,dx                           ;wait for vertical retrace
@@ -346,7 +345,7 @@ LETTER_BORDER_COLOR_IDX equ 5
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; inline horizontal retrace
 ; IN:
-;       dx      -> 0x03da
+;       dx      -> VGA_ADDRESS
 %macro WAIT_HORIZONTAL_RETRACE 0
 %%wait:
         in      al,dx                           ;wait for horizontal retrace
@@ -421,7 +420,7 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 
         mov     es,bp                           ;restore es
 
-        mov     dx,0x03da
+        mov     dx,VGA_ADDRESS
         WAIT_VERTICAL_RETRACE
 
         mov     cx,194                          ;and wait for scanlines
@@ -455,7 +454,7 @@ state_new_i08_multi_color_init:
 
         mov     es,bp                           ;restore es
 
-        mov     dx,0x03da
+        mov     dx,VGA_ADDRESS
         WAIT_VERTICAL_RETRACE
 
         mov     cx,156                          ;and wait for scanlines
@@ -485,7 +484,7 @@ state_new_i08_full_color_init:
 
         mov     es,bp                           ;restore es
 
-        mov     dx,0x03da
+        mov     dx,VGA_ADDRESS
         WAIT_VERTICAL_RETRACE
 
         mov     cx,168                          ;and wait for scanlines
@@ -555,14 +554,14 @@ setup_pit:
 ;should be the one to call for the effects
 global wait_vertical_retrace
 wait_vertical_retrace:
-        mov     dx,0x03da
+        mov     dx,VGA_ADDRESS
         WAIT_VERTICAL_RETRACE
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 global wait_horiz_retrace
 wait_horiz_retrace:
-        mov     dx,0x03da
+        mov     dx,VGA_ADDRESS
         WAIT_HORIZONTAL_RETRACE
         ret
 
@@ -682,13 +681,11 @@ new_i08_simple:
         mov     si,top_palette                  ;points to colors used at the top of the screen
         mov     cx,6                            ;update 6 colors
         mov     bl,0x10                         ; starting with color 0 (black)
-        mov     bp,0x03da                       ;bp should be 0x03da
+        mov     dx,VGA_ADDRESS                  ;dx should be 0x03da
         REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
-        mov     dx,bp                           ;dx=0x03da
         mov     al,2                            ;select border color register
         out     dx,al
-        mov     dl,0xde                         ;dx=0x03de
         mov     al,[border_color]
         out     dx,al                           ;update border color
 
@@ -704,7 +701,7 @@ new_i08_bottom_multi_color:
 ;        mov     ds,ax
 
         ;update bottom-screen palette
-        mov     bp,0x03da                       ;register address
+        mov     dx,VGA_ADDRESS                  ;register address
         mov     si,bottom_palette+1             ;points to colors used at the bottom. skips black
         mov     cx,6                            ;only update a few colors
         mov     bl,0x11                         ; starting with color 1 (skip black)
@@ -742,31 +739,27 @@ new_i08_bottom_full_color:
 ;        mov     ds,ax
 
         ;update bottom-screen palette
-        mov     bp,0x03da                       ;register address
+        mov     dx,VGA_ADDRESS                  ;register address
         mov     si,bottom_palette+1             ;points to colors used at the bottom. skips black
         mov     cx,6                            ;only update a few colors
         mov     bl,0x11                         ; starting with color 1 (skip black)
         REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
-
-        mov     bx,0xdade                       ;used for 3da / 3de. registers faster than immediate
-        mov     dl,bh                           ;dx = 0x03da
-        mov     al,0x1f                         ;select palette color 15 (white)
-        out     dx,al
 
         mov     si,raster_colors_tbl            ;where the colors are for each raster bar
 
         ;BEGIN raster bar code
         ;should be done as fast as possible
         %rep    17                              ;FIXME: must be RASTER_COLORS_MAX
+                mov     al,0x1f                 ;select palette color 15 (white)
+                out     dx,al
+
                 lodsb                           ;fetch color
                 mov     ah,al                   ; and save it for later
 
                 WAIT_HORIZONTAL_RETRACE
 
-                mov     dl,bl                   ;dx = 0x03de
                 mov     al,ah
                 out     dx,al                   ;set new color
-                mov     dl,bh                   ;dx = 0x03da
         %endrep
         ;END raster bar code
 
@@ -930,7 +923,7 @@ state_gfx_fade_in_init:
         mov     cx,10                           ;update colors 10 colors
         mov     bl,0x10+6                       ; starting with color 6
         mov     si,palette_default+6            ;points to colors used at the top of the screen
-        mov     bp,0x03da                       ;bp should be 0x03da
+        mov     dx,VGA_ADDRESS                  ;bp should be 0x03da
         REFRESH_PALETTE 0                       ;refresh the palette, don't wait for horizontal retrace
 
         ;logo should be turned off by default
@@ -2601,27 +2594,24 @@ text_writer_fill_one_char:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 inc_d020:
-        mov     dx,0x03da                       ;show how many raster barts it consumes
+        mov     dx,VGA_ADDRESS                  ;show how many raster barts it consumes
         mov     al,2                            ;select border color
         out     dx,al
 
-        mov     dl,0xde                         ;dx=0x03de
         mov     al,0x0f
         out     dx,al                           ;change border to white
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 dec_d020:
-        mov     dx,0x03da                       ;show how many raster barts it consumes
+        mov     dx,VGA_ADDRESS                  ;show how many raster barts it consumes
         mov     al,2                            ;select border color
         out     dx,al
 
-        mov     dl,0xde                         ;dx=0x03de
         sub     al,al
         out     dx,al                           ;change border back to black
 
         ret
-
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;

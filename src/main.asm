@@ -21,13 +21,13 @@ section .text
 
         cld
 
-;        call    pre_intro_start
+        call    pre_intro_start
 
         mov     ax,0x0009
         int     0x10
 
         call    intro_start
-;        call    post_intro_start
+        call    post_intro_start
 
         jmp     cleanup
 

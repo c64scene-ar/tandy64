@@ -12,6 +12,9 @@ cpu     8086
 extern wait_vertical_retrace, wait_horiz_retrace
 extern animated_print_screen
 
+VGA_ADDRESS     equ     0x03da                  ;Tandy == PCJr.
+VGA_DATA        equ     0x03da                  ;Tandy = 0x03de. PCJr. 0x03da
+
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; CODE
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -32,11 +35,10 @@ init_screen:
         mov     ax,0x0009                       ;320x200 16 colors
         int     0x10
 
-        mov     dx,0x3da
+        mov     dx,VGA_DATA
         mov     al,3                            ;select CRT mode control
         out     dx,al
 
-        mov     dx,0x3de
         mov     al,0b0001_0100                  ;enable border color, enable 16 colors
         out     dx,al
 
@@ -57,29 +59,24 @@ init_screen:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;converts palette to emulate a sort of c64 look & feel when ending
 update_palette:
-        mov     dx,0x3da                        ;select border color register
+        mov     dx,VGA_DATA                     ;select border color register
         mov     al,2
         out     dx,al
 
-        mov     dl,0xde                         ;dx=0x3de
         mov     al,9                            ;light blue
         out     dx,al
 
 
-        mov     dl,0xda                         ;dx=0x3da
         mov     al,0x10                         ;select color=0
         out     dx,al                           ;select palette register
 
-        mov     dl,0xde                         ;dx=0x3de
         mov     al,1                            ;color 0 is blue now (before it was black)
         out     dx,al
 
 
-        mov     dl,0xda                         ;dx=0x3da
         mov     al,0x17                         ;select color=7
         out     dx,al                           ;select palette register
 
-        mov     dl,0xde                         ;dx=0x3de
         mov     al,9                            ;color light gray is light blue now
         out     dx,al
 
