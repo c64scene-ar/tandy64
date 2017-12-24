@@ -350,13 +350,13 @@ LETTER_BORDER_COLOR_IDX equ 5
 %%wait:
 ;FIXME PCJr
         in      al,dx                           ;wait for horizontal retrace
-        ror     al,1
-        jc      %%wait
+;        ror     al,1
+;        jc      %%wait
 
-%%retrace:
-        in      al,dx                           ;wait for horizontal retrace
-        ror     al,1
-        jnc     %%retrace
+;%%retrace:
+;        in      al,dx                           ;wait for horizontal retrace
+;        ror     al,1
+;        jnc     %%retrace
 %endmacro
 
 
