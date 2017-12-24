@@ -350,13 +350,13 @@ LETTER_BORDER_COLOR_IDX equ 5
 %%wait:
 ;FIXME PCJr
         in      al,dx                           ;wait for horizontal retrace
-;        ror     al,1
-;        jc      %%wait
+        ror     al,1
+        jc      %%wait
 
 %%retrace:
-;        in      al,dx                           ;wait for horizontal retrace
-;        ror     al,1
-;        jnc     %%retrace
+        in      al,dx                           ;wait for horizontal retrace
+        ror     al,1
+        jnc     %%retrace
 %endmacro
 
 
@@ -434,7 +434,7 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 
         in      al,0x21                         ;Read primary PIC Interrupt Mask Register
         mov     [old_pic_imr],al                ;Store it for later
-        mov     al,0b1111_1100                  ;Mask off everything except IRQ 0 (tiimer)
+        mov     al,0b1111_1110                  ;Mask off everything except IRQ 0 (tiimer)
         out     0x21,al                         ;IRQ1 (keyboard) disabled. PCJr. keyboard is handled in
                                                 ; NMI handler
         sti
@@ -506,7 +506,7 @@ state_signal_letter_state_sem_init:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 irq_cleanup:
-        cli
+        cli                                     ;disable interrupts
 
         mov     al,[old_pic_imr]                ;Get old PIC settings
         out     0x21,al                         ;Set primary PIC Interrupt Mask Register
@@ -520,18 +520,18 @@ irq_cleanup:
         xor     ax,ax
         mov     ds,ax
 
-        les     si,[old_i08]
+        les     si,[cs:old_i08]
         mov     [8*4],si
         mov     [8*4+2],es                      ;Restore the old INT 08 vector (timer)
 
-        les     si,[old_i09]
+        les     si,[cs:old_i09]
         mov     [9*4],si
         mov     [9*4+2],es                      ;Restore the old INT 09 vector (keyboard)
 
         pop     es
         pop     ds
 
-        sti
+        sti                                     ;enable interrupts
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -1892,23 +1892,23 @@ crtc_addr_init:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 crtc_addr_anim:
         ;FIXME PCJr.
-;        mov     bx,[crtc_start_addr]
-;
-;        mov     dx,0x03d4
-;        mov     al,0x0c                         ;select CRTC start address hi
-;        out     dx,al
-;
-;        inc     dx                              ;set value for CRTC hi address
-;        mov     al,bh
-;        out     dx,al
-;
-;        dec     dx
-;        mov     al,0x0d
-;        out     dx,al                           ;select CRTC start address lo
-;
-;        inc     dx
-;        mov     al,bl
-;        out     dx,al                           ;set value for CRTC lo address
+        mov     bx,[crtc_start_addr]
+
+        mov     dx,0x03d4
+        mov     al,0x0c                         ;select CRTC start address hi
+        out     dx,al
+
+        inc     dx                              ;set value for CRTC hi address
+        mov     al,bh
+        out     dx,al
+
+        dec     dx
+        mov     al,0x0d
+        out     dx,al                           ;select CRTC start address lo
+
+        inc     dx
+        mov     al,bl
+        out     dx,al                           ;set value for CRTC lo address
 
         ret
 
