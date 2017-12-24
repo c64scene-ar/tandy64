@@ -923,7 +923,7 @@ state_gfx_fade_in_init:
         mov     cx,10                           ;update colors 10 colors
         mov     bl,0x10+6                       ; starting with color 6
         mov     si,palette_default+6            ;points to colors used at the top of the screen
-        mov     dx,VGA_ADDRESS                  ;bp should be 0x03da
+        mov     dx,VGA_ADDRESS                  ;dx should be 0x03da
         REFRESH_PALETTE 0                       ;refresh the palette, don't wait for horizontal retrace
 
         ;logo should be turned off by default

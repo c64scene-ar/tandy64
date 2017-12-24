@@ -35,13 +35,6 @@ init_screen:
         mov     ax,0x0009                       ;320x200 16 colors
         int     0x10
 
-        mov     dx,VGA_DATA
-        mov     al,3                            ;select CRT mode control
-        out     dx,al
-
-        mov     al,0b0001_0100                  ;enable border color, enable 16 colors
-        out     dx,al
-
         call    update_palette
 
         mov     cx,45                           ;do delay
@@ -59,7 +52,7 @@ init_screen:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;converts palette to emulate a sort of c64 look & feel when ending
 update_palette:
-        mov     dx,VGA_DATA                     ;select border color register
+        mov     dx,VGA_ADDRESS                     ;select border color register
         mov     al,2
         out     dx,al
 

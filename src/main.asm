@@ -26,7 +26,7 @@ section .text
 ;        mov     ax,0x0009
 ;        int     0x10
 
-;        call    intro_start
+        call    intro_start
         call    post_intro_start
 
         jmp     cleanup
@@ -34,7 +34,7 @@ section .text
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 cleanup:
-        mov     ax,0x0003
+        mov     ax,0x0001
         int     0x10
 
         mov     ax,4c00h

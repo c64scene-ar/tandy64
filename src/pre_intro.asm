@@ -257,35 +257,6 @@ anim_border_color:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-video_on:
-	    in      al,0x70                         ;enable NMI
-	    or      al,0x80
-	    out     0x70,al
-
-	    sti                                     ;enable interrupts
-
-	    mov     dx,0x03d8
-	    mov     al,0b0000_1001                  ;no blink. intensity only
-	    out     dx,al
-
-        ret
-
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-video_off:
-
-        mov     dx,0x03d8                       ;disable video
-        mov     al,1
-        out     dx,al
-
-	    cli                                     ;no interrupts
-        in      al,0x70                         ;disable NMI
-        and     al,0x7F
-	    out     0x70,al
-
-        ret
-
-;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; DATA
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 section .data
