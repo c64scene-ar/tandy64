@@ -52,13 +52,7 @@ init_screen:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;converts palette to emulate a sort of c64 look & feel when ending
 update_palette:
-        mov     dx,VGA_ADDRESS                     ;select border color register
-        mov     al,2
-        out     dx,al
-
-        mov     al,9                            ;light blue
-        out     dx,al
-
+        mov     dx,VGA_ADDRESS
 
         mov     al,0x10                         ;select color=0
         out     dx,al                           ;select palette register
@@ -66,11 +60,17 @@ update_palette:
         mov     al,1                            ;color 0 is blue now (before it was black)
         out     dx,al
 
-
         mov     al,0x17                         ;select color=7
         out     dx,al                           ;select palette register
 
         mov     al,9                            ;color light gray is light blue now
+        out     dx,al
+
+
+        mov     al,2                            ;select border color register
+        out     dx,al
+
+        mov     al,9                            ;light blue
         out     dx,al
 
         ret

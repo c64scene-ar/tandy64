@@ -317,10 +317,8 @@ LETTER_BORDER_COLOR_IDX equ 5
 
         inc     bl
 
-        ;FIXME: needed in PCJr???
-;        mov     dx,bp                           ;dx = 0x03da. restore register after chaning palette
-;        sub     al,al                           ; needed for original tandy
-;        out     dx,al
+        sub     al,al                           ;set reg 0 so display works again
+        out     dx,al
 
         loop    %%repeat
 

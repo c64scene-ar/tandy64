@@ -200,18 +200,18 @@ do_delay:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 update_palette:
-        mov     dx,VGA_ADDRESS                  ;select border color register
-        mov     al,2
+        mov     dx,VGA_ADDRESS
+        mov     al,0x10                         ;select palette color=0
+        out     dx,al                           ;select palette register
+
+        mov     al,1                            ;color 1 is blue now (before it was black)
+        out     dx,al
+
+
+        mov     al,2                            ;set border color register
         out     dx,al
 
         mov     al,9                            ;light blue
-        out     dx,al
-
-
-        mov     al,0x10                         ;select color=0
-        out     dx,al                           ;select palette register
-
-        mov     al,1                            ;color 0 is blue now (before it was black)
         out     dx,al
 
         ret
