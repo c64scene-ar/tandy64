@@ -207,20 +207,17 @@ do_delay:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 update_palette:
-        mov     dx,0x3da                        ;select border color register
+        mov     dx,VGA_ADDRESS                  ;select border color register
         mov     al,2
         out     dx,al
 
-        add     dx,4                            ;change border color
         mov     al,9                            ;light blue
         out     dx,al
 
 
-        sub     dx,4
         mov     al,0x10                         ;select color=0
         out     dx,al                           ;select palette register
 
-        add     dx,4
         mov     al,1                            ;color 0 is blue now (before it was black)
         out     dx,al
 
@@ -248,7 +245,7 @@ set_charset:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 anim_border_color:
-        mov     dx,0x3da
+        mov     dx,VGA_ADDRESS
 
 .wait_retrace_start:                            ;wait for horizontal retrace start
         in      al,dx
@@ -259,7 +256,6 @@ anim_border_color:
         mov     al,2                            ;select border color
         out     dx,al
 
-        add     dx,4
         mov     al,[border_color]               ;select color for border
         and     al,0x0f
         out     dx,al                           ;change border
