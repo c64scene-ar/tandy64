@@ -303,22 +303,24 @@ LETTER_BORDER_COLOR_IDX equ 5
 %%repeat:
 
         mov     al,bl                           ;color to update
-        out     dx,al                           ;dx=0x03da
+        out     dx,al                           ;dx=0x03da (register)
 
         lodsb                                   ;load one color value in al
         mov     ah,al                           ;move it ah
 
-%if %1
-        WAIT_HORIZONTAL_RETRACE
-%endif
-
         mov     al,ah
-        out     dx,al                           ;update color
+        out     dx,al                           ;update color (data)
 
-        inc     bl
+        inc     bl                              ;next color
 
         sub     al,al                           ;set reg 0 so display works again
-        out     dx,al
+        out     dx,al                           ;(register)
+
+%if %1
+        WAIT_HORIZONTAL_RETRACE                 ;reset to register again
+%else
+        in      al,dx                           ;reset to register again
+%endif
 
         loop    %%repeat
 
@@ -683,9 +685,9 @@ new_i08_simple:
         REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
         mov     al,2                            ;select border color register
-        out     dx,al
+        out     dx,al                           ;(register)
         mov     al,[border_color]
-        out     dx,al                           ;update border color
+        out     dx,al                           ;update border color (data)
 
         jmp     new_i08_main
 
@@ -749,18 +751,19 @@ new_i08_bottom_full_color:
         ;should be done as fast as possible
         %rep    17                              ;FIXME: must be RASTER_COLORS_MAX
                 mov     al,0x1f                 ;select palette color 15 (white)
-                out     dx,al
+                out     dx,al                   ;(register)
 
                 lodsb                           ;fetch color
                 mov     ah,al                   ; and save it for later
 
-                WAIT_HORIZONTAL_RETRACE
-
                 mov     al,ah
-                out     dx,al                   ;set new color
+                out     dx,al                   ;set new color (data)
 
                 sub     al,al                   ;set reg 0 so display works again
-                out     dx,al
+                out     dx,al                   ;(register)
+
+                WAIT_HORIZONTAL_RETRACE         ;reset to register
+
         %endrep
         ;END raster bar code
 
@@ -1899,23 +1902,24 @@ crtc_addr_init:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 crtc_addr_anim:
-        mov     bx,[crtc_start_addr]
-
-        mov     dx,0x03d4
-        mov     al,0x0c                         ;select CRTC start address hi
-        out     dx,al
-
-        inc     dx                              ;set value for CRTC hi address
-        mov     al,bh
-        out     dx,al
-
-        dec     dx
-        mov     al,0x0d
-        out     dx,al                           ;select CRTC start address lo
-
-        inc     dx
-        mov     al,bl
-        out     dx,al                           ;set value for CRTC lo address
+        ;FIXME PCJr.
+;        mov     bx,[crtc_start_addr]
+;
+;        mov     dx,0x03d4
+;        mov     al,0x0c                         ;select CRTC start address hi
+;        out     dx,al
+;
+;        inc     dx                              ;set value for CRTC hi address
+;        mov     al,bh
+;        out     dx,al
+;
+;        dec     dx
+;        mov     al,0x0d
+;        out     dx,al                           ;select CRTC start address lo
+;
+;        inc     dx
+;        mov     al,bl
+;        out     dx,al                           ;set value for CRTC lo address
 
         ret
 
@@ -2597,20 +2601,20 @@ text_writer_fill_one_char:
 inc_d020:
         mov     dx,VGA_ADDRESS                  ;show how many raster barts it consumes
         mov     al,2                            ;select border color
-        out     dx,al
+        out     dx,al                           ;(register)
 
         mov     al,0x0f
-        out     dx,al                           ;change border to white
+        out     dx,al                           ;change border to white (data)
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 dec_d020:
         mov     dx,VGA_ADDRESS                  ;show how many raster barts it consumes
         mov     al,2                            ;select border color
-        out     dx,al
+        out     dx,al                           ;(register)
 
         sub     al,al
-        out     dx,al                           ;change border back to black
+        out     dx,al                           ;change border back to black (data)
 
         ret
 
