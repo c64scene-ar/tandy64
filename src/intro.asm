@@ -758,6 +758,9 @@ new_i08_bottom_full_color:
 
                 mov     al,ah
                 out     dx,al                   ;set new color
+
+                sub     al,al                   ;set reg 0 so display works again
+                out     dx,al
         %endrep
         ;END raster bar code
 
