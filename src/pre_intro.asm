@@ -202,17 +202,17 @@ do_delay:
 update_palette:
         mov     dx,VGA_ADDRESS
         mov     al,0x10                         ;select palette color=0
-        out     dx,al                           ;select palette register
+        out     dx,al                           ;select palette register (register)
 
         mov     al,1                            ;color 1 is blue now (before it was black)
-        out     dx,al
+        out     dx,al                           ;(data)
 
 
         mov     al,2                            ;set border color register
-        out     dx,al
+        out     dx,al                           ;(register)
 
         mov     al,9                            ;light blue
-        out     dx,al
+        out     dx,al                           ;(data)
 
         ret
 
@@ -246,12 +246,12 @@ anim_border_color:
         jz      .wait_retrace_start
 
 
-        mov     al,2                            ;select border color
+        mov     al,2                            ;select border color (register)
         out     dx,al
 
         mov     al,[border_color]               ;select color for border
         and     al,0x0f
-        out     dx,al                           ;change border
+        out     dx,al                           ;change border (data)
         inc     byte [border_color]
 
         ret

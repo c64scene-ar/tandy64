@@ -300,29 +300,29 @@ LETTER_BORDER_COLOR_IDX equ 5
 ; Arg:  0       -> don't wait for horizontal retrace
 ;       1       -> wait fro horizontal retrace
 %macro REFRESH_PALETTE 1
-%%repeat:
-
-        mov     al,bl                           ;color to update
-        out     dx,al                           ;dx=0x03da (register)
-
-        lodsb                                   ;load one color value in al
-        mov     ah,al                           ;move it ah
-
-        mov     al,ah
-        out     dx,al                           ;update color (data)
-
-        inc     bl                              ;next color
-
-        sub     al,al                           ;set reg 0 so display works again
-        out     dx,al                           ;(register)
-
-%if %1
-        WAIT_HORIZONTAL_RETRACE                 ;reset to register again
-%else
-        in      al,dx                           ;reset to register again
-%endif
-
-        loop    %%repeat
+;%%repeat:
+;
+;        mov     al,bl                           ;color to update
+;        out     dx,al                           ;dx=0x03da (register)
+;
+;        lodsb                                   ;load one color value in al
+;        mov     ah,al                           ;move it ah
+;
+;        mov     al,ah
+;        out     dx,al                           ;update color (data)
+;
+;        inc     bl                              ;next color
+;
+;        sub     al,al                           ;set reg 0 so display works again
+;        out     dx,al                           ;(register)
+;
+;%if %1
+;        WAIT_HORIZONTAL_RETRACE                 ;reset to register again
+;%else
+;        in      al,dx                           ;reset to register again
+;%endif
+;
+;        loop    %%repeat
 
 %endmacro
 
@@ -411,6 +411,14 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
         mov     [old_i09],ax
         mov     [old_i09+2],dx
 
+        ;Vertical retrace
+;        mov     ax,new_i0d
+;        mov     dx,cs
+;        xchg    ax,[es:0x0d*4]                     ;new/old IRQ 0x0d: offset
+;        xchg    dx,[es:0x0d*4+2]                   ;new/old IRQ 0x0d: segment
+;        mov     [old_i0d],ax
+;        mov     [old_i0d+2],dx
+
         ;PIC
         mov     ax,new_i08_simple
         mov     dx,cs
@@ -421,21 +429,21 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 
         mov     es,bp                           ;restore es
 
-        mov     dx,VGA_ADDRESS
-        WAIT_VERTICAL_RETRACE
-
-        mov     cx,194                          ;and wait for scanlines
-.repeat:
-        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
-        loop    .repeat                         ; is closer to emulators
-
+;        mov     dx,VGA_ADDRESS
+;        WAIT_VERTICAL_RETRACE
+;
+;        mov     cx,194                          ;and wait for scanlines
+;.repeat:
+;        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
+;        loop    .repeat                         ; is closer to emulators
+;
         mov     bx,PIT_DIVIDER                  ;Configure the PIT to
         call    setup_pit                       ;setup PIT
-
+;
         in      al,0x21                         ;Read primary PIC Interrupt Mask Register
         mov     [old_pic_imr],al                ;Store it for later
-        mov     al,0b1111_1110                  ;Mask off everything except IRQ 0 (tiimer)
-        out     0x21,al                         ;IRQ1 (keyboard) disabled. PCJr. keyboard is handled in
+;        mov     al,0b1111_1100                  ;Mask off everything except IRQ 0 (tiimer)
+;        out     0x21,al                         ;IRQ1 (keyboard) disabled. PCJr. keyboard is handled in
                                                 ; NMI handler
         sti
         ret
@@ -444,27 +452,27 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 state_new_i08_multi_color_init:
         cli                                     ;disable interrupts
                                                 ; while setting the interrupt
-        mov     bp,es                           ;save es
-        sub     ax,ax
-        mov     es,ax
-
-        mov     ax,new_i08_bottom_multi_color
-        mov     dx,cs
-        mov     [es:8*4],ax                     ;new/old IRQ 8: offset
-        mov     [es:8*4+2],dx                   ;new/old IRQ 8: segment
-
-        mov     es,bp                           ;restore es
-
-        mov     dx,VGA_ADDRESS
-        WAIT_VERTICAL_RETRACE
-
-        mov     cx,156                          ;and wait for scanlines
-.repeat:
-        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
-        loop    .repeat                         ; is closer to emulators
-
-        mov     bx,PIT_DIVIDER                  ;Configure the PIT to
-        call    setup_pit                       ;setup PIT
+;        mov     bp,es                           ;save es
+;        sub     ax,ax
+;        mov     es,ax
+;
+;        mov     ax,new_i08_bottom_multi_color
+;        mov     dx,cs
+;        mov     [es:8*4],ax                     ;new/old IRQ 8: offset
+;        mov     [es:8*4+2],dx                   ;new/old IRQ 8: segment
+;
+;        mov     es,bp                           ;restore es
+;
+;        mov     dx,VGA_ADDRESS
+;        WAIT_VERTICAL_RETRACE
+;
+;        mov     cx,156                          ;and wait for scanlines
+;.repeat:
+;        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
+;        loop    .repeat                         ; is closer to emulators
+;
+;        mov     bx,PIT_DIVIDER                  ;Configure the PIT to
+;        call    setup_pit                       ;setup PIT
 
         sti
         jmp     main_state_next
@@ -473,28 +481,28 @@ state_new_i08_multi_color_init:
 state_new_i08_full_color_init:
         cli                                     ;disable interrupts
                                                 ; while setting the interrupt
-        mov     bp,es                           ;save es
-
-        sub     ax,ax
-        mov     es,ax
-
-        mov     ax,new_i08_bottom_full_color
-        mov     dx,cs
-        mov     [es:8*4],ax                     ;new/old IRQ 8: offset
-        mov     [es:8*4+2],dx                   ;new/old IRQ 8: segment
-
-        mov     es,bp                           ;restore es
-
-        mov     dx,VGA_ADDRESS
-        WAIT_VERTICAL_RETRACE
-
-        mov     cx,168                          ;and wait for scanlines
-.repeat:
-        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
-        loop    .repeat                         ; is closer to emulators
-
-        mov     bx,PIT_DIVIDER                  ;Configure the PIT to
-        call    setup_pit                       ;setup PIT
+;        mov     bp,es                           ;save es
+;
+;        sub     ax,ax
+;        mov     es,ax
+;
+;        mov     ax,new_i08_bottom_full_color
+;        mov     dx,cs
+;        mov     [es:8*4],ax                     ;new/old IRQ 8: offset
+;        mov     [es:8*4+2],dx                   ;new/old IRQ 8: segment
+;
+;        mov     es,bp                           ;restore es
+;
+;        mov     dx,VGA_ADDRESS
+;        WAIT_VERTICAL_RETRACE
+;
+;        mov     cx,168                          ;and wait for scanlines
+;.repeat:
+;        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
+;        loop    .repeat                         ; is closer to emulators
+;
+;        mov     bx,PIT_DIVIDER                  ;Configure the PIT to
+;        call    setup_pit                       ;setup PIT
 
         sti
         jmp     main_state_next
@@ -523,6 +531,10 @@ irq_cleanup:
         les     si,[cs:old_i08]
         mov     [8*4],si
         mov     [8*4+2],es                      ;Restore the old INT 08 vector (timer)
+
+;        les     si,[cs:old_i0d]
+;        mov     [0x0d*4],si
+;        mov     [0x0d*4+2],es                   ;Restore the old INT 0x0d vector (vert. retrace)
 
         les     si,[cs:old_i09]
         mov     [9*4],si
@@ -658,6 +670,7 @@ new_i09:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; IRQ
+new_i0d:
 new_i08_simple:
         ;not saving any variable, since the code at main loop
         ;happens after the tick
@@ -3251,9 +3264,11 @@ key_pressed:                                    ;boolean. non-zero when a key wa
         db      0
 tick:                                           ;to trigger once the irq was called
         db      0
-old_i09:                                        ;segment + offset to old int 9
+old_i08:                                        ;segment + offset to old int 8 (timer)
         dd      0
-old_i08:                                        ;segment + offset to old int 8
+old_i09:                                        ;segment + offset to old int 9 (keyboard)
+        dd      0
+old_i0d:                                        ;segment + offset to old int 0xd (vertical retrace)
         dd      0
 old_pic_imr:                                    ;PIC IMR original value
         db      0
