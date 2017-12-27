@@ -380,7 +380,7 @@ intro_start:
         mov     es,ax                           ; push/pop otherwise
 
         mov     cx,0x8000
-        mov     al,0x0f
+        mov     al,0xff
         sub     di,di
         rep stosb
 
