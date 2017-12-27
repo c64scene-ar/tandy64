@@ -1532,8 +1532,8 @@ scroll_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 music_init:
-        mov     al,0x6c                         ;PCJr only:
-        out     0x61,al                         ; use 3-voice instead of speacker
+;        mov     al,0x6c                         ;PCJr only:
+;        out     0x61,al                         ; use 3-voice instead of speacker
 
         mov     word [pvm_offset],pvm_song + 0x10       ;update start offset
         sub     al,al
