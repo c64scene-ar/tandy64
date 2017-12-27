@@ -369,44 +369,12 @@ section .text
 
 global intro_start
 intro_start:
-        mov     ax,0x0009
-        int     0x10
-
         cld
 
         mov     ax,data                         ;init segments
         mov     ds,ax                           ;these values must always be true
         mov     ax,GFX_SEG                      ; through the whole intro.
         mov     es,ax                           ; push/pop otherwise
-
-        mov     cx,20
-
-.big_loop:
-        push    cx
-
-        mov     cx,0x8000
-        mov     al,0xff
-        sub     di,di
-        rep stosb
-
-        mov     cx,0x8000
-        mov     al,0x00
-        sub     di,di
-        rep stosb
-
-        mov     cx,0x8000
-        mov     al,0x11
-        sub     di,di
-        rep stosb
-
-        mov     cx,0x8000
-        mov     al,0xff
-        sub     di,di
-        rep stosb
-
-        pop     cx
-        loop    .big_loop
-
 
         call    intro_init
         call    irq_init
@@ -842,7 +810,7 @@ new_i08_main:
         call    [letter_state_callbacks+bx]     ; and call correct state callback
 
 ;        call    crtc_addr_anim                  ;change CRTC start address
-;        call    music_anim                      ;play music
+        call    music_anim                      ;play music
         call    central_screen_anim             ;text writer and/or boy walk
         call    scroll_effect_anim              ;plasma / rasterbar from scroll
         call    scroll_anim                     ;anim scroll
@@ -1532,8 +1500,9 @@ scroll_anim:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 music_init:
-;        mov     al,0x6c                         ;PCJr only:
-;        out     0x61,al                         ; use 3-voice instead of speacker
+        in      al,0x61                         ;PCJr only:
+        or      al,0b0110_0000                  ; source for music is the SN76496
+        out     0x61,al
 
         mov     word [pvm_offset],pvm_song + 0x10       ;update start offset
         sub     al,al

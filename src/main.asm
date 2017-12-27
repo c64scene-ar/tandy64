@@ -21,7 +21,7 @@ section .text
 
         cld
 
-;        call    pre_intro_start
+        call    pre_intro_start
 
 ;        mov     ax,0x0009
 ;        int     0x10
