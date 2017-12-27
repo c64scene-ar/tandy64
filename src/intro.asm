@@ -401,15 +401,15 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 
         mov     bp,es                           ;save es
         sub     ax,ax
-        mov     es,ax
+        mov     es,ax                           ;es = page 0
 
         ;Keyboard
-        mov     ax,new_i09
-        mov     dx,cs
-        xchg    ax,[es:9*4]                     ;new/old IRQ 9: offset
-        xchg    dx,[es:9*4+2]                   ;new/old IRQ 9: segment
-        mov     [old_i09],ax
-        mov     [old_i09+2],dx
+;        mov     ax,new_i09
+;        mov     dx,cs
+;        xchg    ax,[es:9*4]                     ;new/old IRQ 9: offset
+;        xchg    dx,[es:9*4+2]                   ;new/old IRQ 9: segment
+;        mov     [old_i09],ax
+;        mov     [old_i09+2],dx
 
         ;Vertical retrace
 ;        mov     ax,new_i0d
@@ -440,8 +440,8 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
         mov     bx,PIT_DIVIDER                  ;Configure the PIT to
         call    setup_pit                       ;setup PIT
 ;
-        in      al,0x21                         ;Read primary PIC Interrupt Mask Register
-        mov     [old_pic_imr],al                ;Store it for later
+;        in      al,0x21                         ;Read primary PIC Interrupt Mask Register
+;        mov     [old_pic_imr],al                ;Store it for later
 ;        mov     al,0b1111_1100                  ;Mask off everything except IRQ 0 (tiimer)
 ;        out     0x21,al                         ;IRQ1 (keyboard) disabled. PCJr. keyboard is handled in
                                                 ; NMI handler
@@ -516,8 +516,8 @@ state_signal_letter_state_sem_init:
 irq_cleanup:
         cli                                     ;disable interrupts
 
-        mov     al,[old_pic_imr]                ;Get old PIC settings
-        out     0x21,al                         ;Set primary PIC Interrupt Mask Register
+;        mov     al,[old_pic_imr]                ;Get old PIC settings
+;        out     0x21,al                         ;Set primary PIC Interrupt Mask Register
 
         mov     bx,0                            ;Reset PIT to defaults (~18.2 Hz)
         call    setup_pit                       ; actually means 0x10000
@@ -526,9 +526,12 @@ irq_cleanup:
         push    es
 
         xor     ax,ax
-        mov     ds,ax
+        mov     ds,ax                           ;ds = page 0
 
-        les     si,[cs:old_i08]
+        mov     cx,data
+        mov     es,cx
+
+        les     si,[es:old_i08]
         mov     [8*4],si
         mov     [8*4+2],es                      ;Restore the old INT 08 vector (timer)
 
@@ -536,9 +539,9 @@ irq_cleanup:
 ;        mov     [0x0d*4],si
 ;        mov     [0x0d*4+2],es                   ;Restore the old INT 0x0d vector (vert. retrace)
 
-        les     si,[cs:old_i09]
-        mov     [9*4],si
-        mov     [9*4+2],es                      ;Restore the old INT 09 vector (keyboard)
+;        les     si,[cs:old_i09]
+;        mov     [9*4],si
+;        mov     [9*4+2],es                      ;Restore the old INT 09 vector (keyboard)
 
         pop     es
         pop     ds
@@ -653,8 +656,20 @@ main_loop:
                                                 ; if running on a slow machine. not a big issue, but ctrl+alt+del won't work
                                                 ; and a switch on/off will be required (arggh.)
 
-        cmp     byte [key_pressed],0            ;faster way to check keyboard than calling int 0x16
+        cli
+        mov     cx,ds
+
+        sub     ax,ax
+        mov     ds,ax                           ;ds = zeor page
+        mov     ax, [0x41a]                     ;keyboard buffer head
+        cmp     ax, [0x41c]                     ;keyboard buffer tail
+
+        mov     ds,cx
+        sti
+
         jz      .loop
+;        cmp     byte [key_pressed],0            ;faster way to check keyboard than calling int 0x16
+;        jz      .loop
 
         ret
 
@@ -675,20 +690,20 @@ new_i08_simple:
         ;not saving any variable, since the code at main loop
         ;happens after the tick
 
-;        mov     ax,data
-;        mov     ds,ax
+        mov     ax,data
+        mov     ds,ax
 
         ;update top-screen palette
-        mov     si,top_palette                  ;points to colors used at the top of the screen
-        mov     cx,6                            ;update 6 colors
-        mov     bl,0x10                         ; starting with color 0 (black)
-        mov     dx,VGA_ADDRESS                  ;dx should be 0x03da
-        REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
+;        mov     si,top_palette                  ;points to colors used at the top of the screen
+;        mov     cx,6                            ;update 6 colors
+;        mov     bl,0x10                         ; starting with color 0 (black)
+;        mov     dx,VGA_ADDRESS                  ;dx should be 0x03da
+;        REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
-        mov     al,2                            ;select border color register
-        out     dx,al                           ;(register)
-        mov     al,[border_color]
-        out     dx,al                           ;update border color (data)
+;        mov     al,2                            ;select border color register
+;        out     dx,al                           ;(register)
+;        mov     al,[border_color]
+;        out     dx,al                           ;update border color (data)
 
         jmp     new_i08_main
 
