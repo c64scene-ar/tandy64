@@ -369,12 +369,21 @@ section .text
 
 global intro_start
 intro_start:
+        mov     ax,0x0009
+        int     0x10
+
+        cld
+
         mov     ax,data                         ;init segments
         mov     ds,ax                           ;these values must always be true
         mov     ax,GFX_SEG                      ; through the whole intro.
         mov     es,ax                           ; push/pop otherwise
 
-        cld
+        mov     cx,0x8000
+        mov     al,0xff
+        sub     di,di
+        rep stosb
+
 
         call    intro_init
         call    irq_init
@@ -808,8 +817,8 @@ new_i08_main:
         shl     bx,1                            ; and convert it into offset (2 bytes per offset)
         call    [letter_state_callbacks+bx]     ; and call correct state callback
 
-        call    crtc_addr_anim                  ;change CRTC start address
-        call    music_anim                      ;play music
+;        call    crtc_addr_anim                  ;change CRTC start address
+;        call    music_anim                      ;play music
         call    central_screen_anim             ;text writer and/or boy walk
         call    scroll_effect_anim              ;plasma / rasterbar from scroll
         call    scroll_anim                     ;anim scroll
