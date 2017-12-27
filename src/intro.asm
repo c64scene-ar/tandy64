@@ -379,6 +379,11 @@ intro_start:
         mov     ax,GFX_SEG                      ; through the whole intro.
         mov     es,ax                           ; push/pop otherwise
 
+        mov     cx,20
+
+.big_loop:
+        push    cx
+
         mov     cx,0x8000
         mov     al,0xff
         sub     di,di
@@ -398,6 +403,9 @@ intro_start:
         mov     al,0xff
         sub     di,di
         rep stosb
+
+        pop     cx
+        loop    .big_loop
 
 
         call    intro_init
