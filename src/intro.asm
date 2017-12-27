@@ -412,20 +412,20 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 ;        mov     [old_i09+2],dx
 
         ;Vertical retrace
-;        mov     ax,new_i0d
-;        mov     dx,cs
-;        xchg    ax,[es:0x0d*4]                     ;new/old IRQ 0x0d: offset
-;        xchg    dx,[es:0x0d*4+2]                   ;new/old IRQ 0x0d: segment
-;        mov     [old_i0d],ax
-;        mov     [old_i0d+2],dx
+        mov     ax,new_i0d
+        mov     dx,cs
+        xchg    ax,[es:0x0d*4]                     ;new/old IRQ 0x0d: offset
+        xchg    dx,[es:0x0d*4+2]                   ;new/old IRQ 0x0d: segment
+        mov     [old_i0d],ax
+        mov     [old_i0d+2],dx
 
         ;PIC
-        mov     ax,new_i08_simple
-        mov     dx,cs
-        xchg    ax,[es:8*4]                     ;new/old IRQ 8: offset
-        xchg    dx,[es:8*4+2]                   ;new/old IRQ 8: segment
-        mov     [old_i08],ax
-        mov     [old_i08+2],dx
+;        mov     ax,new_i08_simple
+;        mov     dx,cs
+;        xchg    ax,[es:8*4]                     ;new/old IRQ 8: offset
+;        xchg    dx,[es:8*4+2]                   ;new/old IRQ 8: segment
+;        mov     [old_i08],ax
+;        mov     [old_i08+2],dx
 
         mov     es,bp                           ;restore es
 
@@ -437,8 +437,8 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 ;        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
 ;        loop    .repeat                         ; is closer to emulators
 ;
-        mov     bx,PIT_DIVIDER                  ;Configure the PIT to
-        call    setup_pit                       ;setup PIT
+;        mov     bx,PIT_DIVIDER                  ;Configure the PIT to
+;        call    setup_pit                       ;setup PIT
 ;
 ;        in      al,0x21                         ;Read primary PIC Interrupt Mask Register
 ;        mov     [old_pic_imr],al                ;Store it for later
@@ -531,13 +531,13 @@ irq_cleanup:
         mov     cx,data
         mov     es,cx
 
-        les     si,[es:old_i08]
-        mov     [8*4],si
-        mov     [8*4+2],es                      ;Restore the old INT 08 vector (timer)
+;        les     si,[es:old_i08]
+;        mov     [8*4],si
+;        mov     [8*4+2],es                      ;Restore the old INT 08 vector (timer)
 
-;        les     si,[cs:old_i0d]
-;        mov     [0x0d*4],si
-;        mov     [0x0d*4+2],es                   ;Restore the old INT 0x0d vector (vert. retrace)
+        les     si,[es:old_i0d]
+        mov     [0x0d*4],si
+        mov     [0x0d*4+2],es                   ;Restore the old INT 0x0d vector (vert. retrace)
 
 ;        les     si,[cs:old_i09]
 ;        mov     [9*4],si
