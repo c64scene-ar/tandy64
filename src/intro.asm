@@ -397,6 +397,8 @@ irq_init:
 PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
                                                 ; make it sync with vertical retrace
 
+        int 3
+
         cli                                     ;disable interrupts
 
         mov     bp,es                           ;save es
@@ -646,13 +648,13 @@ intro_init:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 main_loop:
 .loop:
-        cmp     byte [tick],0                   ;in theory, the tick is not needed
-        je      .loop                           ; since i'm not doing anything, but
-                                                ; in practice, if not used, the interrupt could be triggered
-                                                ; in the middle of the BIOS call, some intructions are longer than others,
-                                                ; and it could generate some flicker in the raster bar routine
-
-        mov     byte [tick],0                   ;mov ,0, instead of dec. since two inc could happen together
+;        cmp     byte [tick],0                   ;in theory, the tick is not needed
+;        je      .loop                           ; since i'm not doing anything, but
+;                                                ; in practice, if not used, the interrupt could be triggered
+;                                                ; in the middle of the BIOS call, some intructions are longer than others,
+;                                                ; and it could generate some flicker in the raster bar routine
+;
+;        mov     byte [tick],0                   ;mov ,0, instead of dec. since two inc could happen together
                                                 ; if running on a slow machine. not a big issue, but ctrl+alt+del won't work
                                                 ; and a switch on/off will be required (arggh.)
 
@@ -689,6 +691,8 @@ new_i0d:
 new_i08_simple:
         ;not saving any variable, since the code at main loop
         ;happens after the tick
+
+        int 3
 
         mov     ax,data
         mov     ds,ax
