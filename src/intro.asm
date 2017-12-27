@@ -384,6 +384,21 @@ intro_start:
         sub     di,di
         rep stosb
 
+        mov     cx,0x8000
+        mov     al,0x00
+        sub     di,di
+        rep stosb
+
+        mov     cx,0x8000
+        mov     al,0x11
+        sub     di,di
+        rep stosb
+
+        mov     cx,0x8000
+        mov     al,0xff
+        sub     di,di
+        rep stosb
+
 
         call    intro_init
         call    irq_init
