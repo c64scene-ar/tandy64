@@ -31,3 +31,8 @@ test:
 run: $(TARGET)
 	echo "Running game..."
 	dosbox-x -conf ../conf/dosbox-x.conf -c "mount c ./ && dir" -c "c:" -c ${TARGET_NAME}
+
+scrollbar:
+	$(ASM) $(ASMFLAGS) $@.asm -o $@.o
+	$(LD) $@.o $(LDFLAGS) -o ../bin/$@.exe
+	dosbox-x -conf ../conf/dosbox-x.conf -c "mount c ../bin/ && dir" -c "c:" -c "scroll~1.exe"
