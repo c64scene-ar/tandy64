@@ -526,8 +526,8 @@ state_signal_letter_state_sem_init:
 irq_cleanup:
         cli                                     ;disable interrupts
 
-;        mov     al,[old_pic_imr]                ;Get old PIC settings
-;        out     0x21,al                         ;Set primary PIC Interrupt Mask Register
+        mov     al,[old_pic_imr]                ;Get old PIC settings
+        out     0x21,al                         ;Set primary PIC Interrupt Mask Register
 
         mov     bx,0                            ;Reset PIT to defaults (~18.2 Hz)
         call    setup_pit                       ; actually means 0x10000

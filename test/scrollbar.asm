@@ -58,6 +58,9 @@ section .text
 
         call    test_scrollbar
 
+        mov     ax,0x0001
+        int     0x10
+
         mov     ax,4c00h
         int     21h                             ;exit to DOS
 
@@ -81,6 +84,8 @@ test_scrollbar:
         call    irq_init
 
         call    main_loop
+
+        call    irq_cleanup
 
         ret
 
@@ -147,6 +152,34 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
         sti
         ret
 
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+irq_cleanup:
+        cli                                     ;disable interrupts
+
+        mov     al,[old_pic_imr]                ;Get old PIC settings
+        out     0x21,al                         ;Set primary PIC Interrupt Mask Register
+
+        mov     bx,0                            ;Reset PIT to defaults (~18.2 Hz)
+        call    setup_pit                       ; actually means 0x10000
+
+        push    ds
+        push    es
+
+        xor     ax,ax
+        mov     ds,ax                           ;ds = page 0
+
+        mov     cx,data
+        mov     es,cx
+
+        les     si,[es:old_i08]
+        mov     [8*4],si
+        mov     [8*4+2],es                      ;Restore the old INT 08 vector (timer)
+
+        pop     es
+        pop     ds
+
+        sti                                     ;enable interrupts
+        ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 setup_pit:
