@@ -412,38 +412,38 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 ;        mov     [old_i09+2],dx
 
         ;Vertical retrace
-        mov     ax,new_i0d
-        mov     dx,cs
-        xchg    ax,[es:0x0d*4]                     ;new/old IRQ 0x0d: offset
-        xchg    dx,[es:0x0d*4+2]                   ;new/old IRQ 0x0d: segment
-        mov     [old_i0d],ax
-        mov     [old_i0d+2],dx
+;        mov     ax,new_i0d
+;        mov     dx,cs
+;        xchg    ax,[es:0x0d*4]                     ;new/old IRQ 0x0d: offset
+;        xchg    dx,[es:0x0d*4+2]                   ;new/old IRQ 0x0d: segment
+;        mov     [old_i0d],ax
+;        mov     [old_i0d+2],dx
 
         ;PIC
-;        mov     ax,new_i08_simple
-;        mov     dx,cs
-;        xchg    ax,[es:8*4]                     ;new/old IRQ 8: offset
-;        xchg    dx,[es:8*4+2]                   ;new/old IRQ 8: segment
-;        mov     [old_i08],ax
-;        mov     [old_i08+2],dx
+        mov     ax,new_i08_simple
+        mov     dx,cs
+        xchg    ax,[es:8*4]                     ;new/old IRQ 8: offset
+        xchg    dx,[es:8*4+2]                   ;new/old IRQ 8: segment
+        mov     [old_i08],ax
+        mov     [old_i08+2],dx
 
         mov     es,bp                           ;restore es
 
-;        mov     dx,VGA_ADDRESS
-;        WAIT_VERTICAL_RETRACE
-;
-;        mov     cx,194                          ;and wait for scanlines
-;.repeat:
-;        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
-;        loop    .repeat                         ; is closer to emulators
-;
-;        mov     bx,PIT_DIVIDER                  ;Configure the PIT to
-;        call    setup_pit                       ;setup PIT
-;
+        mov     dx,VGA_ADDRESS
+        WAIT_VERTICAL_RETRACE
+
+        mov     cx,194                          ;and wait for scanlines
+.repeat:
+        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
+        loop    .repeat                         ; is closer to emulators
+
+        mov     bx,PIT_DIVIDER                  ;Configure the PIT to
+        call    setup_pit                       ;setup PIT
+
         in      al,0x21                         ;Read primary PIC Interrupt Mask Register
         mov     [old_pic_imr],al                ;Store it for later
 ;        mov     al,0b1001_1111                  ;Mask off everything except IRQ 0 (timer)
-        and     al,0b1101_1111                  ;Mask off everything except IRQ 0 (timer)
+        and     al,0b1111_1110                  ;Mask off everything except IRQ 0 (timer)
         out     0x21,al                         ;IRQ5 (vert retrace)
         sti
         ret
@@ -456,28 +456,28 @@ state_new_i08_multi_color_init:
         sub     ax,ax
         mov     es,ax
 
-;        mov     ax,new_i08_bottom_multi_color
-;        mov     dx,cs
-;        mov     [es:8*4],ax                     ;new/old IRQ 8: offset
-;        mov     [es:8*4+2],dx                   ;new/old IRQ 8: segment
-
         mov     ax,new_i08_bottom_multi_color
         mov     dx,cs
-        mov     [es:0x0d*4],ax                     ;new/old IRQ 8: offset
-        mov     [es:0x0d*4+2],dx                   ;new/old IRQ 8: segment
+        mov     [es:8*4],ax                     ;new/old IRQ 8: offset
+        mov     [es:8*4+2],dx                   ;new/old IRQ 8: segment
+
+;        mov     ax,new_i08_bottom_multi_color
+;        mov     dx,cs
+;        mov     [es:0x0d*4],ax                     ;new/old IRQ 8: offset
+;        mov     [es:0x0d*4+2],dx                   ;new/old IRQ 8: segment
 
         mov     es,bp                           ;restore es
 
-;        mov     dx,VGA_ADDRESS
-;        WAIT_VERTICAL_RETRACE
-;
-;        mov     cx,156                          ;and wait for scanlines
-;.repeat:
-;        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
-;        loop    .repeat                         ; is closer to emulators
-;
-;        mov     bx,PIT_DIVIDER                  ;Configure the PIT to
-;        call    setup_pit                       ;setup PIT
+        mov     dx,VGA_ADDRESS
+        WAIT_VERTICAL_RETRACE
+
+        mov     cx,156                          ;and wait for scanlines
+.repeat:
+        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
+        loop    .repeat                         ; is closer to emulators
+
+        mov     bx,PIT_DIVIDER                  ;Configure the PIT to
+        call    setup_pit                       ;setup PIT
 
         sti
         jmp     main_state_next
@@ -491,28 +491,28 @@ state_new_i08_full_color_init:
         sub     ax,ax
         mov     es,ax
 
-;        mov     ax,new_i08_bottom_full_color
-;        mov     dx,cs
-;        mov     [es:8*4],ax                     ;new/old IRQ 8: offset
-;        mov     [es:8*4+2],dx                   ;new/old IRQ 8: segment
-
         mov     ax,new_i08_bottom_full_color
         mov     dx,cs
-        mov     [es:0x0d*4],ax                     ;new/old IRQ 8: offset
-        mov     [es:0x0d*4+2],dx                   ;new/old IRQ 8: segment
+        mov     [es:8*4],ax                     ;new/old IRQ 8: offset
+        mov     [es:8*4+2],dx                   ;new/old IRQ 8: segment
+
+;        mov     ax,new_i08_bottom_full_color
+;        mov     dx,cs
+;        mov     [es:0x0d*4],ax                     ;new/old IRQ 8: offset
+;        mov     [es:0x0d*4+2],dx                   ;new/old IRQ 8: segment
 
         mov     es,bp                           ;restore es
-;
-;        mov     dx,VGA_ADDRESS
-;        WAIT_VERTICAL_RETRACE
-;
-;        mov     cx,168                          ;and wait for scanlines
-;.repeat:
-;        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
-;        loop    .repeat                         ; is closer to emulators
-;
-;        mov     bx,PIT_DIVIDER                  ;Configure the PIT to
-;        call    setup_pit                       ;setup PIT
+
+        mov     dx,VGA_ADDRESS
+        WAIT_VERTICAL_RETRACE
+
+        mov     cx,168                          ;and wait for scanlines
+.repeat:
+        WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
+        loop    .repeat                         ; is closer to emulators
+
+        mov     bx,PIT_DIVIDER                  ;Configure the PIT to
+        call    setup_pit                       ;setup PIT
 
         sti
         jmp     main_state_next
@@ -541,13 +541,13 @@ irq_cleanup:
         mov     cx,data
         mov     es,cx
 
-;        les     si,[es:old_i08]
-;        mov     [8*4],si
-;        mov     [8*4+2],es                      ;Restore the old INT 08 vector (timer)
+        les     si,[es:old_i08]
+        mov     [8*4],si
+        mov     [8*4+2],es                      ;Restore the old INT 08 vector (timer)
 
-        les     si,[es:old_i0d]
-        mov     [0x0d*4],si
-        mov     [0x0d*4+2],es                   ;Restore the old INT 0x0d vector (vert. retrace)
+;        les     si,[es:old_i0d]
+;        mov     [0x0d*4],si
+;        mov     [0x0d*4+2],es                   ;Restore the old INT 0x0d vector (vert. retrace)
 
 ;        les     si,[cs:old_i09]
 ;        mov     [9*4],si
@@ -1929,7 +1929,6 @@ crtc_addr_init:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 crtc_addr_anim:
-        ;FIXME PCJr.
         mov     bx,[crtc_start_addr]
 
         mov     dx,0x03d4
