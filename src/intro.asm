@@ -300,29 +300,29 @@ LETTER_BORDER_COLOR_IDX equ 5
 ; Arg:  0       -> don't wait for horizontal retrace
 ;       1       -> wait fro horizontal retrace
 %macro REFRESH_PALETTE 1
-;%%repeat:
-;
-;        mov     al,bl                           ;color to update
-;        out     dx,al                           ;dx=0x03da (register)
-;
-;        lodsb                                   ;load one color value in al
-;        mov     ah,al                           ;move it ah
-;
-;        mov     al,ah
-;        out     dx,al                           ;update color (data)
-;
-;        inc     bl                              ;next color
-;
-;        sub     al,al                           ;set reg 0 so display works again
-;        out     dx,al                           ;(register)
-;
-;%if %1
-;        WAIT_HORIZONTAL_RETRACE                 ;reset to register again
-;%else
-;        in      al,dx                           ;reset to register again
-;%endif
-;
-;        loop    %%repeat
+%%repeat:
+
+        mov     al,bl                           ;color to update
+        out     dx,al                           ;dx=0x03da (register)
+
+        lodsb                                   ;load one color value in al
+        mov     ah,al                           ;move it ah
+
+        mov     al,ah
+        out     dx,al                           ;update color (data)
+
+        inc     bl                              ;next color
+
+        sub     al,al                           ;set reg 0 so display works again
+        out     dx,al                           ;(register)
+
+%if %1
+        WAIT_HORIZONTAL_RETRACE                 ;reset to register again
+%else
+        in      al,dx                           ;reset to register again
+%endif
+
+        loop    %%repeat
 
 %endmacro
 
@@ -452,17 +452,22 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 state_new_i08_multi_color_init:
         cli                                     ;disable interrupts
                                                 ; while setting the interrupt
-;        mov     bp,es                           ;save es
-;        sub     ax,ax
-;        mov     es,ax
-;
+        mov     bp,es                           ;save es
+        sub     ax,ax
+        mov     es,ax
+
 ;        mov     ax,new_i08_bottom_multi_color
 ;        mov     dx,cs
 ;        mov     [es:8*4],ax                     ;new/old IRQ 8: offset
 ;        mov     [es:8*4+2],dx                   ;new/old IRQ 8: segment
-;
-;        mov     es,bp                           ;restore es
-;
+
+        mov     ax,new_i08_bottom_multi_color
+        mov     dx,cs
+        mov     [es:0x0d*4],ax                     ;new/old IRQ 8: offset
+        mov     [es:0x0d*4+2],dx                   ;new/old IRQ 8: segment
+
+        mov     es,bp                           ;restore es
+
 ;        mov     dx,VGA_ADDRESS
 ;        WAIT_VERTICAL_RETRACE
 ;
@@ -481,17 +486,22 @@ state_new_i08_multi_color_init:
 state_new_i08_full_color_init:
         cli                                     ;disable interrupts
                                                 ; while setting the interrupt
-;        mov     bp,es                           ;save es
-;
-;        sub     ax,ax
-;        mov     es,ax
-;
+        mov     bp,es                           ;save es
+
+        sub     ax,ax
+        mov     es,ax
+
 ;        mov     ax,new_i08_bottom_full_color
 ;        mov     dx,cs
 ;        mov     [es:8*4],ax                     ;new/old IRQ 8: offset
 ;        mov     [es:8*4+2],dx                   ;new/old IRQ 8: segment
-;
-;        mov     es,bp                           ;restore es
+
+        mov     ax,new_i08_bottom_full_color
+        mov     dx,cs
+        mov     [es:0x0d*4],ax                     ;new/old IRQ 8: offset
+        mov     [es:0x0d*4+2],dx                   ;new/old IRQ 8: segment
+
+        mov     es,bp                           ;restore es
 ;
 ;        mov     dx,VGA_ADDRESS
 ;        WAIT_VERTICAL_RETRACE
@@ -694,16 +704,16 @@ new_i08_simple:
         mov     ds,ax
 
         ;update top-screen palette
-;        mov     si,top_palette                  ;points to colors used at the top of the screen
-;        mov     cx,6                            ;update 6 colors
-;        mov     bl,0x10                         ; starting with color 0 (black)
-;        mov     dx,VGA_ADDRESS                  ;dx should be 0x03da
-;        REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
+        mov     si,top_palette                  ;points to colors used at the top of the screen
+        mov     cx,6                            ;update 6 colors
+        mov     bl,0x10                         ; starting with color 0 (black)
+        mov     dx,VGA_ADDRESS                  ;dx should be 0x03da
+        REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
 
-;        mov     al,2                            ;select border color register
-;        out     dx,al                           ;(register)
-;        mov     al,[border_color]
-;        out     dx,al                           ;update border color (data)
+        mov     al,2                            ;select border color register
+        out     dx,al                           ;(register)
+        mov     al,[border_color]
+        out     dx,al                           ;update border color (data)
 
         jmp     new_i08_main
 
