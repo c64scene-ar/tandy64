@@ -350,13 +350,13 @@ LETTER_BORDER_COLOR_IDX equ 5
 %%wait:
 ;FIXME PCJr
         in      al,dx                           ;wait for horizontal retrace
-;        ror     al,1
-;        jc      %%wait
+        ror     al,1
+        jc      %%wait
 
-;%%retrace:
-;        in      al,dx                           ;wait for horizontal retrace
-;        ror     al,1
-;        jnc     %%retrace
+%%retrace:
+        in      al,dx                           ;wait for horizontal retrace
+        ror     al,1
+        jnc     %%retrace
 %endmacro
 
 
@@ -736,7 +736,6 @@ new_i08_bottom_multi_color:
 
         ;wait a few raster lines
         ;FIXME: could be used to place logic code.
-        mov     dx,bp
         mov     cx,BOTTOM_TOP_LINES_TO_WAIT     ;total number of raster bars
 .l0:
         lodsb                                   ;fetch color
