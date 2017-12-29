@@ -206,7 +206,7 @@ new_i08:
         %rep 16
                 WAIT_HORIZONTAL_RETRACE                 ;reset to register again
 
-                times  320 nop
+                times  330 nop
 
                 mov     al,bl                           ;color to update
                 out     dx,al                           ;dx=0x03da (register)
