@@ -214,7 +214,7 @@ new_i08:
                 mov     al,bh                           ;set reg 0 so display works again
                 out     dx,al                           ;(register)
 
-                times  120 nop
+                times  320 nop
 
                 in      al,dx                           ;reset to register again
         %endrep
