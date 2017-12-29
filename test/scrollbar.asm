@@ -203,8 +203,11 @@ new_i08:
         mov     bx,0x001f                       ;bl = color to update (white=0x1f)
                                                 ;bh = 0. needed later
 
-        WAIT_HORIZONTAL_RETRACE                 ;reset to register again
         %rep 16
+                WAIT_HORIZONTAL_RETRACE                 ;reset to register again
+
+                times  320 nop
+
                 mov     al,bl                           ;color to update
                 out     dx,al                           ;dx=0x03da (register)
 
@@ -214,10 +217,8 @@ new_i08:
                 mov     al,bh                           ;set reg 0 so display works again
                 out     dx,al                           ;(register)
 
-                times  320 nop
-
-                in      al,dx                           ;reset to register again
         %endrep
+
         WAIT_HORIZONTAL_RETRACE                 ;reset to register again
 
         inc     byte [tick]
