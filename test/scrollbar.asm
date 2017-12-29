@@ -202,29 +202,19 @@ new_i08:
         mov     dx,VGA_ADDRESS
         mov     bl,0x1f                         ;color to update (white)
 
-        mov     cx,0x10
+        %rep 16
+                mov     al,bl                           ;color to update
+                out     dx,al                           ;dx=0x03da (register)
 
-.loop:
+                lodsb                                   ;load one color value in al
+                out     dx,al                           ;update color (data)
 
-        push    cx
-        mov     cx,0x20
-.loop2:
-        loop    .loop2
-        pop     cx
+                sub     al,al                           ;set reg 0 so display works again
+                out     dx,al                           ;(register)
 
-
-        mov     al,bl                           ;color to update
-        out     dx,al                           ;dx=0x03da (register)
-
-        lodsb                                   ;load one color value in al
-        out     dx,al                           ;update color (data)
-
-        sub     al,al                           ;set reg 0 so display works again
-        out     dx,al                           ;(register)
-
+                in      al,dx                           ;reset to register again
+        %endrep
         WAIT_HORIZONTAL_RETRACE                 ;reset to register again
-
-        loop    .loop
 
         inc     byte [tick]
 
