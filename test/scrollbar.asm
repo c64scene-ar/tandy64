@@ -137,7 +137,7 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
         mov     dx,VGA_ADDRESS
         WAIT_VERTICAL_RETRACE
 
-        mov     cx,80                           ;and wait for scanlines
+        mov     cx,40                           ;and wait for scanlines
 .repeat:
         WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
         loop    .repeat                         ; is closer to emulators
@@ -214,7 +214,7 @@ new_i08:
                 mov     al,bh                           ;set reg 0 so display works again
                 out     dx,al                           ;(register)
 
-                times  20 nop
+                times  120 nop
 
                 in      al,dx                           ;reset to register again
         %endrep
