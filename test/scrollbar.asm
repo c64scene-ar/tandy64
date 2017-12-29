@@ -205,14 +205,16 @@ new_i08:
         mov     cx,0x10
 
 .loop:
-        mov     al,bl                           ;color to update
-        out     dx,al                           ;dx=0x03da (register)
 
         push    cx
         mov     cx,0x20
 .loop2:
         loop    .loop2
         pop     cx
+
+
+        mov     al,bl                           ;color to update
+        out     dx,al                           ;dx=0x03da (register)
 
         lodsb                                   ;load one color value in al
         out     dx,al                           ;update color (data)
