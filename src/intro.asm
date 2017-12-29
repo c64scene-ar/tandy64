@@ -293,14 +293,23 @@ LETTER_BORDER_COLOR_IDX equ 5
 ;
 ; IN:
 ;       ds:si   -> table with the palette to update
-;       cx      -> number of colors to update times 2, since it does 2 colors per h-line
 ;       bl      -> starting color + 0x10. example: use 0x1f for white: 0x10 + 0xf
 ;       dx      -> VGA_ADDRESS
 ;
-; Arg:  0       -> don't wait for horizontal retrace
-;       1       -> wait fro horizontal retrace
-%macro REFRESH_PALETTE 1
-%%repeat:
+; Args:
+;       #1:     -> number of colors to update times 2, since it does 2 colors per h-line
+;       #2:  0  -> don't wait for horizontal retrace
+;            1  -> wait fro horizontal retrace
+%macro REFRESH_PALETTE 2
+
+%rep %1
+
+%if %2
+        WAIT_HORIZONTAL_RETRACE                 ;reset to register again
+        times 40 nop                            ;avoid noise
+%else
+        in      al,dx                           ;reset to register again
+%endif
 
         mov     al,bl                           ;color to update
         out     dx,al                           ;dx=0x03da (register)
@@ -316,13 +325,8 @@ LETTER_BORDER_COLOR_IDX equ 5
         sub     al,al                           ;set reg 0 so display works again
         out     dx,al                           ;(register)
 
-%if %1
-        WAIT_HORIZONTAL_RETRACE                 ;reset to register again
-%else
-        in      al,dx                           ;reset to register again
-%endif
-
-        loop    %%repeat
+%endrep
+        in      al,dx                           ;reset to register again (register)
 
 %endmacro
 
@@ -705,11 +709,10 @@ new_i08_simple:
 
         ;update top-screen palette
         mov     si,top_palette                  ;points to colors used at the top of the screen
-        mov     cx,6                            ;update 6 colors
         mov     bl,0x10                         ; starting with color 0 (black)
         mov     dx,VGA_ADDRESS                  ;dx should be 0x03da
-        REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
-
+        REFRESH_PALETTE 0x10,1                  ;refresh the palette, 16 colors
+                                                ; and wait for horizontal retrace
         mov     al,2                            ;select border color register
         out     dx,al                           ;(register)
         mov     al,[border_color]
@@ -729,10 +732,9 @@ new_i08_bottom_multi_color:
         ;update bottom-screen palette
         mov     dx,VGA_ADDRESS                  ;register address
         mov     si,bottom_palette+1             ;points to colors used at the bottom. skips black
-        mov     cx,6                            ;only update a few colors
         mov     bl,0x11                         ; starting with color 1 (skip black)
-        REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
-
+        REFRESH_PALETTE 6,1                     ;refresh the palette, only 6 colors
+                                                ; and wait for horizontal retrace
 
         ;wait a few raster lines
         ;FIXME: could be used to place logic code.
@@ -748,10 +750,9 @@ new_i08_bottom_multi_color:
 
         ;update top-screen palette
         mov     si,top_palette+1                ;points to colors used at the top of the screen. skips black
-        mov     cx,6                            ;update a few colors
         mov     bl,0x11                         ; starting with color 1 (skips black)
-        REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
-
+        REFRESH_PALETTE 6,1                     ;refresh the palette, only 6 colors
+                                                ; and wait for horizontal retrace
         jmp     new_i08_main
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -766,10 +767,9 @@ new_i08_bottom_full_color:
         ;update bottom-screen palette
         mov     dx,VGA_ADDRESS                  ;register address
         mov     si,bottom_palette+1             ;points to colors used at the bottom. skips black
-        mov     cx,6                            ;only update a few colors
         mov     bl,0x11                         ; starting with color 1 (skip black)
-        REFRESH_PALETTE 1                       ;refresh the palette, wait for horizontal retrace
-
+        REFRESH_PALETTE 6,1                     ;refresh the palette, only 6 colors
+                                                ; and wait for horizontal retrace
         mov     si,raster_colors_tbl            ;where the colors are for each raster bar
 
         ;BEGIN raster bar code
@@ -794,10 +794,9 @@ new_i08_bottom_full_color:
 
         ;update top-screen palette
         mov     si,top_palette+1                ;points to colors used at the top of the screen. skips black
-        mov     cl,6                            ;update a few colors
         mov     bl,0x11                         ; starting with color 1. skips black
-        REFRESH_PALETTE 1                       ;refresh the palette. don't wait for horizontal retrace
-
+        REFRESH_PALETTE 6,1                     ;refresh the palette. only 6 colors
+                                                ; and don't wait for horizontal retrace
 new_i08_main:
 
 %if DEBUG
@@ -950,12 +949,11 @@ state_gfx_fade_in_init:
         mov     word [clemente_lfsr_current_state],LFSR_START_STATE
 
         ; set default for colors 8-16
-        mov     cx,10                           ;update colors 10 colors
         mov     bl,0x10+6                       ; starting with color 6
         mov     si,palette_default+6            ;points to colors used at the top of the screen
         mov     dx,VGA_ADDRESS                  ;dx should be 0x03da
-        REFRESH_PALETTE 0                       ;refresh the palette, don't wait for horizontal retrace
-
+        REFRESH_PALETTE 10,0                    ;refresh the palette, 10 colors,
+                                                ; and don't wait for horizontal retrace
         ;logo should be turned off by default
         mov     ax,0x0101                       ;blue/blue color
         mov     word [top_palette+0],ax         ;color idx 0,1 = blue
