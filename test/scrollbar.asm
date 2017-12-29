@@ -200,8 +200,10 @@ setup_pit:
 new_i08:
         mov     si,colors
         mov     dx,VGA_ADDRESS
-        mov     bl,0x1f                         ;color to update (white)
+        mov     bx,0x001f                       ;bl = color to update (white=0x1f)
+                                                ;bh = 0. needed later
 
+        WAIT_HORIZONTAL_RETRACE                 ;reset to register again
         %rep 16
                 mov     al,bl                           ;color to update
                 out     dx,al                           ;dx=0x03da (register)
@@ -209,8 +211,10 @@ new_i08:
                 lodsb                                   ;load one color value in al
                 out     dx,al                           ;update color (data)
 
-                sub     al,al                           ;set reg 0 so display works again
+                mov     al,bh                           ;set reg 0 so display works again
                 out     dx,al                           ;(register)
+
+                times  20 nop
 
                 in      al,dx                           ;reset to register again
         %endrep
