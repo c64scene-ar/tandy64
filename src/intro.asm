@@ -447,7 +447,7 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
         in      al,0x21                         ;Read primary PIC Interrupt Mask Register
         mov     [old_pic_imr],al                ;Store it for later
 ;        mov     al,0b1001_1111                  ;Mask off everything except IRQ 0 (timer)
-        and     al,0b1111_1110                  ;Mask off everything except IRQ 0 (timer)
+        and     al,0b1111_1100                  ;Mask off everything except IRQ 0 (timer)
         out     0x21,al                         ;IRQ5 (vert retrace)
         sti
         ret
