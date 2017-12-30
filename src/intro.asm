@@ -775,6 +775,9 @@ new_i08_bottom_full_color:
         ;BEGIN raster bar code
         ;should be done as fast as possible
         %rep    17                              ;FIXME: must be RASTER_COLORS_MAX
+                WAIT_HORIZONTAL_RETRACE         ;reset to register
+                times   40 nop
+
                 mov     al,0x1f                 ;select palette color 15 (white)
                 out     dx,al                   ;(register)
 
@@ -786,9 +789,6 @@ new_i08_bottom_full_color:
 
                 sub     al,al                   ;set reg 0 so display works again
                 out     dx,al                   ;(register)
-
-                WAIT_HORIZONTAL_RETRACE         ;reset to register
-
         %endrep
         ;END raster bar code
 
@@ -1314,7 +1314,7 @@ letter_state_outline_noise_anim:
 scroll_effect_anim:
         cmp     byte [scroll_effect_enabled],0
         jz     .exit
-        call    plasma_anim
+;        call    plasma_anim
         call    plasma_effect_update
         jmp     raster_bars_anim
 .exit:
