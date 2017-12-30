@@ -125,7 +125,7 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
         mov     es,ax                           ;es = page 0
 
         ;PIC
-        mov     ax,new_i08
+        mov     ax,new_i08_test
         mov     dx,cs
         xchg    ax,[es:8*4]                     ;new/old IRQ 8: offset
         xchg    dx,[es:8*4+2]                   ;new/old IRQ 8: segment
@@ -218,6 +218,38 @@ new_i08:
                 mov     al,bh                           ;set reg 0 so display works again
                 out     dx,al                           ;(register)
 
+        %endrep
+
+        WAIT_HORIZONTAL_RETRACE                 ;reset to register again
+
+        inc     byte [tick]
+
+        mov     al,0x20
+        out     0x20,al
+        iret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+new_i08_test:
+        mov     si,colors
+        mov     dx,VGA_ADDRESS
+        mov     bx,0x001f                       ;bl = color to update (white=0x1f)
+                                                ;bh = 0. needed later
+
+        WAIT_HORIZONTAL_RETRACE                 ;reset to register again
+
+        ;335 works: big fat raster
+        times  40 nop
+        %rep 16
+                mov     al,bl                           ;color to update
+                out     dx,al                           ;dx=0x03da (register)
+
+                lodsb                                   ;load one color value in al
+                out     dx,al                           ;update color (data)
+
+                mov     al,bh                           ;set reg 0 so display works again
+                out     dx,al                           ;(register)
+
+                times  120 nop
         %endrep
 
         WAIT_HORIZONTAL_RETRACE                 ;reset to register again
