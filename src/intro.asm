@@ -302,11 +302,12 @@ LETTER_BORDER_COLOR_IDX equ 5
 ;            1  -> wait fro horizontal retrace
 %macro REFRESH_PALETTE 2
 
+        sub     bh,bh                           ;zero it. needed for later
 %rep %1
 
 %if %2
         WAIT_HORIZONTAL_RETRACE                 ;reset to register again
-        times 43 nop                            ;avoid noise
+        times 40 nop                            ;avoid noise
 %else
         in      al,dx                           ;reset to register again
 %endif
@@ -315,14 +316,11 @@ LETTER_BORDER_COLOR_IDX equ 5
         out     dx,al                           ;dx=0x03da (register)
 
         lodsb                                   ;load one color value in al
-        mov     ah,al                           ;move it ah
-
-        mov     al,ah
         out     dx,al                           ;update color (data)
 
         inc     bl                              ;next color
 
-        sub     al,al                           ;set reg 0 so display works again
+        mov     al,bh                           ;set reg 0 so display works again
         out     dx,al                           ;(register)
 
 %endrep
@@ -660,13 +658,13 @@ intro_init:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 main_loop:
 .loop:
-;        cmp     byte [tick],0                   ;in theory, the tick is not needed
-;        je      .loop                           ; since i'm not doing anything, but
-;                                                ; in practice, if not used, the interrupt could be triggered
-;                                                ; in the middle of the BIOS call, some intructions are longer than others,
-;                                                ; and it could generate some flicker in the raster bar routine
-;
-;        mov     byte [tick],0                   ;mov ,0, instead of dec. since two inc could happen together
+        cmp     byte [tick],0                   ;in theory, the tick is not needed
+        je      .loop                           ; since i'm not doing anything, but
+                                                ; in practice, if not used, the interrupt could be triggered
+                                                ; in the middle of the BIOS call, some intructions are longer than others,
+                                                ; and it could generate some flicker in the raster bar routine
+
+        mov     byte [tick],0                   ;mov ,0, instead of dec. since two inc could happen together
                                                 ; if running on a slow machine. not a big issue, but ctrl+alt+del won't work
                                                 ; and a switch on/off will be required (arggh.)
 
@@ -674,7 +672,7 @@ main_loop:
         mov     cx,ds
 
         sub     ax,ax
-        mov     ds,ax                           ;ds = zeor page
+        mov     ds,ax                           ;ds = zero page
         mov     ax, [0x41a]                     ;keyboard buffer head
         cmp     ax, [0x41c]                     ;keyboard buffer tail
 
@@ -771,23 +769,22 @@ new_i08_bottom_full_color:
         REFRESH_PALETTE 6,1                     ;refresh the palette, only 6 colors
                                                 ; and wait for horizontal retrace
         mov     si,raster_colors_tbl            ;where the colors are for each raster bar
+        mov     bx,0x001f                       ;bl = color to update (white=0x1f)
+                                                ;bh = 0. needed later
 
         ;BEGIN raster bar code
         ;should be done as fast as possible
         %rep    17                              ;FIXME: must be RASTER_COLORS_MAX
                 WAIT_HORIZONTAL_RETRACE         ;reset to register
-                times   43 nop
+                times   40 nop
 
-                mov     al,0x1f                 ;select palette color 15 (white)
+                mov     al,bl                   ;select palette color 15 (white)
                 out     dx,al                   ;(register)
 
                 lodsb                           ;fetch color
-                mov     ah,al                   ; and save it for later
-
-                mov     al,ah
                 out     dx,al                   ;set new color (data)
 
-                sub     al,al                   ;set reg 0 so display works again
+                mov     al,bh                   ;set reg 0 so display works again
                 out     dx,al                   ;(register)
         %endrep
         ;END raster bar code
