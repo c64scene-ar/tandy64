@@ -260,7 +260,7 @@ new_i08:
 
                 in      al,dx
 
-                times   80 nop                  ;sync
+                times   70 nop                  ;sync
         %endrep
 
 
