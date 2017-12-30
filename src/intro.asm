@@ -9,7 +9,7 @@ cpu     8086
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; MACROS
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-%define DEBUG 0                                 ;0=diabled, 1=enabled
+%define DEBUG 1                                 ;0=diabled, 1=enabled
 
 GFX_SEG         equ     0x1800                  ;0x1800 for PCJr with 32k video ram
                                                 ;0xb800 for Tandy
@@ -819,7 +819,7 @@ new_i08_main:
 
 ;        call    crtc_addr_anim                  ;change CRTC start address
         call    music_anim                      ;play music
-        call    central_screen_anim             ;text writer and/or boy walk
+;        call    central_screen_anim             ;text writer and/or boy walk
         call    scroll_effect_anim              ;plasma / rasterbar from scroll
         call    scroll_anim                     ;anim scroll
 
@@ -2639,7 +2639,6 @@ dec_d020:
 
         sub     al,al
         out     dx,al                           ;change border back to black (data)
-
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
