@@ -264,6 +264,28 @@ new_i08:
         %endrep
 
 
+        times   200 nop                         ;leave some blank lines
+        mov     si,colors
+        ;
+        ; rasterbar with lot of noise
+        ;
+        %rep 16
+                WAIT_HORIZONTAL_RETRACE         ;reset to register again
+
+                ;335 works: big fat raster
+                times  44 nop
+
+                mov     al,bl                   ;color to update
+                out     dx,al                   ;dx=0x03da (register)
+
+                lodsb                           ;load one color value in al
+                out     dx,al                   ;update color (data)
+
+                mov     al,bh                   ;set reg 0 so display works again
+                out     dx,al                   ;(register)
+        %endrep
+
+
         inc     byte [tick]
 
         mov     al,0x20
