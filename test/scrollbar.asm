@@ -249,6 +249,8 @@ new_i08_test:
                 mov     al,bh                           ;set reg 0 so display works again
                 out     dx,al                           ;(register)
 
+                in      al,dx                           ;reset
+
                 times  120 nop
         %endrep
 
