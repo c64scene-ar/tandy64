@@ -246,8 +246,8 @@ new_i08:
         ;
         ; rasterbar without noise (using nops instead of horiz retrace)
         ;
-        WAIT_HORIZONTAL_RETRACE                 ;reset to register again
-        times  40 nop                           ;sync
+        WAIT_HORIZONTAL_RETRACE                 ;wait for retrace
+        times  40 nop                           ; and sync
         %rep 16
                 mov     al,bl                   ;color to update
                 out     dx,al                   ;dx=0x03da (register)
@@ -258,7 +258,7 @@ new_i08:
                 mov     al,bh                   ;set reg 0 so display works again
                 out     dx,al                   ;(register)
 
-                in      al,dx
+                in      al,dx                   ;reset to register again
 
                 times   57 nop                  ;sync
         %endrep
@@ -274,7 +274,7 @@ new_i08:
 
                 ;335 works: big fat raster
                 ;48
-                times  48 nop
+                times  48 nop                   ;enough delay to trigger the "big noise"
 
                 mov     al,bl                   ;color to update
                 out     dx,al                   ;dx=0x03da (register)
@@ -285,6 +285,8 @@ new_i08:
                 mov     al,bh                   ;set reg 0 so display works again
                 out     dx,al                   ;(register)
         %endrep
+
+        in      al,dx                           ;reset to register again
 
 
         inc     byte [tick]
