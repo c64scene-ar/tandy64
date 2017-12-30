@@ -306,7 +306,7 @@ LETTER_BORDER_COLOR_IDX equ 5
 
 %if %2
         WAIT_HORIZONTAL_RETRACE                 ;reset to register again
-        times 40 nop                            ;avoid noise
+        times 44 nop                            ;avoid noise
 %else
         in      al,dx                           ;reset to register again
 %endif
@@ -776,7 +776,7 @@ new_i08_bottom_full_color:
         ;should be done as fast as possible
         %rep    17                              ;FIXME: must be RASTER_COLORS_MAX
                 WAIT_HORIZONTAL_RETRACE         ;reset to register
-                times   40 nop
+                times   46 nop
 
                 mov     al,0x1f                 ;select palette color 15 (white)
                 out     dx,al                   ;(register)
