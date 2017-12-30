@@ -260,7 +260,7 @@ new_i08:
 
                 in      al,dx
 
-                times   70 nop                  ;sync
+                times   66 nop                  ;sync
         %endrep
 
 
@@ -273,7 +273,7 @@ new_i08:
                 WAIT_HORIZONTAL_RETRACE         ;reset to register again
 
                 ;335 works: big fat raster
-                times  44 nop
+                times  48 nop
 
                 mov     al,bl                   ;color to update
                 out     dx,al                   ;dx=0x03da (register)
