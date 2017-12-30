@@ -260,7 +260,7 @@ new_i08:
 
                 in      al,dx
 
-                times   60 nop                  ;sync
+                times   56 nop                  ;sync
         %endrep
 
 
@@ -274,7 +274,7 @@ new_i08:
 
                 ;335 works: big fat raster
                 ;48
-                times  340 nop
+                times  48 nop
 
                 mov     al,bl                   ;color to update
                 out     dx,al                   ;dx=0x03da (register)
