@@ -321,7 +321,7 @@ LETTER_BORDER_COLOR_IDX equ 5
         in      al,dx                           ;reset to register again
 
 %if %2
-        times 57 nop                            ;sync
+        times 56 nop                            ;sync
 %endif
 
 %endrep
@@ -578,23 +578,15 @@ fake_crash:
         call    wait_vertical_retrace           ;wait x 2 to create
         call    wait_vertical_retrace           ; a better effect
 
-        call    music_anim                      ;4x speed for music
-        call    music_anim
-        call    music_anim
+        call    music_anim                      ;2x speed for music
         call    music_anim
 
-        call    scroll_anim                     ;4x speed for scroll
-        call    scroll_anim
-        call    scroll_anim
+        call    scroll_anim                     ;2x speed for scroll
         call    scroll_anim
 
         call    central_screen_anim             ;text writer and/or boy walk
         call    central_screen_anim             ;text writer and/or boy walk
-        call    central_screen_anim             ;text writer and/or boy walk
-        call    central_screen_anim             ;text writer and/or boy walk
 
-        call    scroll_effect_anim              ;plasma / rasterbar from scroll
-        call    scroll_effect_anim              ;plasma / rasterbar from scroll
         call    scroll_effect_anim              ;plasma / rasterbar from scroll
         call    scroll_effect_anim              ;plasma / rasterbar from scroll
 
@@ -643,7 +635,6 @@ main_loop:
         mov     byte [tick],0                   ;mov ,0, instead of dec. since two inc could happen together
                                                 ; if running on a slow machine. not a big issue, but ctrl+alt+del won't work
                                                 ; and a switch on/off will be required (arggh.)
-
         cli
         mov     cx,ds
 
@@ -663,17 +654,16 @@ main_loop:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; IRQ
-new_i09:
-        ;own keyboard handler to make it faster to ready keys
-        mov     ax,data
-        mov     ds,ax
-
-        mov     byte [key_pressed],1
-        iret
+;new_i09:
+;        ;own keyboard handler to make it faster to ready keys
+;        mov     ax,data
+;        mov     ds,ax
+;
+;        mov     byte [key_pressed],1
+;        iret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; IRQ
-new_i0d:
 new_i08_simple:
         ;not saving any variable, since the code at main loop
         ;happens after the tick
@@ -751,7 +741,7 @@ new_i08_bottom_full_color:
         ;BEGIN raster bar code
         ;should be done as fast as possible
         WAIT_HORIZONTAL_RETRACE                 ;reset to register
-        times 40 nop                            ;sync
+        times 44 nop                            ;sync
         %rep    17                              ;FIXME: must be RASTER_COLORS_MAX
                 mov     al,bl                   ;select palette color 0x1f (white)
                 out     dx,al                   ;(register)
