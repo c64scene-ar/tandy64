@@ -1,9 +1,6 @@
-# Tandy 64
+# Tandy 64 Jr.
 
-A intro for the Tandy 1000 HX (and compatible) computers released for [Demosplash 2017][8]
-
-<i>Capture from emulator (fonts don't look good, missing border, and some glitches):</i><br/>
-[![Tandy 64 Intro](https://img.youtube.com/vi/M2X7e9KnoLk/0.jpg)](https://www.youtube.com/watch?v=M2X7e9KnoLk)
+A intro for the IBM PCJr.
 
 <i>Recorded real hardware: (he, we don't have a way to capture RGBI output yet... sorry)</i><br/>
 [![Tandy 64 Intro](https://img.youtube.com/vi/3YsQJ2ajfpU/0.jpg)](https://www.youtube.com/watch?v=3YsQJ2ajfpU)
@@ -11,8 +8,9 @@ A intro for the Tandy 1000 HX (and compatible) computers released for [Demosplas
 
 ## Requirements
 
-* Tandy 1000 HX (or compatible)
-* Tested with 256Kb RAM, but could fit in 128Kb with some minor changes
+* IBM PCJr.
+* Requires at least 256Kb RAM
+* Install `jrconfig` with `device=jrconfig.sys /v32`
 
 
 ## How to compile it
