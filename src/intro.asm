@@ -321,7 +321,7 @@ LETTER_BORDER_COLOR_IDX equ 5
         in      al,dx                           ;reset to register again
 
 %if %2
-        times 54 nop                            ;sync
+        times 55 nop                            ;sync
 %endif
 
 %endrep
