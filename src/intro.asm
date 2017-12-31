@@ -9,7 +9,7 @@ cpu     8086
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; MACROS
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-%define DEBUG 1                                 ;0=diabled, 1=enabled
+%define DEBUG 0                                 ;0=diabled, 1=enabled
 
 GFX_SEG         equ     0x1800                  ;0x1800 for PCJr with 32k video ram
                                                 ;0xb800 for Tandy
