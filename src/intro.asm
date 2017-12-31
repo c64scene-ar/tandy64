@@ -1,4 +1,4 @@
-; Tandy64 Intro
+; Tandy64 Jr. Intro
 ; Pungas de Villa Martelli - http://pungas.space
 ;
 ; code: riq (http://retro.moe)
