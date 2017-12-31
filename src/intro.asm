@@ -576,11 +576,11 @@ fake_crash:
         mov     byte [fake_crash_lfsr_state],1  ;init LFSR state
 .repeat:
         call    wait_vertical_retrace           ;wait x 2 to create
-        call    wait_vertical_retrace           ; a better effect
-
-        call    music_anim                      ;2x speed for music
         call    music_anim
+        call    scroll_anim
 
+        call    wait_vertical_retrace           ; a better effect
+        call    music_anim                      ;2x speed for music
         call    scroll_anim
         call    central_screen_anim             ;text writer and/or boy walk
         call    scroll_effect_anim              ;plasma / rasterbar from scroll
@@ -736,7 +736,7 @@ new_i08_bottom_full_color:
         ;BEGIN raster bar code
         ;should be done as fast as possible
         WAIT_HORIZONTAL_RETRACE                 ;reset to register
-        times 44 nop                            ;sync
+        times 45 nop                            ;sync
         %rep    17                              ;FIXME: must be RASTER_COLORS_MAX
                 mov     al,bl                   ;select palette color 0x1f (white)
                 out     dx,al                   ;(register)
