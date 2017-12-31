@@ -5,7 +5,7 @@ A intro for the IBM PCJr.
 <i>Recorded from real hardware: (he, we don't have a way to capture RGBI output yet... sorry)</i><br/>
 [![Tandy 64 Jr. intro](https://img.youtube.com/vi/phtEFwJu0AM/0.jpg)](https://youtu.be/phtEFwJu0AM)
 
-(The Tandy 64 for the [Tandy 1000HX is here][https://github.com/c64scene-ar/tandy64])
+(The "Tandy 64" for the [Tandy 1000HX is here](https://github.com/c64scene-ar/tandy64))
 
 ## Requirements
 
