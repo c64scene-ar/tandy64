@@ -307,7 +307,7 @@ LETTER_BORDER_COLOR_IDX equ 5
 
 %if %2
         WAIT_HORIZONTAL_RETRACE                 ;reset to register again
-        times 40 nop                            ;avoid noise
+        times 44 nop                            ;avoid noise
 %else
         in      al,dx                           ;reset to register again
 %endif
@@ -649,7 +649,7 @@ intro_init:
         call    [main_state_inits+0]            ;init main state 0
         call    [letter_state_inits+0]          ;init letter state 0
 
-;        call    music_init
+        call    music_init
         call    central_screen_init
         call    crtc_addr_init
         call    palette_colors_init
@@ -815,7 +815,7 @@ new_i08_main:
         call    [letter_state_callbacks+bx]     ; and call correct state callback
 
 ;        call    crtc_addr_anim                  ;change CRTC start address
-;        call    music_anim                      ;play music
+        call    music_anim                      ;play music
         call    central_screen_anim             ;text writer and/or boy walk
         call    scroll_effect_anim              ;plasma / rasterbar from scroll
         call    scroll_anim                     ;anim scroll
