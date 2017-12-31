@@ -279,10 +279,10 @@ c64_screen:
         db `READY.\n`
         db 0                                            ; pause / animate cursor
         db 2                                            ;turn on user input
-        db `LOAD"TANDY 64",8,1\n\n`
+        db `LOAD"TANDY 64 JR.",8,1\n\n`
         db 3                                            ;turn off user input
         db 1                                            ; pause / animate cursor
-        db `SEARCHING FOR TANDY 64\n`
+        db `SEARCHING FOR TANDY 64 JR.\n`
         db `LOADING`,1,1,1,1,1,1,1
         db `               (10 minutes later)\n`
         db 1,1,1,1

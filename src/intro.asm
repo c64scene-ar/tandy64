@@ -21,7 +21,7 @@ TEXT_WRITER_START_Y     equ 19                  ;start at line 19
 BOTTOM_OFFSET   equ     21*2*160-160            ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
 
 SCROLL_OFFSET   equ     22*2*160                ;start at line 22:160 bytes per line, lines are every 4 -> 8/4 =2
-SCROLL_COLS_TO_SCROLL   equ 86                 ;how many cols to scroll. max 160 (width 320, but we scroll 2 pixels at the time)
+SCROLL_COLS_TO_SCROLL   equ 90                  ;how many cols to scroll. max 160 (width 320, but we scroll 2 pixels at the time)
 SCROLL_COLS_MARGIN      equ ((160-SCROLL_COLS_TO_SCROLL)/2)
 SCROLL_RIGHT_X  equ     (160-SCROLL_COLS_MARGIN-1)      ;col in which the scroll starts from the right
 SCROLL_LEFT_X   equ     (SCROLL_COLS_MARGIN)    ;col in which the scroll ends from the left
@@ -577,9 +577,11 @@ fake_crash:
 .repeat:
         call    wait_vertical_retrace           ;wait x 2 to create
         call    music_anim
+        call    music_anim
         call    scroll_anim
 
         call    wait_vertical_retrace           ; a better effect
+        call    music_anim                      ;2x speed for music
         call    music_anim                      ;2x speed for music
         call    scroll_anim
         call    central_screen_anim             ;text writer and/or boy walk
@@ -2674,22 +2676,18 @@ scroll_text:
 ;        db 129,'M'
 ;        db 128,'ARTELLI HERE, WITH OUR FIRST TANDY RELEASE. '
         db 129                                  ;color with raster bar
-        db 'IT ALL BEGAN WHEN WE WENT TO PICK UP A COMMODORE 64 BUNDLE '
-        db 'AND THE SELLER INCLUDED TWO TANDY 1000 HX IN IT. '
-        db 'WTF IS A TANDY 1000 HX? WE GOOGLED IT, AND WE LIKED IT. '
-        db `HEY, IT HAS AN 8088 (THAT CPU FROM 1979), SOME NON-`
-        db 'STANDARD VIDEO MODES, A BETTER-THAN-SPEAKER SOUNDCARD, AND JOYSTICK PORTS '
-        db '(UNIJOYSTICLE COMING SOON#). '
-        db 'AND HERE WE ARE, WITH OUR FIRST TANDY 1000 RELEASE. WE CALL IT '
-        db `"TANDY 64%... GOT IT ? `
-        db  130,'&',129                      ;emoticons in yellow
-        db '.'
+        db 130, '>  >  >  ',129
+        db ' HAPPY NEW YEAR  '
+        db 130, '>  >  >  ',129
+        db '         PUNGAS DE VILLA MARTELLI WISHING YOU A 2018 FULL OF RELEASES. '
+        db `THIS IS OUR QUICK PORT OF THE 'TANDY 64' INTRO TO THE IBM PCJR. `
+        db 'THE PCJR IS NOT AS BAD AS WE ORIGINALLY THOUGHT... IN FACT WE LIKE IT AND THINK IT IS AN UNDERATED MACHINE. '
+        db 'IT HAS ITS LIMITATIONS BUT IT ALSO HAS SOME INTERESTING FEATURES. '
+        db 'EXPECT MORE RELEASES FROM US FOR THE PCJR.'
         db '   ;   '
-        db 'MANY THANKS TO DEMOSPLASH FOR GOING THE EXTRA MILE, AND ADDING TANDY 1000 SUPPORT!!! '
-        db 128                                  ;color yellow
-        db 27,28,29,30,31,42,43                 ;Radio Shack (using Radio Shack font)
-        db 129                                  ;color with raster bar
-        db ' DESERVES IT ! '
+        db 'THIS INTRO WAS TESTED WITH A PCJR WITH 640K RAM, BUT 256K SHOULD BE ENOUGH.'
+        db '   ;   '
+        db 'THANKS TRIXTER AND THE PEOPLE FROM THE VCFED AND BRUTMAN FORUMS FOR THEIR HELP.'
         db '   ;   '
         db 'SENDING OUR REGARDS TO ALL THE 8088 SCENE, AND TO OUR =64 / PC FRIENDS'
         db '   ;   '
@@ -2699,7 +2697,6 @@ scroll_text:
         db 130,'<<<',129                       ;hears in yellow
         db '   ;   '
         db 'CODE:RIQ, MUSIC: UCTUMI, GRAPHICS: ALAKRAN'
-        db '                   ',130,'>  >  >  >  >',129,
         db '                   '
 SCROLL_TEXT_LEN equ $-scroll_text
 
@@ -3106,12 +3103,12 @@ text_writer_data:
         db      '    proudly presents',31
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
-        db      TW_STATE_GOTO_X,11              ;go to pos
-        db      '*** Tandy 64 ***'
+        db      TW_STATE_GOTO_X,10              ;go to pos
+        db      '*** Tandy 64 Jr. ***'
         db      TW_STATE_CURSOR_BLINK,4         ;wait blinks
 
         db      TW_STATE_GOTO_X,7               ;go to pos
-        db      '(our first Tandy release)'
+        db      '(our first PCJr. release)'
         db      TW_STATE_CURSOR_BLINK,5         ;wait blinks
 
         db      TW_STATE_GOTO_X,6               ;go to pos
@@ -3123,11 +3120,11 @@ text_writer_data:
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
         db      TW_STATE_GOTO_X,6               ;go to pos 5
-        db      'Tandy 1000 HX (or compatible)'
+        db      'PCJr. with JrConfig.sys /v32'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
         db      TW_STATE_GOTO_X,5               ;go to pos 5
-        db      '     at least 256Kb RAM'
+        db      '      at least 256Kb RAM'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
         db      TW_STATE_GOTO_X,5               ;go to pos 5
@@ -3147,10 +3144,10 @@ text_writer_data:
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
         db      TW_STATE_GOTO_X,5               ;go to pos 5
-        db      '   ',31,'but with some glitches'
+        db      '   ',31,'but with major glitches'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
-        db      TW_STATE_GOTO_X,6               ;go to pos 5
+        db      TW_STATE_GOTO_X,7               ;go to pos 5
         db      'Feel free to contact us at:'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
@@ -3159,7 +3156,7 @@ text_writer_data:
         db      TW_STATE_CURSOR_BLINK,4         ;wait blinks
 
         db      TW_STATE_GOTO_X,0               ;go to pos 5
-        db      'Thanks Demosplash for supporting Tandy!'
+        db      'Thanks Trixter & Brutman for their help'
         db      TW_STATE_CURSOR_BLINK,4         ;wait blinks
 
         db      TW_STATE_GOTO_X,0               ;go to pos 5
@@ -3174,7 +3171,7 @@ text_writer_data:
         db      'graphics: Alakran'
         db      TW_STATE_CURSOR_BLINK,3         ;wait blinks
 
-        db      TW_STATE_GOTO_X,8               ;go to pos 5
+        db      TW_STATE_GOTO_X,9               ;go to pos 5
         db      'Until our next release!'
         db      TW_STATE_CURSOR_BLINK,5         ;wait blinks
 
