@@ -304,7 +304,7 @@ LETTER_BORDER_COLOR_IDX equ 5
 
         sub     bh,bh                           ;zero it. needed for later
         WAIT_HORIZONTAL_RETRACE                 ;reset to register again
-        times 44 nop                            ;sync
+        times 45 nop                            ;sync
 %rep %1
 
         mov     al,bl                           ;color to update
@@ -581,13 +581,8 @@ fake_crash:
         call    music_anim                      ;2x speed for music
         call    music_anim
 
-        call    scroll_anim                     ;2x speed for scroll
         call    scroll_anim
-
         call    central_screen_anim             ;text writer and/or boy walk
-        call    central_screen_anim             ;text writer and/or boy walk
-
-        call    scroll_effect_anim              ;plasma / rasterbar from scroll
         call    scroll_effect_anim              ;plasma / rasterbar from scroll
 
         mov     al,[fake_crash_lfsr_state]
