@@ -816,7 +816,7 @@ new_i08_main:
 
 ;        call    crtc_addr_anim                  ;change CRTC start address
         call    music_anim                      ;play music
-;        call    central_screen_anim             ;text writer and/or boy walk
+        call    central_screen_anim             ;text writer and/or boy walk
         call    scroll_effect_anim              ;plasma / rasterbar from scroll
         call    scroll_anim                     ;anim scroll
 
@@ -1311,7 +1311,7 @@ letter_state_outline_noise_anim:
 scroll_effect_anim:
         cmp     byte [scroll_effect_enabled],0
         jz     .exit
-;        call    plasma_anim
+        call    plasma_anim
         call    plasma_effect_update
         jmp     raster_bars_anim
 .exit:
