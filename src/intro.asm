@@ -304,7 +304,7 @@ LETTER_BORDER_COLOR_IDX equ 5
 
         sub     bh,bh                           ;zero it. needed for later
         WAIT_HORIZONTAL_RETRACE                 ;reset to register again
-        times 45 nop                            ;sync
+        times 46 nop                            ;sync
 %rep %1
 
         mov     al,bl                           ;color to update
