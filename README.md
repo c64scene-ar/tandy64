@@ -13,7 +13,7 @@ A intro for the IBM PCJr.
 * Requires at least 256Kb RAM
 * Install [jrconfig][11] and use with at least `/v32`. eg: in your `config.sys` add:
 
-    device=jrconfig.sys /v32
+        device=jrconfig.sys /v32
 
 
 ## How to compile it
