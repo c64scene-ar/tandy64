@@ -736,7 +736,7 @@ new_i08_bottom_full_color:
         ;BEGIN raster bar code
         ;should be done as fast as possible
         WAIT_HORIZONTAL_RETRACE                 ;reset to register
-        times 45 nop                            ;sync
+        times 46 nop                            ;sync
         %rep    17                              ;FIXME: must be RASTER_COLORS_MAX
                 mov     al,bl                   ;select palette color 0x1f (white)
                 out     dx,al                   ;(register)
