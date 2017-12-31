@@ -2,15 +2,18 @@
 
 A intro for the IBM PCJr.
 
-<i>Recorded real hardware: (he, we don't have a way to capture RGBI output yet... sorry)</i><br/>
-[![Tandy 64 Jr. Intro](https://img.youtube.com/vi/phtEFwJu0AM/0.jpg)](https://youtu.be/phtEFwJu0AM)
+<i>Recorded from real hardware: (he, we don't have a way to capture RGBI output yet... sorry)</i><br/>
+[![Tandy 64 Jr. intro](https://img.youtube.com/vi/phtEFwJu0AM/0.jpg)](https://youtu.be/phtEFwJu0AM)
 
+(The Tandy 64 for the [Tandy 1000HX is here][https://github.com/c64scene-ar/tandy64])
 
 ## Requirements
 
 * IBM PCJr.
 * Requires at least 256Kb RAM
-* Install [jrconfig][11] with `device=jrconfig.sys /v32`
+* Install [jrconfig][11] and use with at least `/v32`. eg: in your `config.sys` add:
+
+    device=jrconfig.sys /v32
 
 
 ## How to compile it
@@ -78,8 +81,9 @@ We also used:
 *   [plasma_generator.py][5]: to visually build the plasma effects
 *   [VChar64][7] for the charset
     *   The charset used is based on one used on a c64 intro?? (couldn't find the original intro)
-*   [Tandy 1000 HX BIOS dump](https://github.com/ricardoquesada/tandy1000hx-bios)
-    *   In order to learn more about the Tandy 1000 HX we disassembled its BIOS
+*   [IBM PCJr Techinical Reference manual][https://archive.org/details/IbmPcjrTechnicalReference]
+*   [IBM PCJr BIOS dump](https://github.com/ricardoquesada/ibm-pcjr-bios)
+    *   Which is based on based on the disassembled BIOS from the Technical Reference with some comments of our own
 
 
 # Lessons learned
