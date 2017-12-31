@@ -303,14 +303,9 @@ LETTER_BORDER_COLOR_IDX equ 5
 %macro REFRESH_PALETTE 2
 
         sub     bh,bh                           ;zero it. needed for later
-%rep %1
-
-%if %2
         WAIT_HORIZONTAL_RETRACE                 ;reset to register again
-        times 42 nop                            ;avoid noise
-%else
-        in      al,dx                           ;reset to register again
-%endif
+        times 40 nop                            ;sync
+%rep %1
 
         mov     al,bl                           ;color to update
         out     dx,al                           ;dx=0x03da (register)
@@ -323,8 +318,13 @@ LETTER_BORDER_COLOR_IDX equ 5
         mov     al,bh                           ;set reg 0 so display works again
         out     dx,al                           ;(register)
 
+        in      al,dx                           ;reset to register again
+
+%if %2
+        times 57 nop                            ;sync
+%endif
+
 %endrep
-        in      al,dx                           ;reset to register again (register)
 
 %endmacro
 
@@ -750,11 +750,10 @@ new_i08_bottom_full_color:
 
         ;BEGIN raster bar code
         ;should be done as fast as possible
+        WAIT_HORIZONTAL_RETRACE                 ;reset to register
+        times 40 nop                            ;sync
         %rep    17                              ;FIXME: must be RASTER_COLORS_MAX
-                WAIT_HORIZONTAL_RETRACE         ;reset to register
-                times 44 nop
-
-                mov     al,bl                   ;select palette color 15 (white)
+                mov     al,bl                   ;select palette color 0x1f (white)
                 out     dx,al                   ;(register)
 
                 lodsb                           ;fetch color
@@ -762,6 +761,9 @@ new_i08_bottom_full_color:
 
                 mov     al,bh                   ;set reg 0 so display works again
                 out     dx,al                   ;(register)
+
+                in      al,dx                   ;reset to register
+                times 57 nop
         %endrep
         ;END raster bar code
 
