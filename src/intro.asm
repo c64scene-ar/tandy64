@@ -307,7 +307,7 @@ LETTER_BORDER_COLOR_IDX equ 5
 
 %if %2
         WAIT_HORIZONTAL_RETRACE                 ;reset to register again
-        times 44 nop                            ;avoid noise
+        times 42 nop                            ;avoid noise
 %else
         in      al,dx                           ;reset to register again
 %endif
@@ -350,7 +350,6 @@ LETTER_BORDER_COLOR_IDX equ 5
 ;       dx      -> VGA_ADDRESS
 %macro WAIT_HORIZONTAL_RETRACE 0
 %%wait:
-;FIXME PCJr
         in      al,dx                           ;wait for horizontal retrace
         ror     al,1
         jc      %%wait
@@ -413,14 +412,6 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 ;        mov     [old_i09],ax
 ;        mov     [old_i09+2],dx
 
-        ;Vertical retrace
-;        mov     ax,new_i0d
-;        mov     dx,cs
-;        xchg    ax,[es:0x0d*4]                     ;new/old IRQ 0x0d: offset
-;        xchg    dx,[es:0x0d*4+2]                   ;new/old IRQ 0x0d: segment
-;        mov     [old_i0d],ax
-;        mov     [old_i0d+2],dx
-
         ;PIC
         mov     ax,new_i08_simple
         mov     dx,cs
@@ -444,9 +435,8 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 
         in      al,0x21                         ;Read primary PIC Interrupt Mask Register
         mov     [old_pic_imr],al                ;Store it for later
-;        mov     al,0b1001_1111                  ;Mask off everything except IRQ 0 (timer)
-        and     al,0b1111_1100                  ;Mask off everything except IRQ 0 (timer)
-        out     0x21,al                         ;IRQ5 (vert retrace)
+        and     al,0b1111_1100                  ;Mask off everything except IRQ0 (timer)
+        out     0x21,al                         ; and IRQ1 (keyboard)
         sti
         ret
 
@@ -462,11 +452,6 @@ state_new_i08_multi_color_init:
         mov     dx,cs
         mov     [es:8*4],ax                     ;new/old IRQ 8: offset
         mov     [es:8*4+2],dx                   ;new/old IRQ 8: segment
-
-;        mov     ax,new_i08_bottom_multi_color
-;        mov     dx,cs
-;        mov     [es:0x0d*4],ax                     ;new/old IRQ 8: offset
-;        mov     [es:0x0d*4+2],dx                   ;new/old IRQ 8: segment
 
         mov     es,bp                           ;restore es
 
@@ -497,11 +482,6 @@ state_new_i08_full_color_init:
         mov     dx,cs
         mov     [es:8*4],ax                     ;new/old IRQ 8: offset
         mov     [es:8*4+2],dx                   ;new/old IRQ 8: segment
-
-;        mov     ax,new_i08_bottom_full_color
-;        mov     dx,cs
-;        mov     [es:0x0d*4],ax                     ;new/old IRQ 8: offset
-;        mov     [es:0x0d*4+2],dx                   ;new/old IRQ 8: segment
 
         mov     es,bp                           ;restore es
 
@@ -546,10 +526,6 @@ irq_cleanup:
         les     si,[es:old_i08]
         mov     [8*4],si
         mov     [8*4+2],es                      ;Restore the old INT 08 vector (timer)
-
-;        les     si,[es:old_i0d]
-;        mov     [0x0d*4],si
-;        mov     [0x0d*4+2],es                   ;Restore the old INT 0x0d vector (vert. retrace)
 
 ;        les     si,[cs:old_i09]
 ;        mov     [9*4],si
@@ -776,7 +752,7 @@ new_i08_bottom_full_color:
         ;should be done as fast as possible
         %rep    17                              ;FIXME: must be RASTER_COLORS_MAX
                 WAIT_HORIZONTAL_RETRACE         ;reset to register
-                times   40 nop
+                times 44 nop
 
                 mov     al,bl                   ;select palette color 15 (white)
                 out     dx,al                   ;(register)
@@ -3285,8 +3261,6 @@ tick:                                           ;to trigger once the irq was cal
 old_i08:                                        ;segment + offset to old int 8 (timer)
         dd      0
 old_i09:                                        ;segment + offset to old int 9 (keyboard)
-        dd      0
-old_i0d:                                        ;segment + offset to old int 0xd (vertical retrace)
         dd      0
 old_pic_imr:                                    ;PIC IMR original value
         db      0
