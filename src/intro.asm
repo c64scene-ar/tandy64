@@ -748,6 +748,7 @@ new_i08_bottom_full_color:
         mov     si,raster_colors_tbl            ;where the colors are for each raster bar
         mov     cx,0x1f00                       ;ch=0x1f, cl=0
 
+        times 45 nop
 
         ;BEGIN raster bar code
         ;should be done as fast as possible
@@ -764,7 +765,7 @@ new_i08_bottom_full_color:
                 mov     al,cl                   ;set register to 0
                 out     dx,al                   ; to avoid noise
 
-                WAIT_HORIZONTAL_RETRACE
+                times 55 nop                    ;sync
         %endrep
         ;END raster bar code
 
