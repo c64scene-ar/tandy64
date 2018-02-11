@@ -752,7 +752,7 @@ new_i08_bottom_full_color:
         ;BEGIN raster bar code
         ;should be done as fast as possible
         %rep    17                              ;FIXME: must be RASTER_COLORS_MAX
-                mov     al,cl                   ;select palette color 15 (white)
+                mov     al,ch                   ;select palette color 15 (white)
                 out     dx,al
 
                 lodsb                           ;fetch color
