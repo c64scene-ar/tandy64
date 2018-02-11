@@ -763,7 +763,10 @@ new_i08_bottom_full_color:
                 mov     dl,bl                   ;dx = 0x03de
                 mov     al,ah
                 out     dx,al                   ;set new color
-                mov     dl,bh                   ;dx = 0x03da
+
+                sub     al,al                   ;after chaning palette
+                mov     dl,bh                   ; set register to 0 to avoid noise
+                out     dx,al                   ; and dx=0x3da
         %endrep
         ;END raster bar code
 

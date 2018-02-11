@@ -83,6 +83,10 @@ update_palette:
         mov     al,9                            ;color light gray is light blue now
         out     dx,al
 
+        sub     al,al                           ;after changing the palette
+        mov     dl,0xda                         ; set register to 0 again
+        out     dx,al                           ; otherwise noise will be generated
+
         ret
 
 

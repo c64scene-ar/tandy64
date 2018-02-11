@@ -208,18 +208,22 @@ update_palette:
         mov     al,2
         out     dx,al
 
-        add     dx,4                            ;change border color
+        mov     dl,0xde                         ;data register
         mov     al,9                            ;light blue
         out     dx,al
 
 
-        sub     dx,4
-        mov     al,0x10                         ;select color=0
+        mov     dl,0xda                         ;select set register again
+        mov     al,0x10                         ;select palette color=0
         out     dx,al                           ;select palette register
 
-        add     dx,4
+        mov     dl,0xde
         mov     al,1                            ;color 0 is blue now (before it was black)
         out     dx,al
+
+        sub     al,al                           ;after changing the palette
+        mov     dl,0xda                         ; set register to 0 again
+        out     dx,al                           ; otherwise noise will be generated
 
         ret
 
