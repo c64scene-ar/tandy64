@@ -747,26 +747,25 @@ new_i08_bottom_full_color:
 
         mov     bx,0xdade                       ;used for 3da / 3de. registers faster than immediate
         mov     dl,bh                           ;dx = 0x03da
-        mov     al,0x1f                         ;select palette color 15 (white)
-        out     dx,al
 
         mov     si,raster_colors_tbl            ;where the colors are for each raster bar
 
         ;BEGIN raster bar code
         ;should be done as fast as possible
         %rep    17                              ;FIXME: must be RASTER_COLORS_MAX
-                lodsb                           ;fetch color
-                mov     ah,al                   ; and save it for later
+                mov     al,0x1f                 ;select palette color 15 (white)
+                out     dx,al
 
-                WAIT_HORIZONTAL_RETRACE
+                lodsb                           ;fetch color
 
                 mov     dl,bl                   ;dx = 0x03de
-                mov     al,ah
                 out     dx,al                   ;set new color
 
                 sub     al,al                   ;after chaning palette
                 mov     dl,bh                   ; set register to 0 to avoid noise
                 out     dx,al                   ; and dx=0x3da
+
+                WAIT_HORIZONTAL_RETRACE
         %endrep
         ;END raster bar code
 
