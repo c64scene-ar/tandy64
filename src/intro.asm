@@ -298,6 +298,7 @@ LETTER_BORDER_COLOR_IDX equ 5
 %macro REFRESH_PALETTE 2
         mov     bh,0xde                         ;register is faster than memory
         mov     dx,bp                           ;dx = 0x03da. select color register
+        sub     cl,cl                           ;cl=0. needed clater
 
         WAIT_HORIZONTAL_RETRACE                 ;sync
 
@@ -313,7 +314,7 @@ LETTER_BORDER_COLOR_IDX equ 5
         inc     bl
 
         mov     dx,bp                           ;dx = 0x03da. restore register after chaning palette
-        sub     al,al                           ; needed for original tandy
+        mov     al,cl                           ; needed for original tandy
         out     dx,al
 
 %if %2
@@ -745,11 +746,13 @@ new_i08_bottom_full_color:
         mov     dl,bh                           ;dx = 0x03da
 
         mov     si,raster_colors_tbl            ;where the colors are for each raster bar
+        mov     cx,0x1f00                       ;ch=0x1f, cl=0
+
 
         ;BEGIN raster bar code
         ;should be done as fast as possible
         %rep    17                              ;FIXME: must be RASTER_COLORS_MAX
-                mov     al,0x1f                 ;select palette color 15 (white)
+                mov     al,cl                   ;select palette color 15 (white)
                 out     dx,al
 
                 lodsb                           ;fetch color
@@ -757,9 +760,9 @@ new_i08_bottom_full_color:
                 mov     dl,bl                   ;dx = 0x03de
                 out     dx,al                   ;set new color
 
-                sub     al,al                   ;after chaning palette
-                mov     dl,bh                   ; set register to 0 to avoid noise
-                out     dx,al                   ; and dx=0x3da
+                mov     dl,bh                   ;dx=0x3da
+                mov     al,cl                   ;set register to 0
+                out     dx,al                   ; to avoid noise
 
                 WAIT_HORIZONTAL_RETRACE
         %endrep
