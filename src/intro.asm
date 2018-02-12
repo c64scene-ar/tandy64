@@ -16,7 +16,7 @@ TEXT_WRITER_START_Y     equ 19                  ;start at line 19
 BOTTOM_OFFSET   equ     21*2*160-160            ;start at line 21:160 bytes per line, lines are every 4 -> 8/4 =2
 
 SCROLL_OFFSET   equ     22*2*160                ;start at line 22:160 bytes per line, lines are every 4 -> 8/4 =2
-SCROLL_COLS_TO_SCROLL   equ 116                 ;how many cols to scroll. max 160 (width 320, but we scroll 2 pixels at the time)
+SCROLL_COLS_TO_SCROLL   equ 88                  ;how many cols to scroll. max 160 (width 320, but we scroll 2 pixels at the time)
 SCROLL_COLS_MARGIN      equ ((160-SCROLL_COLS_TO_SCROLL)/2)
 SCROLL_RIGHT_X  equ     (160-SCROLL_COLS_MARGIN-1)      ;col in which the scroll starts from the right
 SCROLL_LEFT_X   equ     (SCROLL_COLS_MARGIN)    ;col in which the scroll ends from the left
@@ -289,39 +289,44 @@ LETTER_BORDER_COLOR_IDX equ 5
 ; IN:
 ;       ds:si   -> table with the palette to update
 ;       bl      -> starting color + 0x10. example: use 0x1f for white: 0x10 + 0xf
-;       bp      -> 0x03da
 ;
 ; Args:
 ;       #1:     -> number of colors to update
 ;       #2: 0   -> don't wait for horizontal retrace
-;           1   -> wait fro horizontal retrace
+;           1   -> wait for horizontal retrace
 %macro REFRESH_PALETTE 2
-        mov     bh,0xde                         ;register is faster than memory
-        mov     dx,bp                           ;dx = 0x03da. select color register
-        sub     cl,cl                           ;cl=0. needed clater
-
-        WAIT_HORIZONTAL_RETRACE                 ;sync
-
-%rep %1
-        mov     al,bl                           ;color to update
-        out     dx,al                           ;dx=0x03da
-
-        lodsb                                   ;load one color value in al
-
-        mov     dl,bh                           ;dx = 0x03de
-        out     dx,al                           ;update color
-
-        inc     bl
-
-        mov     dx,bp                           ;dx = 0x03da. restore register after chaning palette
-        mov     al,cl                           ; needed for original tandy
-        out     dx,al
+        mov     cx,0xdeda                       ;register is faster than memory
+        mov     dx,0x03da                       ;dx = 0x03da. select color register
+        sub     bh,bh                           ;bh=0. needed later to reset reg
 
 %if %2
-        WAIT_HORIZONTAL_RETRACE
+        WAIT_HORIZONTAL_RETRACE                 ;sync
+        times  56 nop 				;wait until beam is not visible
 %endif
 
-%endrep
+	%rep %1
+		mov     al,bl                           ;color to update
+		out     dx,al                           ;dx=0x03da
+
+		lodsb                                   ;load one color value in al
+
+		mov     dl,ch                           ;dx = 0x03de
+		out     dx,al                           ;update color
+
+		inc     bl 				;next color
+
+		mov     dl,cl                           ;dx = 0x03da. restore register after changing palette
+		%if %2
+			mov     al,bh                           ;al = 0, needed for original tandy
+			out     dx,al 				; to avoid noise
+		%endif
+		times 46 nop
+	%endrep
+
+%if !%2
+        mov     al,bh                           ; needed for original tandy
+        out     dx,al
+%endif
 
 %endmacro
 
@@ -486,7 +491,7 @@ state_new_i08_full_color_init:
         mov     dx,0x03da
         WAIT_VERTICAL_RETRACE
 
-        mov     cx,168                          ;and wait for scanlines
+        mov     cx,165                          ;and wait for scanlines
 .repeat:
         WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
         loop    .repeat                         ; is closer to emulators
@@ -679,10 +684,8 @@ new_i08_simple:
         ;update top-screen palette
         mov     si,top_palette                  ;points to colors used at the top of the screen
         mov     bl,0x10                         ; starting with color 0 (black)
-        mov     bp,0x03da                       ;bp should be 0x03da
         REFRESH_PALETTE 6,1                     ;refresh the palette, wait for horizontal retrace
 
-        mov     dx,bp                           ;dx=0x03da
         mov     al,2                            ;select border color register
         out     dx,al
         mov     dl,0xde                         ;dx=0x03de
@@ -701,7 +704,6 @@ new_i08_bottom_multi_color:
 ;        mov     ds,ax
 
         ;update bottom-screen palette
-        mov     bp,0x03da                       ;register address
         mov     si,bottom_palette+1             ;points to colors used at the bottom. skips black
         mov     bl,0x11                         ; starting with color 1 (skip black)
         REFRESH_PALETTE 6,1                     ;refresh the palette, wait for horizontal retrace
@@ -709,7 +711,6 @@ new_i08_bottom_multi_color:
 
         ;wait a few raster lines
         ;FIXME: could be used to place logic code.
-        mov     dx,bp
         mov     cx,BOTTOM_TOP_LINES_TO_WAIT     ;total number of raster bars
 .l0:
         lodsb                                   ;fetch color
@@ -737,35 +738,34 @@ new_i08_bottom_full_color:
 ;        mov     ds,ax
 
         ;update bottom-screen palette
-        mov     bp,0x03da                       ;register address
         mov     si,bottom_palette+1             ;points to colors used at the bottom. skips black
         mov     bl,0x11                         ; starting with color 1 (skip black)
         REFRESH_PALETTE 6,1                     ;refresh the palette, wait for horizontal retrace
 
-        mov     bx,0xdade                       ;used for 3da / 3de. registers faster than immediate
-        mov     dl,bh                           ;dx = 0x03da
+	;assert(cx=0xdeda, dx=0x03da)
 
         mov     si,raster_colors_tbl            ;where the colors are for each raster bar
-        mov     cx,0x1f00                       ;ch=0x1f, cl=0
+        mov     bx,0x1f00                       ;bh=0x1f (color white), bl=0 (needed to reset, faster)
 
-        times 45 nop
+        WAIT_HORIZONTAL_RETRACE                 ;wait for retrace
+        times  60 nop                           ; and sync
 
         ;BEGIN raster bar code
         ;should be done as fast as possible
         %rep    17                              ;FIXME: must be RASTER_COLORS_MAX
-                mov     al,ch                   ;select palette color 15 (white)
+                mov     al,bh                   ;select palette color 15 (white)
                 out     dx,al
 
                 lodsb                           ;fetch color
 
-                mov     dl,bl                   ;dx = 0x03de
+                mov     dl,ch                   ;dx = 0x03de
                 out     dx,al                   ;set new color
 
-                mov     dl,bh                   ;dx=0x3da
-                mov     al,cl                   ;set register to 0
-                out     dx,al                   ; to avoid noise
+                mov     al,bl                   ;al = 0
+                mov     dl,cl                   ;dx = 0x3da
+                out     dx,al                   ;set register to 0 to avoid noise
 
-                times 55 nop                    ;sync
+                times 47 nop                    ;sync
         %endrep
         ;END raster bar code
 
@@ -925,10 +925,9 @@ state_gfx_fade_in_init:
         mov     word [clemente_lfsr_current_state],LFSR_START_STATE
 
         ; set default for colors 8-16
-        mov     bl,0x10+6                       ; starting with color 6
+        mov     bl,0x10+6                       ;starting with color 6
         mov     si,palette_default+6            ;points to colors used at the top of the screen
-        mov     bp,0x03da                       ;bp should be 0x03da
-        REFRESH_PALETTE 10,0                     ;refresh the palette, don't wait for horizontal retrace
+        REFRESH_PALETTE 10,0                 	;refresh the palette, don't wait for horizontal retrace
 
         ;logo should be turned off by default
         mov     ax,0x0101                       ;blue/blue color
