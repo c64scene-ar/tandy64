@@ -302,7 +302,7 @@ LETTER_BORDER_COLOR_IDX equ 5
 %if %2
         WAIT_HORIZONTAL_RETRACE                 ;sync
         times  53 nop 				;wait until beam is not visible
-	mov 	al,al 				;wait two cycles
+	times	1 mov 	al,al 			;
 %endif
 
 	%rep %1
@@ -321,6 +321,8 @@ LETTER_BORDER_COLOR_IDX equ 5
 			mov     al,bh           ;al = 0, needed for original tandy
 			out     dx,al 		; to avoid noise
 		%endif
+		
+		; manually wait until next horizontal refresh
                 times   40 nop                  ;nop:       1 bytes, 3 cycles
 		times 	1 mov 	al,al 		;mov al,al: 2 bytes, 2 cycles
 		times 	3 aaa 			;aaa:       1 byte fetches, 8 cycles
@@ -579,27 +581,18 @@ fake_crash:
 
         mov     byte [fake_crash_lfsr_state],1  ;init LFSR state
 .repeat:
-        call    wait_vertical_retrace           ;wait x 2 to create
-        call    wait_vertical_retrace           ; a better effect
+        call    wait_vertical_retrace           ;wait refresh
 
-        call    music_anim                      ;4x speed for music
-        call    music_anim
-        call    music_anim
+        call    music_anim                      ;2x speed for music
         call    music_anim
 
-        call    scroll_anim                     ;4x speed for scroll
-        call    scroll_anim
-        call    scroll_anim
         call    scroll_anim
 
+        call    wait_vertical_retrace           ;wait refresh
+        call    music_anim                      ;2x speed for music
+        call    music_anim
+        call    scroll_anim
         call    central_screen_anim             ;text writer and/or boy walk
-        call    central_screen_anim             ;text writer and/or boy walk
-        call    central_screen_anim             ;text writer and/or boy walk
-        call    central_screen_anim             ;text writer and/or boy walk
-
-        call    scroll_effect_anim              ;plasma / rasterbar from scroll
-        call    scroll_effect_anim              ;plasma / rasterbar from scroll
-        call    scroll_effect_anim              ;plasma / rasterbar from scroll
         call    scroll_effect_anim              ;plasma / rasterbar from scroll
 
         mov     al,[fake_crash_lfsr_state]
@@ -740,8 +733,6 @@ new_i08_bottom_full_color:
 ;        mov     ax,data
 ;        mov     ds,ax
 
-	int 3
-
         ;update bottom-screen palette
         mov     si,bottom_palette+1             ;points to colors used at the bottom. skips black
         mov     bl,0x11                         ; starting with color 1 (skip black)
@@ -753,7 +744,8 @@ new_i08_bottom_full_color:
         mov     bx,0x1f00                       ;bh=0x1f (color white), bl=0 (needed to reset, faster)
 
         WAIT_HORIZONTAL_RETRACE                 ;wait for retrace
-        times  55 nop                           ; and sync
+        times  53 nop                           ; and sync
+	times	1 mov al,al
 
         ;BEGIN raster bar code
         ;should be done as fast as possible
@@ -801,7 +793,6 @@ new_i08_main:
         shl     bx,1                            ; and convert it into offset (2 bytes per offset)
         call    [letter_state_callbacks+bx]     ; and call correct state callback
 
-        call    crtc_addr_anim                  ;change CRTC start address
         call    music_anim                      ;play music
         call    central_screen_anim             ;text writer and/or boy walk
         call    scroll_effect_anim              ;plasma / rasterbar from scroll
