@@ -301,26 +301,29 @@ LETTER_BORDER_COLOR_IDX equ 5
 
 %if %2
         WAIT_HORIZONTAL_RETRACE                 ;sync
-        times  56 nop 				;wait until beam is not visible
+        times  53 nop 				;wait until beam is not visible
+	mov 	al,al 				;wait two cycles
 %endif
 
 	%rep %1
-		mov     al,bl                           ;color to update
-		out     dx,al                           ;dx=0x03da
+		mov     al,bl                   ;color to update
+		out     dx,al                   ;dx=0x03da
 
-		lodsb                                   ;load one color value in al
+		lodsb                           ;load one color value in al
 
-		mov     dl,ch                           ;dx = 0x03de
-		out     dx,al                           ;update color
+		mov     dl,ch                   ;dx = 0x03de
+		out     dx,al                   ;update color
 
-		inc     bl 				;next color
+		inc     bl 			;next color
 
-		mov     dl,cl                           ;dx = 0x03da. restore register after changing palette
+		mov     dl,cl                   ;dx = 0x03da. restore register after changing palette
 		%if %2
-			mov     al,bh                           ;al = 0, needed for original tandy
-			out     dx,al 				; to avoid noise
+			mov     al,bh           ;al = 0, needed for original tandy
+			out     dx,al 		; to avoid noise
 		%endif
-		times 46 nop
+                times   40 nop                  ;nop:       1 bytes, 3 cycles
+		times 	1 mov 	al,al 		;mov al,al: 2 bytes, 2 cycles
+		times 	3 aaa 			;aaa:       1 byte fetches, 8 cycles
 	%endrep
 
 %if !%2
@@ -737,6 +740,8 @@ new_i08_bottom_full_color:
 ;        mov     ax,data
 ;        mov     ds,ax
 
+	int 3
+
         ;update bottom-screen palette
         mov     si,bottom_palette+1             ;points to colors used at the bottom. skips black
         mov     bl,0x11                         ; starting with color 1 (skip black)
@@ -748,7 +753,7 @@ new_i08_bottom_full_color:
         mov     bx,0x1f00                       ;bh=0x1f (color white), bl=0 (needed to reset, faster)
 
         WAIT_HORIZONTAL_RETRACE                 ;wait for retrace
-        times  60 nop                           ; and sync
+        times  55 nop                           ; and sync
 
         ;BEGIN raster bar code
         ;should be done as fast as possible
@@ -765,7 +770,9 @@ new_i08_bottom_full_color:
                 mov     dl,cl                   ;dx = 0x3da
                 out     dx,al                   ;set register to 0 to avoid noise
 
-                times 47 nop                    ;sync
+                times   40 nop                  ;nop:       1 bytes, 3 cycles
+		times 	2 mov 	al,al 		;mov al,al: 2 bytes, 2 cycles
+		times 	3 aaa 			;aaa:       1 byte fetches, 8 cycles
         %endrep
         ;END raster bar code
 
