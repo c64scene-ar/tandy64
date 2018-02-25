@@ -301,32 +301,32 @@ LETTER_BORDER_COLOR_IDX equ 5
 
 %if %2
         WAIT_HORIZONTAL_RETRACE                 ;sync
-        times  53 nop 				;wait until beam is not visible
-	times	1 mov 	al,al 			;
+        times  53 nop                           ;wait until beam is not visible
+        times   1 mov   al,al                   ;
 %endif
 
-	%rep %1
-		mov     al,bl                   ;color to update
-		out     dx,al                   ;dx=0x03da
+        %rep %1
+                mov     al,bl                   ;color to update
+                out     dx,al                   ;dx=0x03da
 
-		lodsb                           ;load one color value in al
+                lodsb                           ;load one color value in al
 
-		mov     dl,ch                   ;dx = 0x03de
-		out     dx,al                   ;update color
+                mov     dl,ch                   ;dx = 0x03de
+                out     dx,al                   ;update color
 
-		inc     bl 			;next color
+                inc     bl                      ;next color
 
-		mov     dl,cl                   ;dx = 0x03da. restore register after changing palette
-		%if %2
-			mov     al,bh           ;al = 0, needed for original tandy
-			out     dx,al 		; to avoid noise
-		%endif
-		
-		; manually wait until next horizontal refresh
+                mov     dl,cl                   ;dx = 0x03da. restore register after changing palette
+                %if %2
+                        mov     al,bh           ;al = 0, needed for original tandy
+                        out     dx,al           ; to avoid noise
+                %endif
+                
+                ; manually wait until next horizontal refresh
                 times   40 nop                  ;nop:       1 bytes, 3 cycles
-		times 	1 mov 	al,al 		;mov al,al: 2 bytes, 2 cycles
-		times 	3 aaa 			;aaa:       1 byte fetches, 8 cycles
-	%endrep
+                times   1 mov   al,al           ;mov al,al: 2 bytes, 2 cycles
+                times   3 aaa                   ;aaa:       1 byte fetches, 8 cycles
+        %endrep
 
 %if !%2
         mov     al,bh                           ; needed for original tandy
@@ -738,14 +738,13 @@ new_i08_bottom_full_color:
         mov     bl,0x11                         ; starting with color 1 (skip black)
         REFRESH_PALETTE 6,1                     ;refresh the palette, wait for horizontal retrace
 
-	;assert(cx=0xdeda, dx=0x03da)
+        ;assert(cx=0xdeda, dx=0x03da)
 
         mov     si,raster_colors_tbl            ;where the colors are for each raster bar
         mov     bx,0x1f00                       ;bh=0x1f (color white), bl=0 (needed to reset, faster)
 
         WAIT_HORIZONTAL_RETRACE                 ;wait for retrace
-        times  53 nop                           ; and sync
-	times	1 mov al,al
+        times  57 nop                           ; and sync
 
         ;BEGIN raster bar code
         ;should be done as fast as possible
@@ -762,9 +761,15 @@ new_i08_bottom_full_color:
                 mov     dl,cl                   ;dx = 0x3da
                 out     dx,al                   ;set register to 0 to avoid noise
 
-                times   40 nop                  ;nop:       1 bytes, 3 cycles
-		times 	2 mov 	al,al 		;mov al,al: 2 bytes, 2 cycles
-		times 	3 aaa 			;aaa:       1 byte fetches, 8 cycles
+                ;times   40 nop                  ;nop:       1 bytes, 3 cycles
+                ;times   2 mov   al,al           ;mov al,al: 2 bytes, 2 cycles
+                ;times   3 aaa                   ;aaa:       1 byte fetches, 8 cycles
+                times   20 nop
+                times   10 cwd
+                times   2 aaa
+                times   4 xchg  cx,dx
+                times   1 in al,0x60
+                mov     dx,0x3da
         %endrep
         ;END raster bar code
 
@@ -925,7 +930,7 @@ state_gfx_fade_in_init:
         ; set default for colors 8-16
         mov     bl,0x10+6                       ;starting with color 6
         mov     si,palette_default+6            ;points to colors used at the top of the screen
-        REFRESH_PALETTE 10,0                 	;refresh the palette, don't wait for horizontal retrace
+        REFRESH_PALETTE 10,0                    ;refresh the palette, don't wait for horizontal retrace
 
         ;logo should be turned off by default
         mov     ax,0x0101                       ;blue/blue color
