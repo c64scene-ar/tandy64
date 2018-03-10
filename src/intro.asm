@@ -294,6 +294,7 @@ LETTER_BORDER_COLOR_IDX equ 5
 ; IN:
 ;       ds:si   -> table with the palette to update
 ;       bl      -> starting color + 0x10. example: use 0x1f for white: 0x10 + 0xf
+;       cx      -> jump address for delay
 ;       dx      -> VGA_ADDRESS
 ;
 ; Args:
@@ -302,31 +303,28 @@ LETTER_BORDER_COLOR_IDX equ 5
 ;            1  -> wait fro horizontal retrace
 %macro REFRESH_PALETTE 2
 
-        sub     bh,bh                           ;zero it. needed for later
         WAIT_HORIZONTAL_RETRACE                 ;reset to register again
-        times 41 nop                            ;sync (jr A=45)
-        aaa                                     ;(jr A=nothing)
-%rep %1
+        call    cx                              ;sync: jr A = 45 nop
+                                                ;      jr B = 41 nop + 1 aaa
+        %rep %1
+                sub     di,di                   ;zero it. needed for later
+                mov     al,bl                   ;color to update
+                out     dx,al                   ;dx=0x03da (register)
 
-        mov     al,bl                           ;color to update
-        out     dx,al                           ;dx=0x03da (register)
+                lodsb                           ;load one color value in al
+                out     dx,al                   ;update color (data)
 
-        lodsb                                   ;load one color value in al
-        out     dx,al                           ;update color (data)
+                xchg    ax,di                   ;fatest way to set al to 0
+                out     dx,al                   ;(register)
 
-        inc     bl                              ;next color
+                in      al,dx                   ;reset to register again
+                inc     bl                      ;next color
 
-        mov     al,bh                           ;set reg 0 so display works again
-        out     dx,al                           ;(register)
-
-        in      al,dx                           ;reset to register again
-
-%if %2
-        times 53 nop                            ;sync (jr A=55)
-%endif
-
-%endrep
-
+                %if %2
+                        call    cx              ;sync: jr A = 55 nops
+                                                ;      jr B = 53 nops
+                %endif
+        %endrep
 %endmacro
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -436,13 +434,13 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 
         in      al,0x21                         ;Read primary PIC Interrupt Mask Register
         mov     [old_pic_imr],al                ;Store it for later
-        and     al,0b1111_1110                  ;Mask off everything except IRQ0 (timer)
+        mov     al,0b1111_1110                  ;Mask off everything except IRQ0 (timer)
         out     0x21,al
 
         in      al,0xa0                         ;clear nmi latch
-        mov     al,0                            ;PCjr only: disable nmi
+        sub     al,al
         out     0xa0,al
-        sti
+        sti                                     ;enable interrupts
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -513,8 +511,8 @@ state_signal_letter_state_sem_init:
 irq_cleanup:
         cli                                     ;disable interrupts
 
-        in      al,0xa0
-        mov     al,0b1000_0000                  ;PCjr only: enable nmi
+        in      al,0xa0                         ;clear nmi latch
+        mov     al,0b1000_0000                  ;enable nmi
         out     0xa0,al
 
         mov     al,[old_pic_imr]                ;Get old PIC settings
@@ -683,6 +681,7 @@ new_i08_simple:
         ;update top-screen palette
         mov     si,top_palette                  ;points to colors used at the top of the screen
         mov     bl,0x10                         ; starting with color 0 (black)
+        mov     cx,jr_b_delay_0a                ;delay function
         mov     dx,VGA_ADDRESS                  ;dx should be 0x03da
         REFRESH_PALETTE 0x10,1                  ;refresh the palette, 16 colors
                                                 ; and wait for horizontal retrace
@@ -706,6 +705,7 @@ new_i08_bottom_multi_color:
         mov     dx,VGA_ADDRESS                  ;register address
         mov     si,bottom_palette+1             ;points to colors used at the bottom. skips black
         mov     bl,0x11                         ; starting with color 1 (skip black)
+        mov     cx,jr_b_delay_0a                ;delay function
         REFRESH_PALETTE 6,1                     ;refresh the palette, only 6 colors
                                                 ; and wait for horizontal retrace
 
@@ -724,6 +724,7 @@ new_i08_bottom_multi_color:
         ;update top-screen palette
         mov     si,top_palette+1                ;points to colors used at the top of the screen. skips black
         mov     bl,0x11                         ; starting with color 1 (skips black)
+        mov     cx,jr_b_delay_0a                ;delay function
         REFRESH_PALETTE 6,1                     ;refresh the palette, only 6 colors
                                                 ; and wait for horizontal retrace
         jmp     new_i08_main
@@ -741,34 +742,37 @@ new_i08_bottom_full_color:
         mov     dx,VGA_ADDRESS                  ;register address
         mov     si,bottom_palette+1             ;points to colors used at the bottom. skips black
         mov     bl,0x11                         ; starting with color 1 (skip black)
+        mov     cx,jr_b_delay_0a                ;delay function
         REFRESH_PALETTE 6,1                     ;refresh the palette, only 6 colors
                                                 ; and wait for horizontal retrace
         mov     si,raster_colors_tbl            ;where the colors are for each raster bar
         mov     bx,0x001f                       ;bl = color to update (white=0x1f)
                                                 ;bh = 0. needed later
-
+        mov     cx,jr_b_delay_1a                ;set delay function
         ;BEGIN raster bar code
         ;should be done as fast as possible
         WAIT_HORIZONTAL_RETRACE                 ;reset to register
-        times 42 nop                            ;sync (jr A=46)
+        call    cx                              ;variable delay
         %rep    17                              ;FIXME: must be RASTER_COLORS_MAX
+                sub     di,di                   ;zero it. needed later
                 mov     al,bl                   ;select palette color 0x1f (white)
                 out     dx,al                   ;(register)
 
                 lodsb                           ;fetch color
                 out     dx,al                   ;set new color (data)
 
-                mov     al,bh                   ;set reg 0 so display works again
+                xchg    ax,di                   ;zero al (fastest way to do it)
                 out     dx,al                   ;(register)
 
                 in      al,dx                   ;reset to register
-                times 55 nop                    ;(jr A=57)
+                call    cx                      ;variable delay
         %endrep
         ;END raster bar code
 
         ;update top-screen palette
         mov     si,top_palette+1                ;points to colors used at the top of the screen. skips black
         mov     bl,0x11                         ; starting with color 1. skips black
+        mov     cx,jr_b_delay_0a                ;delay function
         REFRESH_PALETTE 6,1                     ;refresh the palette. only 6 colors
                                                 ; and don't wait for horizontal retrace
 new_i08_main:
@@ -926,6 +930,7 @@ state_gfx_fade_in_init:
         mov     bl,0x10+6                       ; starting with color 6
         mov     si,palette_default+6            ;points to colors used at the top of the screen
         mov     dx,VGA_ADDRESS                  ;dx should be 0x03da
+        mov     cx,jr_b_delay_0a                ;delay function
         REFRESH_PALETTE 10,0                    ;refresh the palette, 10 colors,
                                                 ; and don't wait for horizontal retrace
         ;logo should be turned off by default
@@ -2614,6 +2619,33 @@ dec_d020:
         sub     al,al
         out     dx,al                           ;change border back to black (data)
         ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; delays used in REFRESH_PALETTE
+jr_b_delay_0a:
+        ;times 29 nop
+        times 30 nop
+        mov     cx,jr_b_delay_0b                ;delay function to be used after this one
+        ret
+
+jr_b_delay_0b:
+        times 41 nop
+        ;times  1 aaa
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; delays used in new_i08_bottom_full_color
+jr_b_delay_1a:
+        ;times 29 nop
+        times 30 nop
+        mov     cx,jr_b_delay_1b                ;delay function to be used after this one
+        ret
+
+jr_b_delay_1b:
+        times 43 nop
+        ;times  1 aaa
+        ret
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ;

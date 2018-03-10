@@ -400,6 +400,53 @@ EndZTimerReport:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; Routine called to return the elapsed time
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+global ZTimerGetTime
+ZTimerGetTime
+
+        pushf
+        push    bx
+        push    cx
+        push    dx
+        push    si
+        push    ds
+
+        push cs                                 ;DOS functions require that DS point
+        pop ds                                  ; to text to be displayed on the screen
+
+;
+; Check for timer 0 overflow.
+;
+        cmp     byte [cs:OverflowFlag],0
+        jz      .NoOverflow
+        sub     ax,ax                           ;ax=0, error
+        jmp     .Exit
+;
+; Convert net count to decimal ASCII in microseconds.
+;
+.NoOverflow:
+        mov     ax,[cs:TimedCount]
+        sub     ax,[cs:ReferenceCount]
+;
+; Convert count to microseconds by multiplying by .8381.
+;
+        mov     dx,8381
+        mul     dx
+        mov     bx,10000
+        div     bx                      ;* .8381 = * 8381 / 10000
+
+        ; ax contains the value
+.Exit:
+        pop     ds
+        pop     si
+        pop     dx
+        pop     cx
+        pop     bx
+        MPOPF
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; DATA
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; same segment as CS to simplify
