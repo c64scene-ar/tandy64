@@ -304,7 +304,8 @@ LETTER_BORDER_COLOR_IDX equ 5
 
         sub     bh,bh                           ;zero it. needed for later
         WAIT_HORIZONTAL_RETRACE                 ;reset to register again
-        times 45 nop                            ;sync
+        times 41 nop                            ;sync (jr A=45)
+        aaa                                     ;(jr A=nothing)
 %rep %1
 
         mov     al,bl                           ;color to update
@@ -321,7 +322,7 @@ LETTER_BORDER_COLOR_IDX equ 5
         in      al,dx                           ;reset to register again
 
 %if %2
-        times 55 nop                            ;sync
+        times 53 nop                            ;sync (jr A=55)
 %endif
 
 %endrep
@@ -435,8 +436,12 @@ PIT_DIVIDER equ (262*76)                        ;262 lines * 76 PIT cycles each
 
         in      al,0x21                         ;Read primary PIC Interrupt Mask Register
         mov     [old_pic_imr],al                ;Store it for later
-        and     al,0b1111_1100                  ;Mask off everything except IRQ0 (timer)
-        out     0x21,al                         ; and IRQ1 (keyboard)
+        and     al,0b1111_1110                  ;Mask off everything except IRQ0 (timer)
+        out     0x21,al
+
+        in      al,0xa0                         ;clear nmi latch
+        mov     al,0                            ;PCjr only: disable nmi
+        out     0xa0,al
         sti
         ret
 
@@ -488,7 +493,7 @@ state_new_i08_full_color_init:
         mov     dx,VGA_ADDRESS
         WAIT_VERTICAL_RETRACE
 
-        mov     cx,168                          ;and wait for scanlines
+        mov     cx,167                          ;and wait for scanlines
 .repeat:
         WAIT_HORIZONTAL_RETRACE                 ;inlining, so timing in real machine
         loop    .repeat                         ; is closer to emulators
@@ -507,6 +512,10 @@ state_signal_letter_state_sem_init:
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 irq_cleanup:
         cli                                     ;disable interrupts
+
+        in      al,0xa0
+        mov     al,0b1000_0000                  ;PCjr only: enable nmi
+        out     0xa0,al
 
         mov     al,[old_pic_imr]                ;Get old PIC settings
         out     0x21,al                         ;Set primary PIC Interrupt Mask Register
@@ -632,16 +641,19 @@ main_loop:
         mov     byte [tick],0                   ;mov ,0, instead of dec. since two inc could happen together
                                                 ; if running on a slow machine. not a big issue, but ctrl+alt+del won't work
                                                 ; and a switch on/off will be required (arggh.)
-        cli
-        mov     cx,ds
+;        cli
+;        mov     cx,ds
+;
+;        sub     ax,ax
+;        mov     ds,ax                           ;ds = zero page
+;        mov     ax, [0x41a]                     ;keyboard buffer head
+;        cmp     ax, [0x41c]                     ;keyboard buffer tail
+;
+;        mov     ds,cx
+;        sti
 
-        sub     ax,ax
-        mov     ds,ax                           ;ds = zero page
-        mov     ax, [0x41a]                     ;keyboard buffer head
-        cmp     ax, [0x41c]                     ;keyboard buffer tail
-
-        mov     ds,cx
-        sti
+        in      al,0x62                         ;keystroke missed?
+        and     al,1
 
         jz      .loop
 ;        cmp     byte [key_pressed],0            ;faster way to check keyboard than calling int 0x16
@@ -738,7 +750,7 @@ new_i08_bottom_full_color:
         ;BEGIN raster bar code
         ;should be done as fast as possible
         WAIT_HORIZONTAL_RETRACE                 ;reset to register
-        times 46 nop                            ;sync
+        times 42 nop                            ;sync (jr A=46)
         %rep    17                              ;FIXME: must be RASTER_COLORS_MAX
                 mov     al,bl                   ;select palette color 0x1f (white)
                 out     dx,al                   ;(register)
@@ -750,7 +762,7 @@ new_i08_bottom_full_color:
                 out     dx,al                   ;(register)
 
                 in      al,dx                   ;reset to register
-                times 57 nop
+                times 55 nop                    ;(jr A=57)
         %endrep
         ;END raster bar code
 
