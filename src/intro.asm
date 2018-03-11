@@ -2651,47 +2651,47 @@ dec_d020:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; IBM PCjr B delays used in REFRESH_PALETTE
-jr_b_delay_0a:
+jr_b_delay_0a:                                  ;sync
         times 30 nop
         mov     cx,jr_b_delay_0b                ;delay function to be used after this one
         ret
 
-jr_b_delay_0b:
+jr_b_delay_0b:                                  ;h-retrace
         times 41 nop
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; IBM PCjr B delays used in REFRESH_PALETTE
 ; delays used in new_i08_bottom_full_color
-jr_b_delay_1a:
+jr_b_delay_1a:                                  ;sync function
         times 30 nop
         mov     cx,jr_b_delay_1b                ;delay function to be used after this one
         ret
 
-jr_b_delay_1b:
+jr_b_delay_1b:                                  ;h-retrace
         times 43 nop
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; IBM PCjr A delays used in REFRESH_PALETTE
-jr_a_delay_0a:
-        times 32 nop
+jr_a_delay_0a:                                  ;sync
+        times 31 nop
         mov     cx,jr_a_delay_0b                ;delay function to be used after this one
         ret
 
-jr_a_delay_0b:
+jr_a_delay_0b:                                  ;h-retrace
         times 43 nop
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; IBM PCjr A delays used in REFRESH_PALETTE
 ; delays used in new_i08_bottom_full_color
-jr_a_delay_1a:
-        times 32 nop
+jr_a_delay_1a:                                  ;sync
+        times 31 nop
         mov     cx,jr_a_delay_1b                ;delay function to be used after this one
         ret
 
-jr_a_delay_1b:
+jr_a_delay_1b:                                  ;h-retrace
         times 45 nop
         ret
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
