@@ -179,6 +179,7 @@ label_not_8088:
 
 label_pcjr_a_b:
         db 'PCjr '
+global label_model
 label_model:
         db '?'
         db ' detected.',13,10,'$'

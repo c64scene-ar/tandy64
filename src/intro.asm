@@ -6,6 +6,8 @@
 bits    16
 cpu     8086
 
+extern label_model
+
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 ; MACROS
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -615,6 +617,8 @@ fake_crash:
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 intro_init:
+        call    delay_fn_init                   ;should be the first thing to init
+
         sub     al,al
         mov     byte [letter_state],al
         mov     byte [main_state],al
@@ -681,7 +685,7 @@ new_i08_simple:
         ;update top-screen palette
         mov     si,top_palette                  ;points to colors used at the top of the screen
         mov     bl,0x10                         ; starting with color 0 (black)
-        mov     cx,jr_b_delay_0a                ;delay function
+        mov     cx,[delay_jr_0]                 ;delay function
         mov     dx,VGA_ADDRESS                  ;dx should be 0x03da
         REFRESH_PALETTE 0x10,1                  ;refresh the palette, 16 colors
                                                 ; and wait for horizontal retrace
@@ -705,7 +709,7 @@ new_i08_bottom_multi_color:
         mov     dx,VGA_ADDRESS                  ;register address
         mov     si,bottom_palette+1             ;points to colors used at the bottom. skips black
         mov     bl,0x11                         ; starting with color 1 (skip black)
-        mov     cx,jr_b_delay_0a                ;delay function
+        mov     cx,[delay_jr_0]                 ;delay function
         REFRESH_PALETTE 6,1                     ;refresh the palette, only 6 colors
                                                 ; and wait for horizontal retrace
 
@@ -724,7 +728,7 @@ new_i08_bottom_multi_color:
         ;update top-screen palette
         mov     si,top_palette+1                ;points to colors used at the top of the screen. skips black
         mov     bl,0x11                         ; starting with color 1 (skips black)
-        mov     cx,jr_b_delay_0a                ;delay function
+        mov     cx,[delay_jr_0]                 ;delay function
         REFRESH_PALETTE 6,1                     ;refresh the palette, only 6 colors
                                                 ; and wait for horizontal retrace
         jmp     new_i08_main
@@ -742,13 +746,13 @@ new_i08_bottom_full_color:
         mov     dx,VGA_ADDRESS                  ;register address
         mov     si,bottom_palette+1             ;points to colors used at the bottom. skips black
         mov     bl,0x11                         ; starting with color 1 (skip black)
-        mov     cx,jr_b_delay_0a                ;delay function
+        mov     cx,[delay_jr_0]                 ;delay function
         REFRESH_PALETTE 6,1                     ;refresh the palette, only 6 colors
                                                 ; and wait for horizontal retrace
         mov     si,raster_colors_tbl            ;where the colors are for each raster bar
         mov     bx,0x001f                       ;bl = color to update (white=0x1f)
                                                 ;bh = 0. needed later
-        mov     cx,jr_b_delay_1a                ;set delay function
+        mov     cx,[delay_jr_1]                 ;delay function
         ;BEGIN raster bar code
         ;should be done as fast as possible
         WAIT_HORIZONTAL_RETRACE                 ;reset to register
@@ -772,7 +776,7 @@ new_i08_bottom_full_color:
         ;update top-screen palette
         mov     si,top_palette+1                ;points to colors used at the top of the screen. skips black
         mov     bl,0x11                         ; starting with color 1. skips black
-        mov     cx,jr_b_delay_0a                ;delay function
+        mov     cx,[delay_jr_0]                 ;delay function
         REFRESH_PALETTE 6,1                     ;refresh the palette. only 6 colors
                                                 ; and don't wait for horizontal retrace
 new_i08_main:
@@ -930,7 +934,7 @@ state_gfx_fade_in_init:
         mov     bl,0x10+6                       ; starting with color 6
         mov     si,palette_default+6            ;points to colors used at the top of the screen
         mov     dx,VGA_ADDRESS                  ;dx should be 0x03da
-        mov     cx,jr_b_delay_0a                ;delay function
+        mov     cx,[delay_jr_0]                 ;delay function
         REFRESH_PALETTE 10,0                    ;refresh the palette, 10 colors,
                                                 ; and don't wait for horizontal retrace
         ;logo should be turned off by default
@@ -1482,6 +1486,31 @@ scroll_anim:
         mov     word [scroll_char_idx],ax       ;reset to 0
 
 .end:
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; determine correct delay function based on PCjr A or PCjr B
+delay_fn_init:
+        push    ds
+        mov     ax,data
+        mov     ds,ax
+
+        mov     al,[label_model]
+        cmp     al,'B'
+        jz      .is_b
+
+        mov     ax,jr_a_delay_0a
+        mov     bx,jr_a_delay_1a
+        jmp     .store_it
+.is_b:
+        mov     ax,jr_b_delay_0a
+        mov     bx,jr_b_delay_1a
+
+.store_it:
+        mov     [delay_jr_0],ax
+        mov     [delay_jr_1],bx
+
+        pop     ds
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
@@ -2621,29 +2650,49 @@ dec_d020:
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
-; delays used in REFRESH_PALETTE
+; IBM PCjr B delays used in REFRESH_PALETTE
 jr_b_delay_0a:
-        ;times 29 nop
         times 30 nop
         mov     cx,jr_b_delay_0b                ;delay function to be used after this one
         ret
 
 jr_b_delay_0b:
         times 41 nop
-        ;times  1 aaa
         ret
 
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; IBM PCjr B delays used in REFRESH_PALETTE
 ; delays used in new_i08_bottom_full_color
 jr_b_delay_1a:
-        ;times 29 nop
         times 30 nop
         mov     cx,jr_b_delay_1b                ;delay function to be used after this one
         ret
 
 jr_b_delay_1b:
         times 43 nop
-        ;times  1 aaa
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; IBM PCjr A delays used in REFRESH_PALETTE
+jr_a_delay_0a:
+        times 32 nop
+        mov     cx,jr_a_delay_0b                ;delay function to be used after this one
+        ret
+
+jr_a_delay_0b:
+        times 43 nop
+        ret
+
+;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
+; IBM PCjr A delays used in REFRESH_PALETTE
+; delays used in new_i08_bottom_full_color
+jr_a_delay_1a:
+        times 32 nop
+        mov     cx,jr_a_delay_1b                ;delay function to be used after this one
+        ret
+
+jr_a_delay_1b:
+        times 45 nop
         ret
 ;=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-;
 
@@ -3497,7 +3546,6 @@ plasma_off_y0_y1_inc_tbl:                       ;table that contains the differe
         dw      0xfcfd
         dw      0x03ff
 
-
 plasma_tex_state:                               ;internal state used inside the state_plasma_tex state
         db      0                               ;0=render texture, 1=fade in palette
 plasma_tex_colors_updated:                      ;number of palette colors that were updated
@@ -3615,3 +3663,7 @@ plasma_xbuf:                                    ;plasma xbuffer
 plasma_ybuf:                                    ;plasma ybuffer
         resb   PLASMA_HEIGHT
 
+delay_jr_0:                                     ;contains delay address fn used is REFRESH_PALETTE
+        resw 1
+delay_jr_1:                                     ;contains delay address fn used in new_i08_bottom_full_color
+        resw 1
